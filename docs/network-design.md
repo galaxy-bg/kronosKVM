@@ -22,3 +22,20 @@ were independently verified through this Ethernet path.
 
 This provides the rollback path required before converting `wlan0` into the
 persistent KronosKVM management access point.
+
+## Persistent management access point
+
+Planned and implemented settings:
+
+- SSID: `kronosKVM`
+- Interface: `wlan0`
+- Appliance address: `192.168.34.100/24`
+- DHCP pool: `192.168.34.150-192.168.34.220`
+- WPA2-PSK with a secret entered interactively during installation
+- DNS service disabled; clients use the AP only for management initially
+- No default gateway is advertised to AP clients until controlled NAT is enabled
+- Routing, NAT and bridging disabled
+- `eth0` remains the customer network and internet uplink
+
+The WPA passphrase is not present in Git or documentation. Use
+`scripts/rollback-network.sh` over Ethernet to return `wlan0` to client mode.

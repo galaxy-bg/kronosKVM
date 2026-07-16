@@ -15,3 +15,7 @@
 | 8554/TCP | Optional RTSP | Disabled |
 
 Only SSH should be remotely reachable during initial discovery.
+
+The management AP DHCP service uses UDP 67 only on `wlan0`. DNS forwarding is
+disabled in the initial AP configuration, and no customer-network forwarding or
+NAT is enabled.
