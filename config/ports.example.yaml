@@ -2,5 +2,21 @@ ports:
   ssh: {port: 22, protocol: tcp, enabled: true}
   https: {port: 443, protocol: tcp, enabled: false}
   api: {port: 8000, protocol: tcp, bind: 127.0.0.1}
-  serial_1: {port: 2001, protocol: tcp, enabled: false}
-  serial_2: {port: 2002, protocol: tcp, enabled: false}
+  console_1:
+    physical_port: USB1
+    usb_path: "1-1.1"
+    tcp_port: 2001
+    enabled: false
+  console_2:
+    physical_port: USB2
+    usb_path: "1-1.2"
+    tcp_port: 2002
+    enabled: false
+  service_usb:
+    physical_port: USB3
+    usb_path: "1-1.3"
+    enabled: true
+  kvm_otg:
+    physical_port: USB-C SLAVE
+    mode: device
+    enabled: false

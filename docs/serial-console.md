@@ -22,3 +22,12 @@ serial exposure remains disabled.
 
 Supported initial profiles are 9600, 19200, 38400 and 115200 baud, all using
 8N1 without flow control.
+
+## Physical console assignments
+
+- `Console 1`: chassis USB1, stable topology path `1-1.1`
+- `Console 2`: chassis USB2, stable topology path `1-1.2`
+
+Device identity should still prefer `/dev/serial/by-id` when an adapter exposes
+a serial number. The physical topology path is the fallback that preserves the
+chassis port assignment when adapters are swapped.

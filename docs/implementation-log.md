@@ -135,3 +135,15 @@
 - Confirmed IPv4 forwarding remains disabled and performed no reboot.
 - Restyled the dashboard with a responsive light theme, mint-green KronosDX
   accents, summary cards, navigation shell and fixed appliance status bar.
+
+## Physical USB mapping
+
+- Used the same known HP HID dongle to map each chassis USB host port.
+- Confirmed USB1 as `1-1.1` and assigned it to Console 1.
+- Confirmed USB2 as `1-1.2` and assigned it to Console 2.
+- Confirmed USB3 as `1-1.3` and assigned it to service/maintenance use.
+- Confirmed USB ETH1 as `1-1.5`.
+- Confirmed that connecting USB-C `SLAVE` removes the internal hub and ETH1;
+  disconnecting it restores them.
+- Identified USB-C `SLAVE` as the KVM OTG candidate, with DWC2 peripheral mode
+  and UDC activation still pending.

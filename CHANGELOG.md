@@ -16,3 +16,4 @@
   `kronoskvm status` command.
 - Add the AP-only development dashboard and localhost API reverse proxy.
 - Restyle the development dashboard with the light KronosDX interface language.
+- Confirm and name the chassis USB, console and KVM OTG port topology.
