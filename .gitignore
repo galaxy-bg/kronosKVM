@@ -7,3 +7,14 @@
 .idea/
 
 *.log
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+config/kronoskvm.toml
