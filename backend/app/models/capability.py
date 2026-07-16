@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -16,4 +17,4 @@ class HardwareStatus(str, Enum):
 class Capability(BaseModel):
     name: str
     status: HardwareStatus
-    detail: str | None = None
+    detail: Optional[str] = None
