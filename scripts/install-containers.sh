@@ -45,6 +45,10 @@ command -v docker >/dev/null
 command -v docker-compose >/dev/null
 
 run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
+run install -d -m 0755 -o root -g root /etc/docker
+run install -m 0644 \
+    "${PROJECT_DIR}/deploy/docker/daemon.json" \
+    /etc/docker/daemon.json
 
 if "${DRY_RUN}"; then
     printf '[DRY-RUN] copy container application files to %q\n' "${INSTALL_DIR}"
@@ -65,6 +69,8 @@ run install -m 0644 \
     /etc/systemd/system/kronoskvm-containers.service
 
 if ! "${DRY_RUN}"; then
+    systemctl enable docker.service
+    systemctl restart docker.service
     systemctl daemon-reload
     systemctl disable --now kronoskvm-api.service || true
     (

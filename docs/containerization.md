@@ -45,3 +45,7 @@ sudo ./scripts/rollback-containers.sh
 ```
 
 The management AP and SSH are independent of application containers.
+
+Docker is configured without its default bridge, iptables management, IP
+forwarding or masquerading. KronosKVM containers currently use host networking
+only, so Docker must not alter the isolated AP/customer-network policy.

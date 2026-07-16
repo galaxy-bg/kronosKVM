@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -18,3 +19,13 @@ def test_container_runs_as_non_root() -> None:
     assert "USER 10001:10001" in dockerfile
     assert '--host", "127.0.0.1"' in dockerfile
     assert "HEALTHCHECK" in dockerfile
+
+
+def test_docker_daemon_does_not_manage_routing() -> None:
+    daemon = json.loads(
+        Path("deploy/docker/daemon.json").read_text(encoding="utf-8")
+    )
+    assert daemon["bridge"] == "none"
+    assert daemon["iptables"] is False
+    assert daemon["ip-forward"] is False
+    assert daemon["ip-masq"] is False

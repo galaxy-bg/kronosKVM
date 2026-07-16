@@ -1,0 +1,8 @@
+{
+  "bridge": "none",
+  "iptables": false,
+  "ip-forward": false,
+  "ip-masq": false,
+  "live-restore": true,
+  "log-driver": "journald"
+}
