@@ -133,3 +133,5 @@
   address.
 - Verified port 80 remains closed on the current ETH0 DHCP address.
 - Confirmed IPv4 forwarding remains disabled and performed no reboot.
+- Restyled the dashboard with a responsive light theme, mint-green KronosDX
+  accents, summary cards, navigation shell and fixed appliance status bar.

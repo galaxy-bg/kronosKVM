@@ -7,40 +7,82 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <nav class="topbar">
+    <a class="brand" href="/" aria-label="KronosKVM dashboard">
+      <span class="brand-mark"><i></i><b></b></span>
+      <span><strong>KronosKVM</strong><small>REMOTE CONSOLE TOOLKIT</small></span>
+    </a>
+    <div class="nav-actions">
+      <button class="nav-button active" type="button">▦ Dashboard</button>
+      <button class="nav-button" type="button" disabled>⌨ Console</button>
+      <button class="nav-button" type="button" disabled>⚙ Settings</button>
+    </div>
+  </nav>
+
   <main>
-    <header>
+    <header class="page-header">
       <div>
-        <p class="eyebrow">KronosDX</p>
-        <h1>KronosKVM</h1>
-        <p class="subtitle">Portable infrastructure console</p>
+        <h1>Dashboard</h1>
+        <p>Overview of your KronosKVM appliance</p>
       </div>
-      <span id="health" class="badge pending">Checking API</span>
+      <span id="health" class="badge pending"><i></i> Checking API</span>
     </header>
 
+    <section class="metrics" aria-label="System summary">
+      <article class="metric-card">
+        <div class="metric-body">
+          <span class="metric-icon">▣</span>
+          <div><strong id="system-model">—</strong><h2>Compute Module</h2></div>
+        </div>
+        <p id="system-hostname">Loading system information</p>
+      </article>
+      <article class="metric-card">
+        <div class="metric-body">
+          <span class="metric-icon">⌘</span>
+          <div><strong id="network-count">—</strong><h2>Network Interfaces</h2></div>
+        </div>
+        <p id="network-summary">Loading network state</p>
+      </article>
+      <article class="metric-card">
+        <div class="metric-body">
+          <span class="metric-icon">✓</span>
+          <div><strong id="capability-count">—</strong><h2>Capabilities</h2></div>
+        </div>
+        <p id="capability-summary">Loading hardware capabilities</p>
+      </article>
+    </section>
+
     <section class="notice">
-      Development interface on the isolated management AP. Authentication and
-      HTTPS are not enabled yet.
+      <span class="notice-icon">i</span>
+      <div><strong>Development access</strong><p>Connected through the isolated management AP at 192.168.34.100. Authentication and HTTPS are pending.</p></div>
     </section>
 
-    <section class="grid">
-      <article>
-        <h2>System</h2>
-        <dl id="system">
-          <div><dt>Hostname</dt><dd>Loading…</dd></div>
-        </dl>
-      </article>
-      <article>
-        <h2>Network</h2>
-        <div id="network" class="stack">Loading…</div>
-      </article>
-      <article>
-        <h2>Capabilities</h2>
-        <div id="capabilities" class="stack">Loading…</div>
-      </article>
+    <section class="panel">
+      <div class="panel-heading">
+        <div><h2>Appliance status</h2><p>Live system and connectivity information</p></div>
+        <button id="refresh" class="refresh-button" type="button">↻ Refresh</button>
+      </div>
+      <div class="detail-grid">
+        <section class="detail-section">
+          <h3>System</h3>
+          <dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl>
+        </section>
+        <section class="detail-section">
+          <h3>Network</h3>
+          <div id="network" class="stack">Loading…</div>
+        </section>
+        <section class="detail-section">
+          <h3>Capabilities</h3>
+          <div id="capabilities" class="stack">Loading…</div>
+        </section>
+      </div>
     </section>
-
-    <footer>Management address: 192.168.34.100</footer>
   </main>
+
+  <footer class="statusbar">
+    <span><i></i> KronosKVM management interface</span>
+    <span>192.168.34.100 · Version 0.1.0</span>
+  </footer>
   <script src="/app.js" defer></script>
 </body>
 </html>

@@ -15,3 +15,4 @@
 - Establish ETH0-first development policy, mDNS discovery and a safe
   `kronoskvm status` command.
 - Add the AP-only development dashboard and localhost API reverse proxy.
+- Restyle the development dashboard with the light KronosDX interface language.
