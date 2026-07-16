@@ -47,6 +47,13 @@ The Bullseye package set was brought current and the device rebooted on
 successfully. No packages remained upgradeable, NTP synchronized, temperature
 was 56°C shortly after boot and throttling remained `0x0`.
 
+## Physical Ethernet verification
+
+The operator connected the chassis ETH0 port on 2026-07-16. Linux `eth0`
+transitioned to carrier/up, received `192.168.31.144/24` through DHCP and became
+the preferred default route. SSH over this address was successful. `eth1`
+remained without carrier.
+
 ## Unverified
 
 - Physical chassis mapping for ETH0, ETH1 and USB1-3

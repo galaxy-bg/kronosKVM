@@ -65,3 +65,10 @@
 - Verified unknown devices cannot be locked.
 - Confirmed TCP ports 2001 and 2002 remain closed.
 - No serial device was opened and no serial data was read or written.
+
+## Network mapping
+
+- Confirmed chassis ETH0 maps to Linux `eth0`.
+- Confirmed DHCP address `192.168.31.144/24`, gateway/DNS `192.168.31.1`.
+- Verified independent SSH and API service reachability over Ethernet.
+- Established Ethernet as the recovery path for the planned Wi-Fi AP change.
