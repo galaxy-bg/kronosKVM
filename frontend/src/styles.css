@@ -46,17 +46,6 @@ h1 { margin: 0; color: #171a1d; font-size: clamp(2.4rem, 6vw, 3.7rem); letter-sp
 .ready { background: var(--green-soft); color: var(--green-dark); }
 .error { background: #ffeaed; color: #ba3347; }
 
-.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
-.metric-card { overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: #fff; box-shadow: var(--shadow); }
-.metric-body { min-height: 134px; display: flex; align-items: center; gap: 20px; padding: 25px; }
-.metric-icon {
-  width: 58px; height: 58px; display: grid; place-items: center; flex: 0 0 auto;
-  border-radius: 13px; background: var(--green-soft); color: var(--green); font-size: 1.65rem; font-weight: 800;
-}
-.metric-card strong { display: block; max-width: 230px; color: #24282c; font-size: 1.65rem; line-height: 1.1; letter-spacing: -.04em; }
-.metric-card h2 { margin: 8px 0 0; font-size: .98rem; }
-.metric-card > p { margin: 0; padding: 11px 25px; border-top: 1px solid var(--line); background: #f1faf7; color: var(--muted); font-size: .82rem; font-weight: 650; }
-
 .notice { display: flex; align-items: center; gap: 14px; margin: 22px 0; padding: 16px 18px; border: 1px solid #cce9df; border-radius: 12px; background: #f1faf7; }
 .notice-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--green); color: #fff; font-weight: 800; }
 .notice p { margin: 3px 0 0; color: var(--muted); font-size: .88rem; }
@@ -69,27 +58,34 @@ h1 { margin: 0; color: #171a1d; font-size: clamp(2.4rem, 6vw, 3.7rem); letter-sp
 .refresh-button { color: var(--green-dark); }
 .refresh-button:hover { background: var(--green-soft); }
 .verified-label { padding: 6px 9px; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: .72rem; font-weight: 750; }
-.port-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
-.port-card {
-  min-width: 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
-  padding: 20px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
-}
-.port-card:nth-child(4) { border-right: 0; }
-.port-card.otg-card { grid-column: 1 / -1; border-right: 0; border-bottom: 0; }
+.port-table-wrap { width: 100%; overflow-x: auto; }
+.port-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.port-table th { padding: 12px 16px; background: #f3faf7; color: #59636a; font-size: .7rem; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+.port-table td { padding: 15px 16px; border-top: 1px solid var(--line); color: #41494f; font-size: .79rem; vertical-align: middle; }
+.port-table tbody tr:hover { background: #fbfefd; }
+.port-table th:nth-child(1) { width: 19%; }
+.port-table th:nth-child(2) { width: 18%; }
+.port-table th:nth-child(3) { width: 29%; }
+.port-table th:nth-child(4) { width: 14%; }
+.port-table th:nth-child(5) { width: 20%; }
+.actions-heading { text-align: center !important; }
+.loading-cell { padding: 24px !important; text-align: center; color: var(--muted) !important; }
+.port-name { display: flex; align-items: center; gap: 10px; }
 .port-icon {
-  width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px;
-  background: var(--green-soft); color: var(--green-dark); font-size: .7rem; font-weight: 850;
+  width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 9px;
+  background: var(--green-soft); color: var(--green-dark); font-size: .65rem; font-weight: 850;
 }
-.port-card strong { font-size: .9rem; }
-.port-card p { margin: 3px 0 0; color: var(--muted); font-size: .74rem; }
-.port-card code { color: #455158; font-size: .72rem; }
-.port-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.port-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.port-name strong { font-size: .84rem; }
+.interface-label { display: block; color: #323a3f; font-weight: 700; }
+.port-table code { display: block; margin-top: 3px; color: var(--muted); font-size: .7rem; }
+.device-cell { overflow-wrap: anywhere; color: var(--muted) !important; }
 .port-state { padding: 3px 7px; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: .64rem; font-weight: 750; text-transform: uppercase; }
 .pending-state { background: #fff3d5; color: #946d0c; }
 .disconnected-state { background: #f0f2f3; color: #747b80; }
-.port-actions { display: flex; flex-direction: column; gap: 6px; }
+.port-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
 .port-action {
-  min-width: 82px; padding: 7px 9px; border: 1px solid #bfe5d8; border-radius: 8px;
+  min-width: 68px; padding: 7px 8px; border: 1px solid #bfe5d8; border-radius: 8px;
   background: #fff; color: var(--green-dark); font-size: .7rem; font-weight: 750; cursor: pointer;
 }
 .port-action:hover:not(:disabled) { background: var(--green-soft); }
@@ -127,10 +123,8 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
 
 @media (max-width: 850px) {
   .nav-actions .nav-button:not(.active) { display: none; }
-  .metrics, .detail-grid { grid-template-columns: 1fr; }
-  .port-grid { grid-template-columns: repeat(2, 1fr); }
-  .port-card:nth-child(2), .port-card:nth-child(4) { border-right: 0; }
-  .port-card.otg-card { grid-column: 1 / -1; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .port-table { min-width: 760px; }
   .detail-section { border-right: 0; border-bottom: 1px solid var(--line); }
   .detail-section:last-child { border-bottom: 0; }
 }
@@ -140,11 +134,8 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
   .nav-actions { display: none; }
   main { width: min(100% - 24px, 1180px); padding-top: 30px; }
   .page-header { align-items: flex-start; flex-direction: column; margin-bottom: 26px; }
-  .metric-body { min-height: 110px; padding: 20px; }
-  .port-grid { grid-template-columns: 1fr; }
-  .port-card, .port-card:nth-child(2), .port-card:nth-child(4) { border-right: 0; }
-  .port-card.otg-card { grid-column: auto; }
-  .port-actions { grid-column: 1 / -1; flex-direction: row; }
+  .panel-heading { padding: 18px; }
+  .port-table { min-width: 700px; }
   .statusbar { justify-content: center; }
   .statusbar span:last-child { display: none; }
 }

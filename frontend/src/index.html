@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.1.5.css">
+  <link rel="stylesheet" href="/styles-0.1.6.css">
 </head>
 <body>
   <nav class="topbar">
@@ -28,30 +28,6 @@
       <span id="health" class="badge pending"><i></i> Checking API</span>
     </header>
 
-    <section class="metrics" aria-label="System summary">
-      <article class="metric-card">
-        <div class="metric-body">
-          <span class="metric-icon">▣</span>
-          <div><strong id="system-model">—</strong><h2>Compute Module</h2></div>
-        </div>
-        <p id="system-hostname">Loading system information</p>
-      </article>
-      <article class="metric-card">
-        <div class="metric-body">
-          <span class="metric-icon">⌘</span>
-          <div><strong id="network-count">—</strong><h2>Network Interfaces</h2></div>
-        </div>
-        <p id="network-summary">Loading network state</p>
-      </article>
-      <article class="metric-card">
-        <div class="metric-body">
-          <span class="metric-icon">✓</span>
-          <div><strong id="readiness-count">—</strong><h2>KVM Readiness</h2></div>
-        </div>
-        <p id="readiness-summary">Loading service readiness</p>
-      </article>
-    </section>
-
     <section class="notice">
       <span class="notice-icon">i</span>
       <div><strong>Development access</strong><p>Connected through the isolated management AP at 192.168.34.100. Authentication and HTTPS are pending.</p></div>
@@ -62,7 +38,12 @@
         <div><h2>Physical ports</h2><p>Verified chassis assignments and stable Linux topology paths</p></div>
         <span class="verified-label">✓ Mapped</span>
       </div>
-      <div id="ports" class="port-grid">Loading port status…</div>
+      <div class="port-table-wrap">
+        <table class="port-table">
+          <thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead>
+          <tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody>
+        </table>
+      </div>
       <div class="port-warning">
         <strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1,
         Console 2, Service USB and ETH1 from the CM4 host USB topology.
@@ -96,6 +77,6 @@
     <span>192.168.34.100 · Version 0.1.0</span>
   </footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/app-0.1.5.js" defer></script>
+  <script src="/app-0.1.6.js" defer></script>
 </body>
 </html>

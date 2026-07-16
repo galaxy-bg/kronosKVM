@@ -28,9 +28,11 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.1.5.js" in html
-    assert "/styles-0.1.5.css" in html
-    assert "app-0.1.5.js" in dockerfile
+    assert "/app-0.1.6.js" in html
+    assert "/styles-0.1.6.css" in html
+    assert "app-0.1.6.js" in dockerfile
+    assert 'class="metrics"' not in html
+    assert 'class="port-table"' in html
     assert "/kronoskvm-logo.png" in html
 
 

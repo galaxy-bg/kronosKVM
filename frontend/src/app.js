@@ -15,10 +15,6 @@ async function getJson(path) {
 }
 
 function renderSystem(system) {
-  document.querySelector("#system-model").textContent =
-    text(system.model).replace("Raspberry Pi ", "").replace(" Rev 1.1", "");
-  document.querySelector("#system-hostname").textContent =
-    `${text(system.hostname)} · ${text(system.architecture)}`;
   document.querySelector("#system").innerHTML = [
     ["Hostname", system.hostname],
     ["Model", system.model],
@@ -31,10 +27,6 @@ function renderSystem(system) {
 }
 
 function renderNetwork(network) {
-  const active = network.interfaces.filter((item) => item.state === "up");
-  document.querySelector("#network-count").textContent = text(active.length);
-  document.querySelector("#network-summary").textContent =
-    `${active.length} active of ${network.interfaces.length} detected`;
   document.querySelector("#network").innerHTML = network.interfaces.map((item) =>
     `<div class="row"><span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.addresses?.join(", ") || "no address")}</span></span><span class="state ${item.state === "up" ? "" : "offline"}">${escapeHtml(item.state)}</span></div>`
   ).join("");
@@ -47,21 +39,17 @@ function renderServices() {
     { name: "KVM OTG", detail: "USB-C SLAVE", status: "setup pending", ready: false },
     { name: "Video Input", detail: "HDMI-to-CSI hardware", status: "hardware pending", ready: false },
   ];
-  const ready = services.filter((item) => item.ready).length;
-  document.querySelector("#readiness-count").textContent = `${ready}/${services.length}`;
-  document.querySelector("#readiness-summary").textContent =
-    `${ready} operational · ${services.length - ready} pending`;
   document.querySelector("#services").innerHTML = services.map((item) =>
     `<div class="row"><span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.detail)}</span></span><span class="state ${item.ready ? "" : "offline"}">${escapeHtml(item.status)}</span></div>`
   ).join("");
 }
 
 const portIcons = {
-  console_1: "⌨",
-  console_2: "⌨",
-  service_usb: "USB",
-  target_lan: "↔",
-  kvm_otg: "KVM",
+  console_1: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H5zM3 19h18M8 8h2m2 0h2m2 0h1M8 12h8"/></svg>`,
+  console_2: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H5zM3 19h18M8 8h2m2 0h2m2 0h1M8 12h8"/></svg>`,
+  service_usb: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v14m0-14-2.5 2.5M12 3l2.5 2.5M12 10h5m0 0-2-2m2 2-2 2M12 14H7m0 0 2-2m-2 2 2 2M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>`,
+  target_lan: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM8 19h8m-4-4v4M8 9h2m2 0h4"/></svg>`,
+  kvm_otg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H4zM8 19h8m-4-4v4M9 9l2 2 4-4"/></svg>`,
 };
 
 function showToast(message) {
@@ -85,17 +73,12 @@ function renderPorts(inventory) {
       : connected
         ? "Connected device is not a serial console adapter"
         : "Connect a USB serial adapter first";
-    return `<article class="port-card ${port.id === "kvm_otg" ? "otg-card" : ""}">
-      <span class="port-icon">${escapeHtml(portIcons[port.id] || "IO")}</span>
-      <div>
-        <strong>${escapeHtml(port.name)}</strong>
-        <p>${escapeHtml(port.physical_label)}${port.usb_path ? ` · <code>${escapeHtml(port.usb_path)}</code>` : ""}</p>
-        <div class="port-meta">
-          <span class="port-state ${statusClass}">${escapeHtml(port.status.replace("_", " "))}</span>
-          <span class="muted">${escapeHtml(detail)}</span>
-        </div>
-      </div>
-      <div class="port-actions">
+    return `<tr>
+      <td data-label="Port"><div class="port-name"><span class="port-icon">${portIcons[port.id] || "IO"}</span><strong>${escapeHtml(port.name)}</strong></div></td>
+      <td data-label="Interface"><span class="interface-label">${escapeHtml(port.physical_label)}</span>${port.usb_path ? `<code>${escapeHtml(port.usb_path)}</code>` : ""}</td>
+      <td data-label="Connected device" class="device-cell">${escapeHtml(detail || "No device detected")}</td>
+      <td data-label="State"><span class="port-state ${statusClass}">${escapeHtml(port.status.replaceAll("_", " "))}</span></td>
+      <td data-label="Actions"><div class="port-actions">
         ${isConsole ? `<button class="port-action" type="button"
           title="Serial session transport is not enabled yet" disabled>Connect</button>
         <button class="port-action console-action" type="button"
@@ -103,8 +86,8 @@ function renderPorts(inventory) {
           title="${escapeHtml(consoleTitle)}" disabled>⌨ Console</button>` : ""}
         <button class="port-action status-action" type="button"
           data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">Status</button>
-      </div>
-    </article>`;
+      </div></td>
+    </tr>`;
   }).join("");
 
   document.querySelectorAll(".status-action").forEach((button) => {
@@ -156,7 +139,8 @@ async function load() {
     try {
       renderPorts(portsResult.value);
     } catch (error) {
-      document.querySelector("#ports").textContent = "Port status could not be displayed.";
+      document.querySelector("#ports").innerHTML =
+        '<tr><td colspan="5" class="loading-cell">Port status could not be displayed.</td></tr>';
       console.error("Port render failed", error);
     }
   }

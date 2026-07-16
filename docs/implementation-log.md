@@ -167,3 +167,7 @@
   concept and adopted “All-in-One IP-KVM System” as the product descriptor.
 - Replaced the provisional SVG with the exact operator-supplied 1424×748 PNG;
   source and repository checksums were verified identical.
+- Converted the supplied product logo to a transparent PNG for clean placement
+  on the management header without the original paper-texture rectangle.
+- Removed the three redundant dashboard summary cards and rebuilt physical
+  ports as a centered, responsive table with serial, USB, LAN and KVM icons.
