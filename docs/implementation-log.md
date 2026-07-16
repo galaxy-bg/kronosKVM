@@ -161,3 +161,5 @@
   the API as unavailable despite healthy services.
 - Made health, system, network, readiness and physical-port rendering
   independent; a client-side error in one panel no longer changes API health.
+- Replaced query-string cache busting with versioned JavaScript and CSS
+  filenames after Firefox continued executing the earlier dashboard bundle.

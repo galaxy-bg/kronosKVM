@@ -24,3 +24,5 @@
 - Prevent stale frontend assets from hiding API and service status after deploys.
 - Isolate dashboard data and render failures so healthy APIs are never reported
   unavailable because of a client-side section error.
+- Switch development assets to versioned filenames to bypass persistent browser
+  caches completely.
