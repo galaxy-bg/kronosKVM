@@ -30,3 +30,11 @@
 - Kept APT release codenames unchanged.
 - Documented clean Raspberry Pi OS Lite 64-bit imaging for major migration.
 - Reviewed the full-upgrade simulation and disabled automatic package removal.
+- Applied the Bullseye current-release update on 2026-07-16:
+  `libxfont2`, `p7zip`, `p7zip-full` and `wireless-regdb`.
+- Removed no packages and changed no APT release codenames.
+- Stored a root-only pre-update backup under `/var/backups/kronoskvm/`.
+- Rebooted successfully; SSH and `192.168.31.145` Wi-Fi management returned.
+- Verified no pending package upgrades, no throttling and synchronized NTP.
+- The existing `bthelper@hci0.service` failure remains for later OS migration
+  review.

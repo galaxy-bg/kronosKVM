@@ -40,6 +40,13 @@ report remains local under `artifacts/inventory/` and is not committed.
 - PCIe controller reported link down; M.2 function remains unverified.
 - One failed service: `bthelper@hci0.service`.
 
+## Post-update verification
+
+The Bullseye package set was brought current and the device rebooted on
+2026-07-16. Kernel remained `6.1.21-v8+`; Wi-Fi management and SSH returned
+successfully. No packages remained upgradeable, NTP synchronized, temperature
+was 56°C shortly after boot and throttling remained `0x0`.
+
 ## Unverified
 
 - Physical chassis mapping for ETH0, ETH1 and USB1-3
