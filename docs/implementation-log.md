@@ -38,3 +38,15 @@
 - Verified no pending package upgrades, no throttling and synchronized NTP.
 - The existing `bthelper@hci0.service` failure remains for later OS migration
   review.
+
+## Milestone 3
+
+- Implemented typed read-only FastAPI endpoints for health, capabilities,
+  system, network, storage, services and optional hardware.
+- Added request IDs, structured JSON application logs and safe error responses.
+- Added Python 3.9 compatibility for the current Bullseye device.
+- Installed `kronoskvm-api.service` as the locked `kronoskvm` user.
+- Bound the service exclusively to `127.0.0.1:8000`.
+- Verified all API endpoints on the CM4 using real system data.
+- Confirmed the service is enabled, active and stable with zero restarts after
+  the Python 3.9 compatibility fix.
