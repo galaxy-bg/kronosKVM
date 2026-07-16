@@ -54,6 +54,12 @@ transitioned to carrier/up, received `192.168.31.144/24` through DHCP and became
 the preferred default route. SSH over this address was successful. `eth1`
 remained without carrier.
 
+## Management AP verification
+
+`wlan0` is configured as AP `kronosKVM` on channel 6 with
+`192.168.34.100/24`. The management DHCP pool is
+`192.168.34.150-192.168.34.220`. `eth0` remains the preferred default route.
+
 ## Unverified
 
 - Physical chassis mapping for ETH0, ETH1 and USB1-3

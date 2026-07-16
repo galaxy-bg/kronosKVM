@@ -152,6 +152,7 @@ EOF
 run systemctl unmask hostapd.service
 run systemctl disable wpa_supplicant.service
 run systemctl stop wpa_supplicant.service
+run ip -4 address flush dev "${AP_INTERFACE}" scope global
 run systemctl restart dhcpcd.service
 run systemctl enable hostapd.service dnsmasq.service
 run systemctl restart hostapd.service dnsmasq.service

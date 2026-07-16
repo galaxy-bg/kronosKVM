@@ -72,3 +72,14 @@
 - Confirmed DHCP address `192.168.31.144/24`, gateway/DNS `192.168.31.1`.
 - Verified independent SSH and API service reachability over Ethernet.
 - Established Ethernet as the recovery path for the planned Wi-Fi AP change.
+
+## Persistent management AP
+
+- Installed hostapd and dnsmasq.
+- Configured `wlan0` as WPA2 access point `kronosKVM`.
+- Assigned `192.168.34.100/24` and DHCP pool
+  `192.168.34.150-192.168.34.220`.
+- Kept `eth0` as the preferred customer/internet route.
+- Disabled DNS forwarding, routing, NAT and bridging.
+- Stored the WPA passphrase only in root-readable hostapd configuration.
+- Verified hostapd, dnsmasq and KronosKVM API services are active.
