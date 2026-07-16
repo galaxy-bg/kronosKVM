@@ -70,6 +70,7 @@ display and health components. Development API binding is
 `127.0.0.1:8000`; only SSH should be remotely reachable in the initial phase.
 
 See [architecture](docs/architecture.md) and [port plan](docs/port-plan.md).
+Base OS preparation is documented in [docs/base-os.md](docs/base-os.md).
 
 ## Repository overview
 

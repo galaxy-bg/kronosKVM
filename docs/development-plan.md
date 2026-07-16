@@ -2,7 +2,9 @@
 
 1. Repository and documentation.
 2. Safe, read-only system discovery.
-3. Base OS preparation after review.
+3. Base OS preparation: dedicated account, filesystem layout, persistent logs
+   and time validation. Package/firewall work waits for the OS baseline and
+   physical interface mapping.
 4. Localhost FastAPI health and capability service.
 5. Serial-console support.
 6. Verified USB HID gadget.
