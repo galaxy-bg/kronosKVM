@@ -51,10 +51,10 @@ cp -a /boot/config.txt /boot/cmdline.txt "${backup_dir}/" 2>/dev/null || true
 dpkg-query -W >"${backup_dir}/packages-before.txt"
 
 apt-get -y full-upgrade
-apt-get -y autoremove
 apt-get clean
 
 dpkg --audit
 systemctl --failed --no-pager || true
 
-printf '[INFO] Update completed. Review output, then reboot separately.\n'
+printf '[INFO] Update completed. Autoremove was intentionally not executed.\n'
+printf '[INFO] Review output, then reboot separately.\n'

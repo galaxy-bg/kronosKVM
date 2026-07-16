@@ -29,3 +29,4 @@
   backup.
 - Kept APT release codenames unchanged.
 - Documented clean Raspberry Pi OS Lite 64-bit imaging for major migration.
+- Reviewed the full-upgrade simulation and disabled automatic package removal.

@@ -5,6 +5,7 @@
 Use `scripts/update-current-os.sh` to update packages, stable kernel and
 firmware within the configured release. It creates a local root-only backup of
 APT and boot configuration before applying `apt-get full-upgrade`.
+It intentionally does not run `autoremove`.
 
 Preview:
 
