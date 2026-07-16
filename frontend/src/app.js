@@ -68,30 +68,33 @@ function renderPorts(inventory) {
       : connected ? "" : "disconnected-state";
     const detail = port.device_name ||
       [port.physical_label, port.usb_path].filter(Boolean).join(" · ");
-    const consoleTitle = port.console_available
-      ? "Serial adapter detected; terminal transport is the next milestone"
-      : connected
-        ? "Connected device is not a serial console adapter"
-        : "Connect a USB serial adapter first";
+    const connectionAction = connected ? "Disconnect" : "Connect";
     return `<tr>
       <td data-label="Port"><div class="port-name"><span class="port-icon">${portIcons[port.id] || "IO"}</span><strong>${escapeHtml(port.name)}</strong></div></td>
       <td data-label="Interface"><span class="interface-label">${escapeHtml(port.physical_label)}</span>${port.usb_path ? `<code>${escapeHtml(port.usb_path)}</code>` : ""}</td>
       <td data-label="Connected device" class="device-cell">${escapeHtml(detail || "No device detected")}</td>
       <td data-label="State"><span class="port-state ${statusClass}">${escapeHtml(port.status.replaceAll("_", " "))}</span></td>
-      <td data-label="Actions"><div class="port-actions">
-        ${isConsole ? `<button class="port-action" type="button"
-          title="Serial session transport is not enabled yet" disabled>Connect</button>
-        <button class="port-action console-action" type="button"
-          data-port="${escapeHtml(port.name)}" data-available="${port.console_available}"
-          title="${escapeHtml(consoleTitle)}" disabled>⌨ Console</button>` : ""}
-        <button class="port-action status-action" type="button"
-          data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">Status</button>
-      </div></td>
+      <td data-label="Actions"><details class="action-menu">
+        <summary aria-label="Open actions for ${escapeHtml(port.name)}" title="Actions">⋯</summary>
+        <div class="action-menu-list" role="menu">
+          <button class="menu-action" type="button" role="menuitem"
+            data-message="${escapeHtml(`${port.name}: configuration panel is the next milestone`)}">⚙ Config</button>
+          <button class="menu-action" type="button" role="menuitem"
+            data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">◎ Status</button>
+          <button type="button" role="menuitem" title="Port control backend is not enabled yet" disabled>
+            ${connected ? "⊘" : "→"} ${connectionAction}</button>
+          ${isConsole ? `<button type="button" role="menuitem"
+            title="Serial terminal transport is not enabled yet" disabled>⌘ Console</button>` : ""}
+        </div>
+      </details></td>
     </tr>`;
   }).join("");
 
-  document.querySelectorAll(".status-action").forEach((button) => {
-    button.addEventListener("click", () => showToast(button.dataset.message));
+  document.querySelectorAll(".menu-action").forEach((button) => {
+    button.addEventListener("click", () => {
+      showToast(button.dataset.message);
+      button.closest("details").removeAttribute("open");
+    });
   });
 }
 
@@ -147,4 +150,9 @@ async function load() {
 }
 
 document.querySelector("#refresh").addEventListener("click", load);
+document.addEventListener("click", (event) => {
+  document.querySelectorAll(".action-menu[open]").forEach((menu) => {
+    if (!menu.contains(event.target)) menu.removeAttribute("open");
+  });
+});
 load();

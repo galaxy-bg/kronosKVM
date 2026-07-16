@@ -171,3 +171,5 @@
   on the management header without the original paper-texture rectangle.
 - Removed the three redundant dashboard summary cards and rebuilt physical
   ports as a centered, responsive table with serial, USB, LAN and KVM icons.
+- Consolidated per-port controls into an ellipsis action menu with Config,
+  Status, Connect/Disconnect and context-aware Console entries.
