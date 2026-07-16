@@ -165,3 +165,5 @@
   filenames after Firefox continued executing the earlier dashboard bundle.
 - Added an original SVG product mark inspired by the globe, KVM, USB and RS232
   concept and adopted “All-in-One IP-KVM System” as the product descriptor.
+- Replaced the provisional SVG with the exact operator-supplied 1424×748 PNG;
+  source and repository checksums were verified identical.

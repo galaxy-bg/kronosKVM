@@ -28,3 +28,5 @@
   caches completely.
 - Introduce the globe-and-connectivity KronosKVM product mark and
   “All-in-One IP-KVM System” identity.
+- Replace the provisional vector mark with the operator-supplied product logo
+  PNG without altering its pixels.
