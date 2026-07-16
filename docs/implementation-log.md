@@ -163,3 +163,5 @@
   independent; a client-side error in one panel no longer changes API health.
 - Replaced query-string cache busting with versioned JavaScript and CSS
   filenames after Firefox continued executing the earlier dashboard bundle.
+- Added an original SVG product mark inspired by the globe, KVM, USB and RS232
+  concept and adopted “All-in-One IP-KVM System” as the product descriptor.

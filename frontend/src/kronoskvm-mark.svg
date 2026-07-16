@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">KronosKVM</title>
+  <desc id="desc">A network globe combined with KVM, USB and RS232 modules.</desc>
+  <defs>
+    <clipPath id="globe">
+      <circle cx="76" cy="78" r="57"/>
+    </clipPath>
+  </defs>
+  <g fill="none" stroke="#4ebc98" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="76" cy="78" r="57"/>
+    <path d="M20 78h112M76 21c-25 22-25 92 0 114M76 21c25 22 25 92 0 114"/>
+    <path d="M31 47c27 17 63 17 90 0M31 109c27-17 63-17 90 0"/>
+  </g>
+  <g clip-path="url(#globe)">
+    <path d="M2 75h42l19-20 37 37-22 22H37" fill="#fff" stroke="#fff" stroke-width="15" stroke-linejoin="round"/>
+    <path d="M1 75h43l19-20 37 37-22 22H37" fill="none" stroke="#4ebc98" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M7 91h45M16 104h43" stroke="#4ebc98" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <rect x="89" y="18" width="54" height="54" rx="9" fill="#181c20" transform="rotate(45 116 45)"/>
+  <g transform="rotate(45 79 89)">
+    <rect x="48" y="58" width="62" height="62" rx="8" fill="#50bd99"/>
+  </g>
+  <g fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">
+    <text x="77" y="77">KVM</text>
+    <text x="77" y="96">USB</text>
+    <text x="77" y="115">RS232</text>
+  </g>
+  <circle cx="101" cy="111" r="3.5" fill="#ff4d4f"/>
+</svg>

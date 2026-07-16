@@ -30,13 +30,7 @@ button, a { font: inherit; }
 .brand > span:last-child { display: grid; gap: 2px; }
 .brand strong { font-size: 1.45rem; letter-spacing: -.02em; }
 .brand small { color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .2em; }
-.brand-mark { position: relative; width: 46px; height: 46px; display: block; transform: rotate(45deg); }
-.brand-mark::before, .brand-mark i, .brand-mark b {
-  content: ""; position: absolute; width: 14px; height: 34px; border-radius: 2px; display: block;
-}
-.brand-mark::before { left: 6px; top: 6px; background: #20ae83; }
-.brand-mark i { left: 20px; top: -8px; height: 28px; background: #15191d; }
-.brand-mark b { left: 20px; top: 12px; background: #71d1b3; }
+.brand-mark { width: 58px; height: 58px; display: block; object-fit: contain; }
 .nav-actions { display: flex; gap: 9px; }
 .nav-button, .refresh-button {
   border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #303438;

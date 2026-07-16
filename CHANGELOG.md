@@ -26,3 +26,5 @@
   unavailable because of a client-side section error.
 - Switch development assets to versioned filenames to bypass persistent browser
   caches completely.
+- Introduce the globe-and-connectivity KronosKVM product mark and
+  “All-in-One IP-KVM System” identity.

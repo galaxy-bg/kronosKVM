@@ -7,6 +7,8 @@ appliance developed by KronosDX. It targets a Raspberry Pi Compute Module 4
 carrier board and combines remote console, USB HID, virtual media, dual-network
 connectivity, serial-console management and local field-service operation.
 
+Product descriptor: **All-in-One IP-KVM System**.
+
 > HDMI capture, USB HID and virtual media are not active yet. Hardware mappings
 > are provisional until verified. Do not expose development services to
 > untrusted networks.
