@@ -159,3 +159,5 @@
 - Disabled browser caching for the development HTML, JavaScript and CSS assets
   and added asset version query strings after a stale client bundle displayed
   the API as unavailable despite healthy services.
+- Made health, system, network, readiness and physical-port rendering
+  independent; a client-side error in one panel no longer changes API health.

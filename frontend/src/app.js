@@ -2,11 +2,11 @@ const text = (value, fallback = "unknown") =>
   value === null || value === undefined || value === "" ? fallback : String(value);
 
 const escapeHtml = (value) => text(value)
-  .replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;")
-  .replaceAll(">", "&gt;")
-  .replaceAll('"', "&quot;")
-  .replaceAll("'", "&#039;");
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#039;");
 
 async function getJson(path) {
   const response = await fetch(path, { headers: { Accept: "application/json" } });
@@ -114,23 +114,51 @@ function renderPorts(inventory) {
 
 async function load() {
   const health = document.querySelector("#health");
-  try {
-    const [healthData, system, network, ports] = await Promise.all([
-      getJson("/api/v1/health"),
-      getJson("/api/v1/system/info"),
-      getJson("/api/v1/system/network"),
-      getJson("/api/v1/hardware/ports"),
-    ]);
+  const results = await Promise.allSettled([
+    getJson("/api/v1/health"),
+    getJson("/api/v1/system/info"),
+    getJson("/api/v1/system/network"),
+    getJson("/api/v1/hardware/ports"),
+  ]);
+  const [healthResult, systemResult, networkResult, portsResult] = results;
+
+  if (healthResult.status === "fulfilled") {
+    const healthData = healthResult.value;
     health.textContent = `API ${text(healthData.status)}`;
     health.className = "badge ready";
-    renderSystem(system);
-    renderNetwork(network);
-    renderServices();
-    renderPorts(ports);
-  } catch (error) {
+  } else {
     health.textContent = "API unavailable";
     health.className = "badge error";
-    console.error(error);
+    console.error(healthResult.reason);
+  }
+
+  try {
+    renderServices();
+  } catch (error) {
+    console.error("Service readiness render failed", error);
+  }
+
+  if (systemResult.status === "fulfilled") {
+    try {
+      renderSystem(systemResult.value);
+    } catch (error) {
+      console.error("System render failed", error);
+    }
+  }
+  if (networkResult.status === "fulfilled") {
+    try {
+      renderNetwork(networkResult.value);
+    } catch (error) {
+      console.error("Network render failed", error);
+    }
+  }
+  if (portsResult.status === "fulfilled") {
+    try {
+      renderPorts(portsResult.value);
+    } catch (error) {
+      document.querySelector("#ports").textContent = "Port status could not be displayed.";
+      console.error("Port render failed", error);
+    }
   }
 }
 

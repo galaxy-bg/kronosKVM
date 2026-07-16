@@ -22,3 +22,5 @@
 - Add live connected/disconnected physical port inventory and safe console
   action placeholders.
 - Prevent stale frontend assets from hiding API and service status after deploys.
+- Isolate dashboard data and render failures so healthy APIs are never reported
+  unavailable because of a client-side section error.
