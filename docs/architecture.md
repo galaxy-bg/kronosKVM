@@ -18,3 +18,6 @@ Planned services:
 Hardware adapters are optional and expose explicit state. Missing hardware must
 not stop the control plane. Privileged operations will live behind narrow,
 audited helpers rather than arbitrary command execution.
+
+The Milestone 3 API runs as `kronoskvm` through systemd and listens only on
+`127.0.0.1:8000`. It reads system state but exposes no mutation endpoints.

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -14,16 +14,16 @@ class SystemConfig(BaseModel):
 
 
 class NetworkConfig(BaseModel):
-    management_interface: str | None = None
-    service_interface: str | None = None
+    management_interface: Optional[str] = None
+    service_interface: Optional[str] = None
     management_address: str = "192.168.31.145"
     web_bind_address: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
 
 
 class AppConfig(BaseModel):
-    system: SystemConfig = SystemConfig()
-    network: NetworkConfig = NetworkConfig()
+    system: SystemConfig = Field(default_factory=SystemConfig)
+    network: NetworkConfig = Field(default_factory=NetworkConfig)
 
 
 def load_config(path: Path) -> AppConfig:

@@ -1,9 +1,9 @@
-from enum import StrEnum
+from enum import Enum
 
 from pydantic import BaseModel
 
 
-class HardwareStatus(StrEnum):
+class HardwareStatus(str, Enum):
     READY = "ready"
     RUNNING = "running"
     DISABLED = "disabled"
