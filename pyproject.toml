@@ -5,29 +5,28 @@ build-backend = "hatchling.build"
 [project]
 name = "kronoskvm"
 version = "0.1.0"
-description = "IP-KVM control service for Raspberry Pi CM4"
+description = "Portable infrastructure-management appliance by KronosDX"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "aiohttp>=3.9,<4",
+    "fastapi>=0.115,<1",
+    "pydantic-settings>=2.7,<3",
+    "PyYAML>=6,<7",
+    "uvicorn[standard]>=0.34,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "httpx>=0.28,<1",
     "pytest>=8,<9",
-    "pytest-aiohttp>=1.0,<2",
-    "ruff>=0.5,<1",
+    "ruff>=0.9,<1",
 ]
 
-[project.scripts]
-kronoskvm = "kronoskvm.__main__:main"
-
 [tool.hatch.build.targets.wheel]
-packages = ["src/kronoskvm"]
+packages = ["backend"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["backend/tests", "tests"]
 
 [tool.ruff]
 line-length = 100

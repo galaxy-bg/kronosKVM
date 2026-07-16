@@ -1,0 +1,1 @@
+"""Temperature hardware adapter placeholder."""

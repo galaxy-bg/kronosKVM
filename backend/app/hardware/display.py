@@ -1,0 +1,1 @@
+"""Display hardware adapter placeholder."""

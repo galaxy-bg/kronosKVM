@@ -1,0 +1,1 @@
+"""Video hardware adapter placeholder."""

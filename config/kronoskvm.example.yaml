@@ -1,0 +1,68 @@
+system:
+  hostname: kronoskvm
+  timezone: Europe/Istanbul
+  data_directory: /var/lib/kronoskvm
+  runtime_directory: /run/kronoskvm
+  log_directory: /var/log/kronoskvm
+
+network:
+  management_interface: null
+  service_interface: null
+  management_address: 192.168.31.145
+  web_bind_address: 127.0.0.1
+  api_port: 8000
+  https_port: 443
+  mdns_enabled: false
+  wifi_mode: disabled
+
+capture:
+  enabled: false
+  status: waiting_for_hardware
+  device: /dev/video0
+  input_type: hdmi-to-csi
+  resolution: 1920x1080
+  frame_rate: 30
+
+hid:
+  enabled: false
+  keyboard: true
+  mouse: true
+  absolute_mouse: true
+  usb_gadget_path: /sys/kernel/config/usb_gadget/kronoskvm
+
+virtual_media:
+  enabled: false
+  image_directory: /var/lib/kronoskvm/images
+  read_only_default: true
+
+serial:
+  enabled: false
+  channels:
+    - name: console1
+      device: /dev/ttyUSB0
+      baud_rate: 9600
+      data_bits: 8
+      parity: none
+      stop_bits: 1
+      flow_control: none
+      tcp_enabled: false
+      tcp_port: 2001
+    - name: console2
+      device: /dev/ttyUSB1
+      baud_rate: 9600
+      data_bits: 8
+      parity: none
+      stop_bits: 1
+      flow_control: none
+      tcp_enabled: false
+      tcp_port: 2002
+
+monitoring:
+  enabled: false
+  node_exporter_port: 9100
+
+security:
+  password_login_enabled: true
+  session_timeout_minutes: 30
+  trusted_networks:
+    - 192.168.31.0/24

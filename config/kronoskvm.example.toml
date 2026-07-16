@@ -1,4 +1,0 @@
-[server]
-# Loopback güvenli varsayılandır. Ters proxy kurulana kadar dış ağa açmayın.
-host = "127.0.0.1"
-port = 8080

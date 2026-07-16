@@ -1,0 +1,1 @@
+"""Serial hardware adapter placeholder."""

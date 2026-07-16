@@ -1,0 +1,1 @@
+"""RTC hardware adapter placeholder."""

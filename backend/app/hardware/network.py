@@ -1,0 +1,1 @@
+"""Network hardware adapter placeholder."""

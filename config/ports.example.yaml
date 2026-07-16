@@ -1,0 +1,6 @@
+ports:
+  ssh: {port: 22, protocol: tcp, enabled: true}
+  https: {port: 443, protocol: tcp, enabled: false}
+  api: {port: 8000, protocol: tcp, bind: 127.0.0.1}
+  serial_1: {port: 2001, protocol: tcp, enabled: false}
+  serial_2: {port: 2002, protocol: tcp, enabled: false}
