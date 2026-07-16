@@ -24,9 +24,12 @@ def _read_text(path: Path, default: str = "") -> str:
 
 
 def get_system_info() -> SystemInfo:
+    model = _read_text(Path("/proc/device-tree/model"))
+    if not model:
+        model = _read_text(Path("/run/kronoskvm/device-tree/model"), "unknown")
     return SystemInfo(
         hostname=socket.gethostname(),
-        model=_read_text(Path("/proc/device-tree/model"), "unknown"),
+        model=model,
         architecture=platform.machine(),
         kernel=platform.release(),
         uptime_seconds=round(time.monotonic()),

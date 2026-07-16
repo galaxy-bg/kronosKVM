@@ -13,9 +13,10 @@ connectivity, serial-console management and local field-service operation.
 
 ## Current scope
 
-The repository currently contains the Milestone 0 project foundation and the
-read-only discovery tooling for Milestone 1. All optional hardware modules must
-report their state without preventing the API from starting.
+The repository contains the project foundation, read-only hardware discovery,
+the localhost FastAPI control plane, serial discovery/locking, the persistent
+management AP and the hybrid container deployment foundation. Optional hardware
+modules report their state without preventing the API from starting.
 
 Planned module states are `ready`, `running`, `disabled`, `not_detected`,
 `waiting_for_hardware`, `unsupported` and `error`.
@@ -37,10 +38,12 @@ Planned module states are `ready`, `running`, `disabled`, `not_detected`,
 - Dual Ethernet, three USB host ports and a USB-C port labelled `SLAVE`
 - CAM0/CAM1, DSI display, RTC battery, fan and provisional M.2 positions
 
-The current management path is Wi-Fi (`wlan0`) at `192.168.31.145`. Both
-Ethernet interfaces had no carrier during the first inventory. The operating
-system is older than the intended production baseline and will be reviewed in a
-later milestone rather than upgraded in place.
+The recovery management AP uses Wi-Fi (`wlan0`) at `192.168.34.100/24`.
+Confirmed chassis ETH0 maps to Linux `eth0` and currently receives
+`192.168.31.144/24` by DHCP from the customer/development network. Linux
+`eth1` remains unverified. The operating system is older than the intended
+production baseline and will be reviewed in a later milestone rather than
+upgraded in place.
 
 HDMI0 and HDMI1 appear to be local display outputs. Target HDMI input is
 expected to use a future HDMI-to-CSI module on CAM0. Exact electrical functions
@@ -50,7 +53,7 @@ remain unverified.
 
 | Chassis port | Proposed role | Status |
 |---|---|---|
-| ETH0 | Primary management | Unverified |
+| ETH0 | Customer/internet uplink | Confirmed as Linux `eth0` |
 | ETH1 | Isolated target/service network | Linux `eth1` is USB RTL8152; chassis mapping unverified |
 | USB1 / USB2 | Serial adapters | Unverified |
 | USB3 | Expansion/maintenance | Unverified |
@@ -64,10 +67,11 @@ See [physical port map](docs/physical-port-map.md) and
 
 ## Architecture
 
-The initial control plane uses Python, FastAPI and Pydantic. Production services
-will be separated into API, web, capture, HID, virtual-media, serial, network,
-display and health components. Development API binding is
-`127.0.0.1:8000`; only SSH should be remotely reachable in the initial phase.
+The control plane uses Python, FastAPI and Pydantic. The application plane runs
+in hardened containers while networking and privileged hardware helpers remain
+host-managed. Production services will be separated into API, web, capture,
+HID, virtual-media, serial, network, display and health components. Development
+API binding is `127.0.0.1:8000`; only SSH is directly remotely reachable.
 
 See [architecture](docs/architecture.md) and [port plan](docs/port-plan.md).
 Base OS preparation is documented in [docs/base-os.md](docs/base-os.md).
@@ -105,19 +109,19 @@ make run
 curl http://127.0.0.1:8000/api/v1/health
 ```
 
-## Initial installation workflow
+## Installation workflow
 
 1. Complete read-only inventory and verify the carrier-board topology.
 2. Review `/etc/kronoskvm`, `/var/lib/kronoskvm` and service-account plans.
-3. Install dependencies only after explicit approval.
-4. Keep capture, HID, virtual media, serial TCP and routing disabled.
-5. Add systemd and Nginx only in their later milestones.
-
-No production installation or service activation is performed in Milestone 0.
+3. Install the host prerequisites and application containers.
+4. Keep capture, HID, virtual media, serial TCP and routing disabled until their
+   hardware milestones.
+5. Add the authenticated web gateway and HTTPS in a later milestone.
 
 ## Secure SSH workflow
 
-The initial target is `kronosdx@192.168.31.145`, with local alias `kronoskvm`.
+The target is reachable through the recovery AP at `192.168.34.100` or its
+current Ethernet DHCP address, with local alias `kronoskvm`.
 Password authentication is used only interactively to install a public key.
 Passwords and private keys must never enter this repository, scripts, logs or
 command arguments. Password login remains enabled during the discovery phase.
@@ -136,7 +140,8 @@ tokens, Wi-Fi secrets or environment variables.
 ## Security warnings
 
 - Never bind development APIs to non-loopback addresses.
-- Do not enable forwarding, NAT, bridges, DHCP or Wi-Fi AP mode initially.
+- Do not enable forwarding, NAT or bridges. The isolated management AP is the
+  only approved DHCP scope.
 - Do not enable USB gadget mode before the correct UDC is verified.
 - Never expose VNC, serial TCP, metrics or video streams publicly by default.
 - API routes must not provide arbitrary shell execution.

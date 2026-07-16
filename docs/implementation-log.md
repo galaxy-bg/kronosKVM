@@ -84,3 +84,23 @@
   bridging remain disabled.
 - Stored the WPA passphrase only in root-readable hostapd configuration.
 - Verified hostapd, dnsmasq and KronosKVM API services are active.
+
+## Containerized application plane
+
+- Installed the distribution Docker Engine and Docker Compose packages.
+- Disabled Docker bridge creation, iptables management, IP forwarding and
+  masquerading before starting the daemon.
+- Built the FastAPI image natively on the CM4 as ARM64.
+- Limited host networking to the build step and the localhost-only API runtime.
+- Deployed the API as UID/GID `10001` with a read-only root filesystem, all
+  capabilities dropped and `no-new-privileges`.
+- Exposed only narrow read-only host paths for system and CM4 device-tree
+  discovery; no Docker socket or broad device mount is present.
+- Disabled the native API service while retaining it as a rollback path.
+- Rebooted and verified Docker, the container service, hostapd and dnsmasq
+  return automatically.
+- Confirmed the API reports the CM4 model, host interfaces and temperature.
+- Confirmed `192.168.31.144/24` on `eth0` and `192.168.34.100/24` on `wlan0`
+  remain unchanged after reboot.
+- Confirmed IPv4 forwarding is `0`, `docker0` is absent and Docker added no NAT
+  rules.

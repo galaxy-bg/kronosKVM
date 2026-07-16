@@ -1,12 +1,15 @@
+version: "3.7"
+
 services:
   api:
     image: kronoskvm-api:${KRONOSKVM_VERSION:-dev}
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
     container_name: kronoskvm-api
     network_mode: host
-    uts: host
+    hostname: kronoskvm
     restart: unless-stopped
     read_only: true
     user: "10001:10001"
@@ -18,6 +21,7 @@ services:
       - /tmp:size=16m,mode=1777
     volumes:
       - /sys:/sys:ro
+      - /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro
       - /etc/kronoskvm:/etc/kronoskvm:ro
     healthcheck:
       test:

@@ -49,3 +49,20 @@ The management AP and SSH are independent of application containers.
 Docker is configured without its default bridge, iptables management, IP
 forwarding or masquerading. KronosKVM containers currently use host networking
 only, so Docker must not alter the isolated AP/customer-network policy.
+
+Image builds use host networking only while resolving and downloading build
+dependencies. The running API still has all capabilities dropped, a read-only
+root filesystem and no Docker socket.
+
+## Deployed baseline
+
+The ARM64 API container is deployed on the CM4 and managed by
+`kronoskvm-containers.service`. The native API unit is installed but disabled
+for rollback. The deployment has been verified across a reboot with:
+
+- the API healthy on `127.0.0.1:8000`;
+- the container running as UID/GID `10001`;
+- read-only CM4 device-tree and system visibility;
+- no `docker0` bridge or Docker NAT rules;
+- IPv4 forwarding remaining disabled;
+- hostapd and dnsmasq remaining active independently.
