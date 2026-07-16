@@ -40,32 +40,35 @@ function renderNetwork(network) {
   ).join("");
 }
 
-function renderCapabilities(capabilities) {
-  const ready = capabilities.filter((item) =>
-    ["ready", "running"].includes(item.status)
-  ).length;
-  document.querySelector("#capability-count").textContent = text(capabilities.length);
-  document.querySelector("#capability-summary").textContent =
-    `${ready} ready · ${capabilities.length - ready} awaiting hardware`;
-  document.querySelector("#capabilities").innerHTML = capabilities.map((item) =>
-    `<div class="row"><span>${escapeHtml(item.name)}</span><span class="state ${["ready", "running"].includes(item.status) ? "" : "offline"}">${escapeHtml(item.status)}</span></div>`
+function renderServices() {
+  const services = [
+    { name: "Web Interface", detail: "AP management access", status: "online", ready: true },
+    { name: "Console Ports", detail: "Console 1 and Console 2 mapped", status: "mapped", ready: true },
+    { name: "KVM OTG", detail: "USB-C SLAVE", status: "setup pending", ready: false },
+    { name: "Video Input", detail: "HDMI-to-CSI hardware", status: "hardware pending", ready: false },
+  ];
+  const ready = services.filter((item) => item.ready).length;
+  document.querySelector("#readiness-count").textContent = `${ready}/${services.length}`;
+  document.querySelector("#readiness-summary").textContent =
+    `${ready} operational · ${services.length - ready} pending`;
+  document.querySelector("#services").innerHTML = services.map((item) =>
+    `<div class="row"><span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.detail)}</span></span><span class="state ${item.ready ? "" : "offline"}">${escapeHtml(item.status)}</span></div>`
   ).join("");
 }
 
 async function load() {
   const health = document.querySelector("#health");
   try {
-    const [healthData, system, network, capabilities] = await Promise.all([
+    const [healthData, system, network] = await Promise.all([
       getJson("/api/v1/health"),
       getJson("/api/v1/system/info"),
       getJson("/api/v1/system/network"),
-      getJson("/api/v1/capabilities"),
     ]);
     health.textContent = `API ${text(healthData.status)}`;
     health.className = "badge ready";
     renderSystem(system);
     renderNetwork(network);
-    renderCapabilities(capabilities);
+    renderServices();
   } catch (error) {
     health.textContent = "API unavailable";
     health.className = "badge error";

@@ -149,3 +149,5 @@
   and UDC activation still pending.
 - Added the verified Console 1, Console 2, Service USB, ETH1 and KVM OTG
   assignments to the AP dashboard.
+- Replaced raw capability names such as RTC and serial with user-facing KVM
+  readiness for web access, console ports, KVM OTG and video input.

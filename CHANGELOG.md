@@ -18,3 +18,4 @@
 - Restyle the development dashboard with the light KronosDX interface language.
 - Confirm and name the chassis USB, console and KVM OTG port topology.
 - Show the verified physical port map and USB mux limitation in the dashboard.
+- Replace raw hardware capabilities with product-focused KVM service readiness.
