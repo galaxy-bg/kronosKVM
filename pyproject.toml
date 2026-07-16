@@ -11,6 +11,7 @@ requires-python = ">=3.9"
 dependencies = [
     "fastapi>=0.115,<1",
     "pydantic>=2.7,<3",
+    "pyserial>=3.5,<4",
     "PyYAML>=6,<7",
     "uvicorn[standard]>=0.34,<1",
 ]

@@ -15,13 +15,17 @@ The Milestone 3 API is read-only and listens on `127.0.0.1:8000`.
 - `GET /api/v1/hardware/serial`
 - `GET /api/v1/hardware/rtc`
 - `GET /api/v1/hardware/temperature`
+- `GET /api/v1/serial/devices`
+- `POST /api/v1/serial/locks`
+- `DELETE /api/v1/serial/locks/{device_name}`
 
 Every response includes an `x-request-id` header. A caller-provided
 `x-request-id` is preserved. Application request logs are JSON formatted in the
 system journal.
 
-No mutation, shell-execution, authentication or remote network endpoint exists
-in this milestone.
+Serial lock mutations affect only in-memory coordination state. No endpoint
+opens a serial port, writes data, executes shell commands or exposes TCP serial
+access.
 
 ## Operations
 

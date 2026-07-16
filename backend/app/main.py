@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend.app.api.routes import router
+from backend.app.api.serial import router as serial_router
 from backend.app.logging import configure_logging
 
 configure_logging()
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
         return response
 
     application.include_router(router)
+    application.include_router(serial_router)
     return application
 
 

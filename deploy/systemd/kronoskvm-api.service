@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User=kronoskvm
 Group=kronoskvm
+SupplementaryGroups=dialout
 WorkingDirectory=/opt/kronoskvm
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/opt/kronoskvm/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000

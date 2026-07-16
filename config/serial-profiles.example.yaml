@@ -1,5 +1,25 @@
 profiles:
-  default: {baud_rate: 9600, data_bits: 8, parity: none, stop_bits: 1}
-  fast: {baud_rate: 115200, data_bits: 8, parity: none, stop_bits: 1}
-  medium: {baud_rate: 38400, data_bits: 8, parity: none, stop_bits: 1}
-  legacy: {baud_rate: 19200, data_bits: 8, parity: none, stop_bits: 1}
+  default:
+    baud_rate: 9600
+    data_bits: 8
+    parity: none
+    stop_bits: 1
+    flow_control: none
+  fast:
+    baud_rate: 115200
+    data_bits: 8
+    parity: none
+    stop_bits: 1
+    flow_control: none
+  medium:
+    baud_rate: 38400
+    data_bits: 8
+    parity: none
+    stop_bits: 1
+    flow_control: none
+  legacy:
+    baud_rate: 19200
+    data_bits: 8
+    parity: none
+    stop_bits: 1
+    flow_control: none

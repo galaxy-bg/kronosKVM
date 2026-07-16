@@ -40,6 +40,9 @@ fi
 
 getent passwd kronoskvm >/dev/null
 getent group kronoskvm >/dev/null
+if ! id -nG kronoskvm | tr ' ' '\n' | grep -qx dialout; then
+    run usermod --append --groups dialout kronoskvm
+fi
 
 run install -d -m 0755 -o root -g root /opt/kronoskvm
 
@@ -66,6 +69,11 @@ if [[ ! -f /etc/kronoskvm/config.yaml ]]; then
     run install -m 0640 -o root -g kronoskvm \
         "${PROJECT_DIR}/config/kronoskvm.example.yaml" \
         /etc/kronoskvm/config.yaml
+fi
+if [[ ! -f /etc/kronoskvm/serial-profiles.yaml ]]; then
+    run install -m 0640 -o root -g kronoskvm \
+        "${PROJECT_DIR}/config/serial-profiles.example.yaml" \
+        /etc/kronoskvm/serial-profiles.yaml
 fi
 
 run install -m 0644 \
