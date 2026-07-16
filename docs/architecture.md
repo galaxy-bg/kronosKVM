@@ -21,3 +21,9 @@ audited helpers rather than arbitrary command execution.
 
 The Milestone 3 API runs as `kronoskvm` through systemd and listens only on
 `127.0.0.1:8000`. It reads system state but exposes no mutation endpoints.
+
+## Hybrid container model
+
+The application plane runs through Docker Compose while network and privileged
+hardware helpers remain host systemd services. The native API service is kept
+as rollback. See [containerization](containerization.md).

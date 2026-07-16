@@ -1,0 +1,17 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+*.py[cod]
+artifacts/inventory
+docs/images/*.jpeg
+frontend
+hardware
+tests
+tmp
+secrets
+*.iso
+*.img
+*.qcow2
+*.raw

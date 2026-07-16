@@ -18,3 +18,9 @@ binding.
 
 The operator explicitly selected a public GitHub repository, overriding the
 earlier private-repository proposal.
+
+## D-005 — Hybrid container architecture
+
+Containerize the application plane from early development. Keep network, USB
+gadget, boot configuration and privileged hardware helpers on the host. Do not
+grant containers blanket privilege or Docker socket access.

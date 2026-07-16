@@ -1,0 +1,31 @@
+services:
+  api:
+    image: kronoskvm-api:${KRONOSKVM_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kronoskvm-api
+    network_mode: host
+    uts: host
+    restart: unless-stopped
+    read_only: true
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - /sys:/sys:ro
+      - /etc/kronoskvm:/etc/kronoskvm:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

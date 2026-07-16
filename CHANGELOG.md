@@ -9,3 +9,4 @@
 - Add and deploy the localhost-only read-only system and hardware health API.
 - Add serial adapter discovery, profiles and exclusive in-memory session locks.
 - Add the persistent isolated `kronosKVM` Wi-Fi management access point.
+- Add the hybrid Docker Compose application-plane foundation.

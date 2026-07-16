@@ -73,6 +73,8 @@ See [architecture](docs/architecture.md) and [port plan](docs/port-plan.md).
 Base OS preparation is documented in [docs/base-os.md](docs/base-os.md).
 OS update policy is documented in [docs/os-migration.md](docs/os-migration.md).
 The read-only API is documented in [docs/api.md](docs/api.md).
+The hybrid container/host model is documented in
+[docs/containerization.md](docs/containerization.md).
 
 ## Repository overview
 
