@@ -1,0 +1,7 @@
+FROM nginx:1.28-alpine
+
+COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY frontend/src /usr/share/nginx/html
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --quiet --spider http://192.168.34.100/healthz || exit 1

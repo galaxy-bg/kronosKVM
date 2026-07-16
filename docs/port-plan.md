@@ -3,7 +3,7 @@
 | Port | Purpose | Initial state |
 |---|---|---|
 | 22/TCP | SSH administration | Enabled |
-| 80/TCP | HTTPS redirect | Future |
+| 80/TCP | Development web UI on `192.168.34.100` only | Enabled on AP |
 | 443/TCP | Web interface | Future |
 | 5900/TCP | VNC compatibility | Disabled |
 | 6080/TCP | noVNC development | Localhost only |
@@ -14,7 +14,8 @@
 | 9100/TCP | Metrics | Disabled |
 | 8554/TCP | Optional RTSP | Disabled |
 
-Only SSH should be remotely reachable during initial discovery.
+SSH remains the only service exposed on ETH0. The unauthenticated development
+web UI is reachable only by clients connected to the isolated management AP.
 
 The management AP uses DHCP UDP 67 and DNS TCP/UDP 53 only on `wlan0`; DNS also
 listens on loopback for the appliance resolver. No customer-network forwarding,

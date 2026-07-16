@@ -33,3 +33,28 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+  web:
+    image: kronoskvm-web:${KRONOSKVM_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      network: host
+    container_name: kronoskvm-web
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=16m,mode=0755
+    depends_on:
+      - api

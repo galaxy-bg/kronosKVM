@@ -6,7 +6,6 @@ __pycache__
 *.py[cod]
 artifacts/inventory
 docs/images/*.jpeg
-frontend
 hardware
 tests
 tmp

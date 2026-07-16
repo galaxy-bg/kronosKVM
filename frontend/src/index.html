@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KronosKVM</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">KronosDX</p>
+        <h1>KronosKVM</h1>
+        <p class="subtitle">Portable infrastructure console</p>
+      </div>
+      <span id="health" class="badge pending">Checking API</span>
+    </header>
+
+    <section class="notice">
+      Development interface on the isolated management AP. Authentication and
+      HTTPS are not enabled yet.
+    </section>
+
+    <section class="grid">
+      <article>
+        <h2>System</h2>
+        <dl id="system">
+          <div><dt>Hostname</dt><dd>Loading…</dd></div>
+        </dl>
+      </article>
+      <article>
+        <h2>Network</h2>
+        <div id="network" class="stack">Loading…</div>
+      </article>
+      <article>
+        <h2>Capabilities</h2>
+        <div id="capabilities" class="stack">Loading…</div>
+      </article>
+    </section>
+
+    <footer>Management address: 192.168.34.100</footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -134,6 +134,16 @@ local fallback. Check all paths without exposing credentials:
 kronoskvm status
 ```
 
+Clients connected to the management AP can open the current development
+dashboard at:
+
+```text
+http://192.168.34.100
+```
+
+The dashboard is intentionally not exposed on ETH0. Authentication and HTTPS
+must be added before production use.
+
 ## Hardware discovery
 
 ```bash

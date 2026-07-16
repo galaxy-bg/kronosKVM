@@ -119,3 +119,17 @@
 - Verified the command reports AP, ETH0, gateway, upstream DNS, ETH0 internet
   reachability and container state without reading secret configuration.
 - Performed no reboot.
+
+## AP-only development frontend
+
+- Added a static responsive system dashboard and same-origin API client.
+- Added a hardened Nginx web container with a read-only root filesystem,
+  `no-new-privileges` and a minimal capability set.
+- Bound Nginx only to `192.168.34.100:80`.
+- Proxied `/api/` to the FastAPI service on `127.0.0.1:8000`.
+- Built and deployed the web image over ETH0 without restarting Docker,
+  hostapd, dnsmasq or either network interface.
+- Verified the dashboard and API health endpoint return HTTP 200 on the AP
+  address.
+- Verified port 80 remains closed on the current ETH0 DHCP address.
+- Confirmed IPv4 forwarding remains disabled and performed no reboot.

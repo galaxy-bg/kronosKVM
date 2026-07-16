@@ -9,8 +9,8 @@ usage() {
     cat <<'EOF'
 Usage: install-containers.sh [--dry-run] [--help]
 
-Install the KronosKVM application container definition, build the ARM64 API
-image and enable kronoskvm-containers.service.
+Install the KronosKVM application container definitions, build the ARM64 API
+and web images, and enable kronoskvm-containers.service.
 
 The native kronoskvm-api.service is stopped and disabled but retained as a
 rollback path. Network/AP and hardware helper services remain on the host.
@@ -60,7 +60,10 @@ else
     cp -a \
         "${PROJECT_DIR}/backend" \
         "${PROJECT_DIR}/config" \
+        "${PROJECT_DIR}/frontend" \
+        "${PROJECT_DIR}/deploy/nginx" \
         "${PROJECT_DIR}/Dockerfile" \
+        "${PROJECT_DIR}/Dockerfile.web" \
         "${PROJECT_DIR}/compose.yaml" \
         "${PROJECT_DIR}/.dockerignore" \
         "${PROJECT_DIR}/pyproject.toml" \

@@ -27,3 +27,8 @@ The Milestone 3 API runs as `kronoskvm` through systemd and listens only on
 The application plane runs through Docker Compose while network and privileged
 hardware helpers remain host systemd services. The native API service is kept
 as rollback. See [containerization](containerization.md).
+
+The development web gateway runs as a hardened Nginx container. It binds only
+to `192.168.34.100:80` on the isolated AP, serves static frontend assets and
+proxies same-origin `/api/` requests to `127.0.0.1:8000`. It does not listen on
+the ETH0 DHCP address.

@@ -25,6 +25,20 @@ def test_container_runs_as_non_root() -> None:
     assert "HEALTHCHECK" in dockerfile
 
 
+def test_web_gateway_is_hardened_and_ap_only() -> None:
+    compose = yaml.safe_load(Path("compose.yaml").read_text(encoding="utf-8"))
+    web = compose["services"]["web"]
+    nginx = Path("deploy/nginx/nginx.conf").read_text(encoding="utf-8")
+    assert web["network_mode"] == "host"
+    assert web["read_only"] is True
+    assert web["cap_drop"] == ["ALL"]
+    assert web["cap_add"] == ["CHOWN", "NET_BIND_SERVICE", "SETGID", "SETUID"]
+    assert "no-new-privileges:true" in web["security_opt"]
+    assert "listen 192.168.34.100:80;" in nginx
+    assert "listen 80" not in nginx
+    assert "proxy_pass http://127.0.0.1:8000;" in nginx
+
+
 def test_docker_daemon_does_not_manage_routing() -> None:
     daemon = json.loads(
         Path("deploy/docker/daemon.json").read_text(encoding="utf-8")
