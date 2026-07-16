@@ -37,6 +37,7 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert "listen 192.168.34.100:80;" in nginx
     assert "listen 80" not in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
+    assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
 
 
 def test_docker_daemon_does_not_manage_routing() -> None:

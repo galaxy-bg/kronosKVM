@@ -156,3 +156,6 @@
 - Updated the dashboard with connected/disconnected states, attached device
   names, status actions and disabled Connect/Console controls until the serial
   WebSocket transport is implemented.
+- Disabled browser caching for the development HTML, JavaScript and CSS assets
+  and added asset version query strings after a stale client bundle displayed
+  the API as unavailable despite healthy services.

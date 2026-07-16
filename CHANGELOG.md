@@ -21,3 +21,4 @@
 - Replace raw hardware capabilities with product-focused KVM service readiness.
 - Add live connected/disconnected physical port inventory and safe console
   action placeholders.
+- Prevent stale frontend assets from hiding API and service status after deploys.
