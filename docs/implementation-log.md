@@ -147,3 +147,5 @@
   disconnecting it restores them.
 - Identified USB-C `SLAVE` as the KVM OTG candidate, with DWC2 peripheral mode
   and UDC activation still pending.
+- Added the verified Console 1, Console 2, Service USB, ETH1 and KVM OTG
+  assignments to the AP dashboard.
