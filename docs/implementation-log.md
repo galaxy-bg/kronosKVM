@@ -22,3 +22,10 @@
   configuration, data, image, log and runtime directories.
 - Added tmpfiles runtime creation and bounded persistent journal retention.
 - Verified SSH remained reachable; no reboot was required.
+
+## OS maintenance
+
+- Adopted current-release `apt full-upgrade` with pre-update configuration
+  backup.
+- Kept APT release codenames unchanged.
+- Documented clean Raspberry Pi OS Lite 64-bit imaging for major migration.

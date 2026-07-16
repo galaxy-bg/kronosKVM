@@ -10,6 +10,9 @@ Do not perform an in-place major-version upgrade. Before application deployment,
 back up any required device-specific information and provision a current,
 supported Raspberry Pi OS Lite 64-bit image. Re-run inventory after imaging.
 
+See [OS update and migration](os-migration.md) for the current-release update
+script and clean-image procedure.
+
 ## Milestone 2 safe scope
 
 `scripts/bootstrap.sh` performs only these idempotent actions:

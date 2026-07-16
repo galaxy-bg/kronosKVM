@@ -71,6 +71,7 @@ display and health components. Development API binding is
 
 See [architecture](docs/architecture.md) and [port plan](docs/port-plan.md).
 Base OS preparation is documented in [docs/base-os.md](docs/base-os.md).
+OS update policy is documented in [docs/os-migration.md](docs/os-migration.md).
 
 ## Repository overview
 
