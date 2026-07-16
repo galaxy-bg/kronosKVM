@@ -52,3 +52,16 @@
   the Python 3.9 compatibility fix.
 - Updated deployment to restart the API explicitly after application upgrades,
   ensuring new code replaces the running process.
+
+## Milestone 4
+
+- Added USB serial discovery for `/dev/ttyUSB*` and `/dev/ttyACM*`.
+- Added VID, PID, serial number, kernel driver and stable by-id/by-path metadata.
+- Added 9600, 19200, 38400 and 115200 8N1 profiles.
+- Added exclusive in-memory device locks with token-based release.
+- Installed PySerial 3.5 and granted the service supplementary `dialout` access.
+- Verified the no-adapter state on the CM4: empty inventory and
+  `not_detected` capability.
+- Verified unknown devices cannot be locked.
+- Confirmed TCP ports 2001 and 2002 remain closed.
+- No serial device was opened and no serial data was read or written.

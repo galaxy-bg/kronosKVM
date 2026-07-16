@@ -7,7 +7,8 @@
    physical interface mapping.
 4. Localhost FastAPI health and capability service. Completed for read-only
    system, network, storage, service and optional-hardware discovery.
-5. Serial-console support.
+5. Serial-console support. Discovery, profiles and exclusive lock foundation
+   deployed; physical adapter sessions and browser terminal remain pending.
 6. Verified USB HID gadget.
 7. HDMI-to-CSI capture.
 8. Read-only-first virtual media.

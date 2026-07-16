@@ -144,9 +144,9 @@ See [security policy](SECURITY.md) and [security design](docs/security.md).
 ## Roadmap and limitations
 
 Milestones are documented in [development plan](docs/development-plan.md).
-The current prototype has a localhost-only read-only health API. It has no
-active capture, HID, virtual media, serial transport, authentication, HTTPS or
-production web UI.
+The current prototype has a localhost-only health API and serial discovery/lock
+foundation. It has no active capture, HID, virtual media, serial data transport,
+authentication, HTTPS or production web UI.
 
 ## Photo gallery
 
