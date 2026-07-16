@@ -12,3 +12,5 @@
 - Add the hybrid Docker Compose application-plane foundation.
 - Deploy the hardened ARM64 API container while preserving the host-managed AP
   and disabled routing policy.
+- Establish ETH0-first development policy, mDNS discovery and a safe
+  `kronoskvm status` command.

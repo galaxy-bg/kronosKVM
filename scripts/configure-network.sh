@@ -24,6 +24,7 @@ command-line argument.
 
 Run only while an independently tested Ethernet SSH path is available.
 This script does not enable routing, NAT or bridging.
+Normal application deployments must never call this script.
 EOF
 }
 

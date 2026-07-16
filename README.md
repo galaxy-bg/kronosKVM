@@ -126,6 +126,14 @@ Password authentication is used only interactively to install a public key.
 Passwords and private keys must never enter this repository, scripts, logs or
 command arguments. Password login remains enabled during the discovery phase.
 
+Prefer `kronoskvm.local` over ETH0 for development. Use the current ETH0 DHCP
+address if mDNS is unavailable, and use `192.168.34.100` only as the isolated
+local fallback. Check all paths without exposing credentials:
+
+```bash
+kronoskvm status
+```
+
 ## Hardware discovery
 
 ```bash

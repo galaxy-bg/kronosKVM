@@ -44,6 +44,10 @@ fi
 command -v docker >/dev/null
 command -v docker-compose >/dev/null
 
+run install -m 0755 \
+    "${PROJECT_DIR}/scripts/kronoskvm" \
+    /usr/local/bin/kronoskvm
+
 run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
 run install -d -m 0755 -o root -g root /etc/docker
 run install -m 0644 \

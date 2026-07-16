@@ -104,3 +104,18 @@
   remain unchanged after reboot.
 - Confirmed IPv4 forwarding is `0`, `docker0` is absent and Docker added no NAT
   rules.
+
+## ETH0-first development access
+
+- Adopted chassis ETH0 as the primary update, package, Git, image-pull and
+  deployment path.
+- Preserved the permanent Wi-Fi AP as an isolated recovery path at
+  `192.168.34.100`; hostapd and dnsmasq were not restarted or reconfigured.
+- Changed the appliance hostname from the prototype name to `kronoskvm`.
+- Restarted only Avahi and verified `kronoskvm.local` resolves to the current
+  ETH0 DHCP address from the development Mac.
+- Updated the local `kronoskvm` SSH alias to prefer `kronoskvm.local`.
+- Added and installed `kronoskvm status` under `/usr/local/bin`.
+- Verified the command reports AP, ETH0, gateway, upstream DNS, ETH0 internet
+  reachability and container state without reading secret configuration.
+- Performed no reboot.

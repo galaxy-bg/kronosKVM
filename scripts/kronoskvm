@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: kronoskvm status
+
+Report the safe development connectivity and container runtime state.
+No credentials or secret configuration files are read.
+EOF
+}
+
+service_state() {
+    local state
+    state="$(systemctl is-active "$1" 2>/dev/null || true)"
+    printf '%s\n' "${state:-unknown}"
+}
+
+interface_state() {
+    local interface="$1"
+    local state
+    state="$(cat "/sys/class/net/${interface}/operstate" 2>/dev/null || true)"
+    if [[ -z "${state}" ]]; then
+        state=not-present
+    fi
+    printf '%s\n' "${state}"
+}
+
+ipv4_address() {
+    /usr/sbin/ip -o -4 address show dev "$1" scope global 2>/dev/null |
+        awk 'NR == 1 { print $4 }'
+}
+
+default_gateway() {
+    /usr/sbin/ip -4 route show default 2>/dev/null |
+        awk 'NR == 1 { print $3 " via " $5 }'
+}
+
+dns_servers() {
+    local source=/etc/resolv.conf
+    if [[ -r /run/dnsmasq/resolv.conf ]]; then
+        source=/run/dnsmasq/resolv.conf
+    fi
+    awk '$1 == "nameserver" && $2 ~ /^[0-9A-Fa-f:.]+$/ { print $2 }' \
+        "${source}" 2>/dev/null |
+        awk '!seen[$0]++' |
+        paste -sd, -
+}
+
+internet_state() {
+    if ! command -v curl >/dev/null 2>&1; then
+        printf 'unknown (curl unavailable)\n'
+        return
+    fi
+    if curl --fail --silent --output /dev/null \
+        --connect-timeout 3 --max-time 6 \
+        --interface eth0 --noproxy '*' \
+        https://connectivitycheck.gstatic.com/generate_204; then
+        printf 'reachable via eth0\n'
+    else
+        printf 'unreachable via eth0\n'
+    fi
+}
+
+status() {
+    local ap_address eth0_address gateway dns
+    ap_address="$(ipv4_address wlan0)"
+    eth0_address="$(ipv4_address eth0)"
+    gateway="$(default_gateway)"
+    dns="$(dns_servers)"
+
+    printf 'Wi-Fi AP state:         hostapd=%s, dnsmasq=%s\n' \
+        "$(service_state hostapd.service)" "$(service_state dnsmasq.service)"
+    printf 'Wi-Fi AP address:       %s\n' "${ap_address:-not assigned}"
+    printf 'ETH0 link state:        %s\n' "$(interface_state eth0)"
+    printf 'ETH0 DHCP address:      %s\n' "${eth0_address:-not assigned}"
+    printf 'Default gateway:        %s\n' "${gateway:-not configured}"
+    printf 'DNS servers:            %s\n' "${dns:-not configured}"
+    printf 'Internet reachability:  %s\n' "$(internet_state)"
+    printf 'Container runtime:      docker=%s, kronoskvm-containers=%s\n' \
+        "$(service_state docker.service)" \
+        "$(service_state kronoskvm-containers.service)"
+}
+
+case "${1:-}" in
+    status) status ;;
+    --help|-h) usage ;;
+    *) usage >&2; exit 2 ;;
+esac
