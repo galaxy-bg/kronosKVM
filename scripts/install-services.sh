@@ -82,7 +82,8 @@ run install -m 0644 \
 
 if ! "${DRY_RUN}"; then
     systemctl daemon-reload
-    systemctl enable --now kronoskvm-api.service
+    systemctl enable kronoskvm-api.service
+    systemctl restart kronoskvm-api.service
 fi
 
 printf '[INFO] KronosKVM API installation complete.\n'

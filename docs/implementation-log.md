@@ -50,3 +50,5 @@
 - Verified all API endpoints on the CM4 using real system data.
 - Confirmed the service is enabled, active and stable with zero restarts after
   the Python 3.9 compatibility fix.
+- Updated deployment to restart the API explicitly after application upgrades,
+  ensuring new code replaces the running process.
