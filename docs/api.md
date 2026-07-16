@@ -15,6 +15,7 @@ The Milestone 3 API is read-only and listens on `127.0.0.1:8000`.
 - `GET /api/v1/hardware/serial`
 - `GET /api/v1/hardware/rtc`
 - `GET /api/v1/hardware/temperature`
+- `GET /api/v1/hardware/ports`
 - `GET /api/v1/serial/devices`
 - `POST /api/v1/serial/locks`
 - `DELETE /api/v1/serial/locks/{device_name}`

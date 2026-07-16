@@ -56,19 +56,77 @@ function renderServices() {
   ).join("");
 }
 
+const portIcons = {
+  console_1: "⌨",
+  console_2: "⌨",
+  service_usb: "USB",
+  target_lan: "↔",
+  kvm_otg: "KVM",
+};
+
+function showToast(message) {
+  const toast = document.querySelector("#toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  window.setTimeout(() => toast.classList.remove("show"), 3200);
+}
+
+function renderPorts(inventory) {
+  document.querySelector("#ports").innerHTML = inventory.ports.map((port) => {
+    const connected = port.connected;
+    const isConsole = port.id === "console_1" || port.id === "console_2";
+    const statusClass = port.status === "setup_pending"
+      ? "pending-state"
+      : connected ? "" : "disconnected-state";
+    const detail = port.device_name ||
+      [port.physical_label, port.usb_path].filter(Boolean).join(" · ");
+    const consoleTitle = port.console_available
+      ? "Serial adapter detected; terminal transport is the next milestone"
+      : connected
+        ? "Connected device is not a serial console adapter"
+        : "Connect a USB serial adapter first";
+    return `<article class="port-card ${port.id === "kvm_otg" ? "otg-card" : ""}">
+      <span class="port-icon">${escapeHtml(portIcons[port.id] || "IO")}</span>
+      <div>
+        <strong>${escapeHtml(port.name)}</strong>
+        <p>${escapeHtml(port.physical_label)}${port.usb_path ? ` · <code>${escapeHtml(port.usb_path)}</code>` : ""}</p>
+        <div class="port-meta">
+          <span class="port-state ${statusClass}">${escapeHtml(port.status.replace("_", " "))}</span>
+          <span class="muted">${escapeHtml(detail)}</span>
+        </div>
+      </div>
+      <div class="port-actions">
+        ${isConsole ? `<button class="port-action" type="button"
+          title="Serial session transport is not enabled yet" disabled>Connect</button>
+        <button class="port-action console-action" type="button"
+          data-port="${escapeHtml(port.name)}" data-available="${port.console_available}"
+          title="${escapeHtml(consoleTitle)}" disabled>⌨ Console</button>` : ""}
+        <button class="port-action status-action" type="button"
+          data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">Status</button>
+      </div>
+    </article>`;
+  }).join("");
+
+  document.querySelectorAll(".status-action").forEach((button) => {
+    button.addEventListener("click", () => showToast(button.dataset.message));
+  });
+}
+
 async function load() {
   const health = document.querySelector("#health");
   try {
-    const [healthData, system, network] = await Promise.all([
+    const [healthData, system, network, ports] = await Promise.all([
       getJson("/api/v1/health"),
       getJson("/api/v1/system/info"),
       getJson("/api/v1/system/network"),
+      getJson("/api/v1/hardware/ports"),
     ]);
     health.textContent = `API ${text(healthData.status)}`;
     health.className = "badge ready";
     renderSystem(system);
     renderNetwork(network);
     renderServices();
+    renderPorts(ports);
   } catch (error) {
     health.textContent = "API unavailable";
     health.className = "badge error";

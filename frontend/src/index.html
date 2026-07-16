@@ -62,33 +62,7 @@
         <div><h2>Physical ports</h2><p>Verified chassis assignments and stable Linux topology paths</p></div>
         <span class="verified-label">✓ Mapped</span>
       </div>
-      <div class="port-grid">
-        <article class="port-card">
-          <span class="port-icon">⌁</span>
-          <div><strong>Console 1</strong><p>USB1 · <code>1-1.1</code></p></div>
-          <span class="port-state">Verified</span>
-        </article>
-        <article class="port-card">
-          <span class="port-icon">⌁</span>
-          <div><strong>Console 2</strong><p>USB2 · <code>1-1.2</code></p></div>
-          <span class="port-state">Verified</span>
-        </article>
-        <article class="port-card">
-          <span class="port-icon">USB</span>
-          <div><strong>Service USB</strong><p>USB3 · <code>1-1.3</code></p></div>
-          <span class="port-state">Verified</span>
-        </article>
-        <article class="port-card">
-          <span class="port-icon">↔</span>
-          <div><strong>Target LAN</strong><p>ETH1 · <code>1-1.5</code></p></div>
-          <span class="port-state">Verified</span>
-        </article>
-        <article class="port-card otg-card">
-          <span class="port-icon">KVM</span>
-          <div><strong>KVM OTG</strong><p>USB-C SLAVE · HID and virtual media</p></div>
-          <span class="port-state pending-state">UDC pending</span>
-        </article>
-      </div>
+      <div id="ports" class="port-grid">Loading port status…</div>
       <div class="port-warning">
         <strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1,
         Console 2, Service USB and ETH1 from the CM4 host USB topology.
@@ -121,6 +95,7 @@
     <span><i></i> KronosKVM management interface</span>
     <span>192.168.34.100 · Version 0.1.0</span>
   </footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/app.js" defer></script>
 </body>
 </html>

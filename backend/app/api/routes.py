@@ -2,11 +2,12 @@ import socket
 
 from fastapi import APIRouter
 
-from backend.app.hardware import display, rtc, serial, temperature, usb_gadget, video
+from backend.app.hardware import display, ports, rtc, serial, temperature, usb_gadget, video
 from backend.app.models import (
     Capability,
     HealthResponse,
     NetworkInfo,
+    PhysicalPortInventory,
     ServicesInfo,
     StorageInfo,
     SystemInfo,
@@ -95,3 +96,8 @@ def temperature_info() -> TemperatureInfo:
         status="ready" if value is not None else "not_detected",
         celsius=value,
     )
+
+
+@router.get("/hardware/ports", response_model=PhysicalPortInventory)
+def port_info() -> PhysicalPortInventory:
+    return ports.physical_ports()

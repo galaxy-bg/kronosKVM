@@ -1,4 +1,5 @@
 from backend.app.models.capability import Capability, HardwareStatus
+from backend.app.models.port import PhysicalPort, PhysicalPortInventory
 from backend.app.models.serial import (
     SerialDevice,
     SerialInventory,
@@ -21,6 +22,8 @@ from backend.app.models.system import (
 __all__ = [
     "Capability",
     "HardwareStatus",
+    "PhysicalPort",
+    "PhysicalPortInventory",
     "SerialDevice",
     "SerialInventory",
     "SerialLock",

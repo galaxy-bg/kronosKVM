@@ -32,9 +32,28 @@ def test_system_endpoints() -> None:
         "/api/v1/system/storage",
         "/api/v1/system/services",
         "/api/v1/hardware/temperature",
+        "/api/v1/hardware/ports",
     ):
         response = client.get(path)
         assert response.status_code == 200
+
+
+def test_physical_port_detection(tmp_path: Path) -> None:
+    from backend.app.hardware.ports import physical_ports
+
+    usb_root = tmp_path / "usb"
+    tty_root = tmp_path / "tty"
+    udc_root = tmp_path / "udc"
+    usb_root.mkdir()
+    tty_root.mkdir()
+    udc_root.mkdir()
+    device = usb_root / "1-1.1"
+    device.mkdir()
+    (device / "product").write_text("USB Serial Adapter", encoding="utf-8")
+    inventory = physical_ports(usb_root, tty_root, udc_root)
+    console_1 = next(port for port in inventory.ports if port.id == "console_1")
+    assert console_1.connected is True
+    assert console_1.device_name == "USB Serial Adapter"
 
 
 def test_usb_controller_detection(tmp_path: Path) -> None:

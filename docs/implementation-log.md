@@ -151,3 +151,8 @@
   assignments to the AP dashboard.
 - Replaced raw capability names such as RTC and serial with user-facing KVM
   readiness for web access, console ports, KVM OTG and video input.
+- Added `/api/v1/hardware/ports` for live chassis USB presence, attached device
+  identity and serial-console eligibility.
+- Updated the dashboard with connected/disconnected states, attached device
+  names, status actions and disabled Connect/Console controls until the serial
+  WebSocket transport is implemented.
