@@ -32,7 +32,7 @@ Planned and implemented settings:
 - Appliance address: `192.168.34.100/24`
 - DHCP pool: `192.168.34.150-192.168.34.220`
 - WPA2-PSK with a secret entered interactively during installation
-- DNS service disabled; clients use the AP only for management initially
+- DNS forwarding listens only on loopback and the AP address
 - No default gateway is advertised to AP clients until controlled NAT is enabled
 - Routing, NAT and bridging disabled
 - `eth0` remains the customer network and internet uplink

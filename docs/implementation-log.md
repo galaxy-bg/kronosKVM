@@ -80,6 +80,7 @@
 - Assigned `192.168.34.100/24` and DHCP pool
   `192.168.34.150-192.168.34.220`.
 - Kept `eth0` as the preferred customer/internet route.
-- Disabled DNS forwarding, routing, NAT and bridging.
+- Enabled DNS forwarding only on loopback and the AP address; routing, NAT and
+  bridging remain disabled.
 - Stored the WPA passphrase only in root-readable hostapd configuration.
 - Verified hostapd, dnsmasq and KronosKVM API services are active.

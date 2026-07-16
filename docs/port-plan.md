@@ -16,6 +16,6 @@
 
 Only SSH should be remotely reachable during initial discovery.
 
-The management AP DHCP service uses UDP 67 only on `wlan0`. DNS forwarding is
-disabled in the initial AP configuration, and no customer-network forwarding or
-NAT is enabled.
+The management AP uses DHCP UDP 67 and DNS TCP/UDP 53 only on `wlan0`; DNS also
+listens on loopback for the appliance resolver. No customer-network forwarding,
+default gateway advertisement or NAT is enabled.
