@@ -16,7 +16,7 @@ def _stable_paths(device: Path, serial_root: Path) -> list[Path]:
     for directory in ("by-id", "by-path"):
         root = serial_root / directory
         try:
-            candidates = root.iterdir()
+            candidates = list(root.iterdir())
         except OSError:
             continue
         for candidate in candidates:

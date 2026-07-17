@@ -42,6 +42,20 @@ def test_profiles_have_safe_defaults(tmp_path: Path) -> None:
     assert default.stop_bits == 1
 
 
+def test_discovery_tolerates_missing_stable_path_directories(tmp_path: Path) -> None:
+    device_root = tmp_path / "dev"
+    device_root.mkdir()
+    (device_root / "ttyUSB0").touch()
+
+    devices = discover_devices(
+        device_root=device_root,
+        serial_root=device_root / "serial",
+        sys_tty_root=tmp_path / "sys" / "class" / "tty",
+    )
+
+    assert [device.device for device in devices] == [str(device_root / "ttyUSB0")]
+
+
 def test_serial_lock_is_exclusive() -> None:
     registry = SerialLockRegistry()
     first = registry.acquire("/dev/ttyUSB0", "operator-a")
