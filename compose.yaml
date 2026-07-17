@@ -17,9 +17,15 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    group_add:
+      - "20"
+    device_cgroup_rules:
+      - "c 188:* rw"
+      - "c 166:* rw"
     tmpfs:
       - /tmp:size=16m,mode=1777
     volumes:
+      - /dev:/dev
       - /sys:/sys:ro
       - /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro
       - /etc/kronoskvm:/etc/kronoskvm:ro

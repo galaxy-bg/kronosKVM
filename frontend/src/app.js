@@ -52,6 +52,24 @@ const portIcons = {
   kvm_otg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H4zM8 19h8m-4-4v4M9 9l2 2 4-4"/></svg>`,
 };
 
+let activeSocket = null;
+let activePortId = null;
+
+function serialProfile(portId) {
+  const fallback = {
+    baud_rate: portId === "console_1" ? 115200 : 9600,
+    data_bits: 8,
+    parity: "none",
+    stop_bits: 1,
+    flow_control: "none",
+  };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(`kronoskvm.serial.${portId}`)) };
+  } catch {
+    return fallback;
+  }
+}
+
 function showToast(message) {
   const toast = document.querySelector("#toast");
   toast.textContent = message;
@@ -77,14 +95,20 @@ function renderPorts(inventory) {
       <td data-label="Actions"><details class="action-menu">
         <summary aria-label="Open actions for ${escapeHtml(port.name)}" title="Actions">⋯</summary>
         <div class="action-menu-list" role="menu">
-          <button class="menu-action" type="button" role="menuitem"
-            data-message="${escapeHtml(`${port.name}: configuration panel is the next milestone`)}">⚙ Config</button>
+          <button class="config-action" type="button" role="menuitem"
+            data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
+            data-device="${escapeHtml(port.serial_device || "")}" ${isConsole ? "" : "disabled"}>⚙ Config</button>
           <button class="menu-action" type="button" role="menuitem"
             data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">◎ Status</button>
-          <button type="button" role="menuitem" title="Port control backend is not enabled yet" disabled>
-            ${connected ? "⊘" : "→"} ${connectionAction}</button>
-          ${isConsole ? `<button type="button" role="menuitem"
-            title="Serial terminal transport is not enabled yet" disabled>⌘ Console</button>` : ""}
+          ${isConsole ? `<button class="connect-action" type="button" role="menuitem"
+            data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>→ Connect</button>
+          <button class="disconnect-action" type="button" role="menuitem"
+            data-port-id="${escapeHtml(port.id)}" disabled>⊘ Disconnect</button>
+          <button class="console-action" type="button" role="menuitem"
+            data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>⌘ Console</button>` :
+            `<button type="button" role="menuitem" title="Port control backend is not enabled yet" disabled>${connected ? "⊘ Disconnect" : `→ ${connectionAction}`}</button>`}
         </div>
       </details></td>
     </tr>`;
@@ -96,6 +120,93 @@ function renderPorts(inventory) {
       button.closest("details").removeAttribute("open");
     });
   });
+  document.querySelectorAll(".config-action").forEach((button) => {
+    button.addEventListener("click", () => openConfig(button));
+  });
+  document.querySelectorAll(".connect-action, .console-action").forEach((button) => {
+    button.addEventListener("click", () => openConsole(button));
+  });
+  document.querySelectorAll(".disconnect-action").forEach((button) => {
+    button.addEventListener("click", closeConsole);
+  });
+  setConnectionControls();
+}
+
+function openConfig(button) {
+  const profile = serialProfile(button.dataset.portId);
+  document.querySelector("#config-port-name").textContent = button.dataset.portName;
+  document.querySelector("#config-device").value = button.dataset.device;
+  document.querySelector("#config-form").dataset.portId = button.dataset.portId;
+  document.querySelector("#config-baud").value = profile.baud_rate;
+  document.querySelector("#config-bits").value = profile.data_bits;
+  document.querySelector("#config-parity").value = profile.parity;
+  document.querySelector("#config-stop").value = profile.stop_bits;
+  document.querySelector("#config-flow").value = profile.flow_control;
+  button.closest("details").removeAttribute("open");
+  document.querySelector("#config-dialog").showModal();
+}
+
+function setConnectionControls() {
+  document.querySelectorAll(".connect-action, .console-action").forEach((button) => {
+    button.disabled = !button.dataset.device || activeSocket !== null;
+  });
+  document.querySelectorAll(".disconnect-action").forEach((button) => {
+    button.disabled = button.dataset.portId !== activePortId;
+  });
+}
+
+function appendTerminal(value) {
+  const terminal = document.querySelector("#terminal");
+  terminal.textContent += value;
+  if (terminal.textContent.length > 100000) terminal.textContent = terminal.textContent.slice(-80000);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function openConsole(button) {
+  if (!button.dataset.device || activeSocket) return;
+  const profile = serialProfile(button.dataset.portId);
+  const deviceName = button.dataset.device.split("/").pop();
+  const query = new URLSearchParams(profile).toString();
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${protocol}://${location.host}/api/v1/serial/ws/${encodeURIComponent(deviceName)}?${query}`);
+  const dialog = document.querySelector("#console-dialog");
+  activeSocket = socket;
+  activePortId = button.dataset.portId;
+  document.querySelector("#console-title").textContent = button.dataset.portName;
+  document.querySelector("#console-profile").textContent = `${profile.baud_rate} baud · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}`;
+  document.querySelector("#terminal").textContent = "Connecting…\n";
+  button.closest("details").removeAttribute("open");
+  dialog.showModal();
+  setConnectionControls();
+  const decoder = new TextDecoder();
+  socket.binaryType = "arraybuffer";
+  socket.addEventListener("open", () => {
+    appendTerminal("Connected. Press Enter to request the prompt.\n");
+    socket.send(new TextEncoder().encode("\r"));
+  });
+  socket.addEventListener("message", (event) => {
+    const output = event.data instanceof ArrayBuffer ? decoder.decode(event.data, { stream: true }) : event.data;
+    appendTerminal(output);
+  });
+  socket.addEventListener("close", (event) => {
+    appendTerminal(`\nConnection closed (${event.code}).\n`);
+    activeSocket = null;
+    activePortId = null;
+    setConnectionControls();
+  });
+  socket.addEventListener("error", () => appendTerminal("\nSerial connection error.\n"));
+}
+
+function closeConsole() {
+  if (activeSocket) activeSocket.close(1000, "operator disconnect");
+  document.querySelector("#console-dialog").close();
+}
+
+function sendConsoleInput() {
+  const input = document.querySelector("#console-command");
+  if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return;
+  activeSocket.send(new TextEncoder().encode(`${input.value}\r`));
+  input.value = "";
 }
 
 async function load() {
@@ -150,6 +261,29 @@ async function load() {
 }
 
 document.querySelector("#refresh").addEventListener("click", load);
+document.querySelector("#config-form").addEventListener("submit", (event) => {
+  if (event.submitter?.value === "cancel") return;
+  event.preventDefault();
+  const form = event.currentTarget;
+  const profile = {
+    baud_rate: Number(document.querySelector("#config-baud").value),
+    data_bits: Number(document.querySelector("#config-bits").value),
+    parity: document.querySelector("#config-parity").value,
+    stop_bits: Number(document.querySelector("#config-stop").value),
+    flow_control: document.querySelector("#config-flow").value,
+  };
+  localStorage.setItem(`kronoskvm.serial.${form.dataset.portId}`, JSON.stringify(profile));
+  document.querySelector("#config-dialog").close();
+  showToast("Serial configuration saved");
+});
+document.querySelector("#console-close").addEventListener("click", closeConsole);
+document.querySelector("#console-dialog").addEventListener("close", () => {
+  if (activeSocket) activeSocket.close(1000, "console closed");
+});
+document.querySelector("#console-send").addEventListener("click", sendConsoleInput);
+document.querySelector("#console-command").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); sendConsoleInput(); }
+});
 document.addEventListener("click", (event) => {
   document.querySelectorAll(".action-menu[open]").forEach((menu) => {
     if (!menu.contains(event.target)) menu.removeAttribute("open");

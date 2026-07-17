@@ -12,6 +12,9 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     assert api["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in api["security_opt"]
     assert "/var/run/docker.sock" not in str(api.get("volumes", []))
+    assert "/dev:/dev" in api["volumes"]
+    assert api["group_add"] == ["20"]
+    assert api["device_cgroup_rules"] == ["c 188:* rw", "c 166:* rw"]
     assert (
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
         in api["volumes"]
@@ -28,9 +31,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.1.7.js" in html
-    assert "/styles-0.1.7.css" in html
-    assert "app-0.1.7.js" in dockerfile
+    assert "/app-0.1.8.js" in html
+    assert "/styles-0.1.8.css" in html
+    assert "app-0.1.8.js" in dockerfile
     assert 'class="metrics"' not in html
     assert 'class="port-table"' in html
     assert 'class="action-menu"' in Path("frontend/src/app.js").read_text(
@@ -51,6 +54,7 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert "listen 192.168.34.100:80;" in nginx
     assert "listen 80" not in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
+    assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
 
 

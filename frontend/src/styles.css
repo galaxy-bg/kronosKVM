@@ -137,6 +137,24 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
   opacity: 0; pointer-events: none; transform: translateY(8px); transition: .18s ease;
 }
 .toast.show { opacity: 1; transform: translateY(0); }
+.modal { width: min(520px, calc(100% - 28px)); padding: 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: #25292d; box-shadow: 0 24px 70px rgba(20, 42, 35, .24); }
+.modal::backdrop { background: rgba(18, 29, 26, .42); backdrop-filter: blur(3px); }
+.modal form { padding: 0 22px 22px; }
+.modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 22px 16px; border-bottom: 1px solid var(--line); }
+.modal form .modal-heading { margin: 0 -22px 20px; }
+.modal-heading h2 { margin: 0; font-size: 1.08rem; }
+.modal-heading p { margin: 4px 0 0; color: var(--muted); font-size: .77rem; }
+.modal-close { width: 32px; height: 32px; border: 0; border-radius: 8px; background: #f2f5f4; color: #5f6864; font-size: 1.2rem; cursor: pointer; }
+.modal label { display: grid; gap: 6px; margin-bottom: 14px; color: #4d5752; font-size: .76rem; font-weight: 700; }
+.modal select, .console-input input { width: 100%; padding: 10px 11px; border: 1px solid #cfe2db; border-radius: 8px; background: #fff; color: #29312e; }
+.config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.modal-actions button, .console-input button { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #4e5753; font-weight: 700; cursor: pointer; }
+.modal .primary { border-color: var(--green); background: var(--green); color: #fff; }
+.console-modal { width: min(920px, calc(100% - 28px)); }
+.terminal { min-height: 420px; max-height: 65vh; margin: 0; padding: 18px; overflow: auto; background: #111714; color: #b9f4d6; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.console-input { display: grid; grid-template-columns: 1fr auto; gap: 9px; padding: 14px; border-top: 1px solid #27342f; background: #18211d; }
+.console-input input { border-color: #3e544b; background: #111714; color: #e6f7ef; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 @media (max-width: 850px) {
   .nav-actions .nav-button:not(.active) { display: none; }
@@ -155,4 +173,6 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
   .port-table { min-width: 700px; }
   .statusbar { justify-content: center; }
   .statusbar span:last-child { display: none; }
+  .config-grid { grid-template-columns: 1fr; gap: 0; }
+  .terminal { min-height: 330px; }
 }
