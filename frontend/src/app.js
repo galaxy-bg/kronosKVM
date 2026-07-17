@@ -173,6 +173,7 @@ function setConnectionControls() {
 function appendTerminal(session, value) {
   const terminal = session.element.querySelector(".terminal");
   terminal.textContent += value;
+  if (session.logging) session.logParts.push(value);
   if (terminal.textContent.length > 100000) terminal.textContent = terminal.textContent.slice(-80000);
   terminal.scrollTop = terminal.scrollHeight;
 }
@@ -213,10 +214,11 @@ function createTerminalWindow(button, profile) {
   element.style.left = `${Math.max(12, Math.min(120 + offset, window.innerWidth - 420))}px`;
   element.style.top = `${120 + offset}px`;
   element.innerHTML = `<header class="terminal-titlebar">
-      <div class="terminal-heading"><div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(button.dataset.portName)} · ${profile.baud_rate} · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}</span></div><span class="terminal-connection connecting"><i></i><b>Connecting</b></span></div>
+      <div class="terminal-heading"><div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(button.dataset.portName)} · ${profile.baud_rate} · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}</span></div></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
-    <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} interactive serial terminal">Connecting…\n</pre>`;
+    <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} interactive serial terminal">Connecting…\n</pre>
+    <footer class="terminal-footer"><div class="terminal-log-controls"><button class="log-start" type="button">● Start log</button><button class="log-stop" type="button" disabled>■ Stop log</button><button class="log-download" type="button" disabled>↓ Download TXT</button></div><span class="terminal-connection connecting"><i></i><b>Connecting</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   focusTerminal(element);
   enableTerminalDrag(element);
@@ -244,7 +246,7 @@ function openConsole(button) {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/serial/ws/${encodeURIComponent(deviceName)}?${query}`);
   const element = createTerminalWindow(button, profile);
-  const session = { socket, element };
+  const session = { socket, element, label, profile, logging: false, logParts: [] };
   terminals.set(button.dataset.portId, session);
   button.closest("details").removeAttribute("open");
   setConnectionControls();
@@ -300,11 +302,56 @@ function openConsole(button) {
   element.querySelector(".terminal-close").addEventListener("click", () => closeTerminal(button.dataset.portId));
   element.querySelector(".terminal-minimize").addEventListener("click", () => element.classList.toggle("minimized"));
   element.querySelector(".terminal-maximize").addEventListener("click", () => element.classList.toggle("maximized"));
+  element.querySelector(".log-start").addEventListener("click", () => startTerminalLog(session));
+  element.querySelector(".log-stop").addEventListener("click", () => stopTerminalLog(session));
+  element.querySelector(".log-download").addEventListener("click", () => downloadTerminalLog(session));
+}
+
+function setLogButtons(session) {
+  session.element.querySelector(".log-start").disabled = session.logging;
+  session.element.querySelector(".log-stop").disabled = !session.logging;
+  session.element.querySelector(".log-download").disabled = session.logging || session.logParts.length === 0;
+}
+
+function startTerminalLog(session) {
+  const started = new Date();
+  session.logging = true;
+  session.logStartedAt = started;
+  session.logParts = [
+    `KronosKVM serial console log\n`,
+    `Terminal: ${session.label}\n`,
+    `Started: ${started.toISOString()}\n`,
+    `Profile: ${session.profile.baud_rate} baud, ${session.profile.data_bits}${session.profile.parity[0].toUpperCase()}${session.profile.stop_bits}, flow=${session.profile.flow_control}\n`,
+    `${"-".repeat(72)}\n`,
+  ];
+  setLogButtons(session);
+  showToast(`${session.label}: logging started`);
+}
+
+function stopTerminalLog(session) {
+  if (!session.logging) return;
+  session.logParts.push(`\n${"-".repeat(72)}\nStopped: ${new Date().toISOString()}\n`);
+  session.logging = false;
+  setLogButtons(session);
+  showToast(`${session.label}: log ready to download`);
+}
+
+function downloadTerminalLog(session) {
+  if (!session.logParts.length || session.logging) return;
+  const safeName = session.label.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "console";
+  const timestamp = (session.logStartedAt || new Date()).toISOString().replace(/[:.]/g, "-");
+  const url = URL.createObjectURL(new Blob(session.logParts, { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeName}-${timestamp}.txt`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function closeTerminal(portId) {
   const session = terminals.get(portId);
   if (!session) return;
+  if (session.logging) stopTerminalLog(session);
   if (session.socket) session.socket.close(1000, "operator disconnect");
   session.element.remove();
   terminals.delete(portId);

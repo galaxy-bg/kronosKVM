@@ -183,3 +183,5 @@
   that support custom port names, dragging, resizing, minimizing and maximizing.
 - Made terminal windows directly keyboard-driven with control/navigation keys,
   paste support, focus indication and live connection-state LEDs.
+- Moved connection state to the terminal footer and added explicit in-browser
+  Start/Stop logging with local timestamped plain-text downloads.

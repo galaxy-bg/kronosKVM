@@ -2,8 +2,8 @@ FROM nginx:1.28-alpine
 
 COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY frontend/src /usr/share/nginx/html
-RUN cp /usr/share/nginx/html/app.js /usr/share/nginx/html/app-0.2.1.js \
-    && cp /usr/share/nginx/html/styles.css /usr/share/nginx/html/styles-0.2.1.css
+RUN cp /usr/share/nginx/html/app.js /usr/share/nginx/html/app-0.2.2.js \
+    && cp /usr/share/nginx/html/styles.css /usr/share/nginx/html/styles-0.2.2.css
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --quiet --spider http://192.168.34.100/healthz || exit 1
