@@ -197,3 +197,7 @@
   which left accepted sessions visually stuck on Connecting with an inert X.
 - Added a per-console Reset session action that closes the selected WebSocket
   and force-releases only that serial device lock without restarting services.
+- Kept Disconnect available whenever a console adapter is present, including
+  stale or browser-orphaned backend sessions.
+- Replaced passive reset with Re-detect & connect: it disconnects every local
+  window using that adapter, clears the backend session and forces auto-baud.

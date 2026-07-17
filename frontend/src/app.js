@@ -89,11 +89,12 @@ function renderPorts(inventory) {
     const detail = port.device_name ||
       [port.physical_label, port.usb_path].filter(Boolean).join(" · ");
     const connectionAction = connected ? "Disconnect" : "Connect";
+    const displayStatus = isConsole && connected ? "adapter connected" : port.status.replaceAll("_", " ");
     return `<tr>
       <td data-label="Port"><div class="port-name"><span class="port-icon">${portIcons[port.id] || "IO"}</span><strong>${escapeHtml(port.name)}</strong></div></td>
       <td data-label="Interface"><span class="interface-label">${escapeHtml(port.physical_label)}</span>${port.usb_path ? `<code>${escapeHtml(port.usb_path)}</code>` : ""}</td>
       <td data-label="Connected device" class="device-cell">${escapeHtml(detail || "No device detected")}</td>
-      <td data-label="State"><span class="port-state ${statusClass}">${escapeHtml(port.status.replaceAll("_", " "))}</span></td>
+      <td data-label="State"><span class="port-state ${statusClass}">${escapeHtml(displayStatus)}</span></td>
       <td data-label="Actions"><details class="action-menu">
         <summary aria-label="Open actions for ${escapeHtml(port.name)}" title="Actions">⋯</summary>
         <div class="action-menu-list" role="menu">
@@ -106,13 +107,14 @@ function renderPorts(inventory) {
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
             data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>→ Connect</button>
           <button class="disconnect-action" type="button" role="menuitem"
-            data-port-id="${escapeHtml(port.id)}" disabled>⊘ Disconnect</button>
+            data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>⊘ Disconnect</button>
           <button class="console-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
             data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>⌘ Console</button>
           <button class="reset-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
-            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>↻ Reset session</button>` :
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>↻ Re-detect &amp; connect</button>` :
             `<button type="button" role="menuitem" title="Port control backend is not enabled yet" disabled>${connected ? "⊘ Disconnect" : `→ ${connectionAction}`}</button>`}
         </div>
       </details></td>
@@ -132,10 +134,10 @@ function renderPorts(inventory) {
     button.addEventListener("click", () => openConsole(button));
   });
   document.querySelectorAll(".disconnect-action").forEach((button) => {
-    button.addEventListener("click", () => closeTerminal(button.dataset.portId));
+    button.addEventListener("click", () => disconnectSerialSession(button));
   });
   document.querySelectorAll(".reset-action").forEach((button) => {
-    button.addEventListener("click", () => resetSerialSession(button));
+    button.addEventListener("click", () => redetectAndConnect(button));
   });
   setConnectionControls();
 }
@@ -172,7 +174,7 @@ function setConnectionControls() {
     button.disabled = !button.dataset.device || terminals.has(button.dataset.portId);
   });
   document.querySelectorAll(".disconnect-action").forEach((button) => {
-    button.disabled = !terminals.has(button.dataset.portId);
+    button.disabled = !button.dataset.device;
   });
 }
 
@@ -232,7 +234,7 @@ function createTerminalWindow(button, profile) {
   return element;
 }
 
-function openConsole(button) {
+function openConsole(button, profileOverride = null) {
   if (!button.dataset.device) return;
   if (terminals.has(button.dataset.portId)) {
     const existing = terminals.get(button.dataset.portId).element;
@@ -247,7 +249,8 @@ function openConsole(button) {
     const [conflictingPortId, conflictingSession] = conflictingEntry;
     if (conflictingSession.socket && conflictingSession.socket.readyState !== WebSocket.CLOSED) {
       conflictingSession.socket.addEventListener(
-        "close", () => window.setTimeout(() => openConsole(button), 100), { once: true }
+        "close", () => window.setTimeout(() => openConsole(button, profileOverride), 100),
+        { once: true }
       );
       closeTerminal(conflictingPortId);
       showToast("Serial adapter moved; previous terminal closed");
@@ -255,7 +258,7 @@ function openConsole(button) {
     }
     closeTerminal(conflictingPortId);
   }
-  const profile = serialProfile(button.dataset.portId);
+  const profile = profileOverride || serialProfile(button.dataset.portId);
   const deviceName = button.dataset.device.split("/").pop();
   const query = new URLSearchParams({
     baud_rate: profile.baud_rate,
@@ -348,20 +351,31 @@ function openConsole(button) {
   element.querySelector(".log-download").addEventListener("click", () => downloadTerminalLog(session));
 }
 
-async function resetSerialSession(button) {
+async function disconnectSerialSession(button, announce = true) {
   const deviceName = button.dataset.device.split("/").pop();
   button.closest("details").removeAttribute("open");
-  if (terminals.has(button.dataset.portId)) closeTerminal(button.dataset.portId);
+  [...terminals.entries()]
+    .filter(([, session]) => session.device === button.dataset.device)
+    .forEach(([portId]) => closeTerminal(portId));
   try {
     const response = await fetch(`/api/v1/serial/sessions/${encodeURIComponent(deviceName)}`, {
       method: "DELETE",
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    showToast(`${button.dataset.portName}: serial session reset`);
+    if (announce) showToast(`${button.dataset.portName}: disconnected`);
+    return true;
   } catch (error) {
-    showToast(`${button.dataset.portName}: reset failed`);
-    console.error("Serial session reset failed", error);
+    showToast(`${button.dataset.portName}: disconnect failed`);
+    console.error("Serial session disconnect failed", error);
+    return false;
   }
+}
+
+async function redetectAndConnect(button) {
+  if (!await disconnectSerialSession(button, false)) return;
+  const profile = { ...serialProfile(button.dataset.portId), baud_rate: "auto" };
+  showToast(`${button.dataset.portName}: detecting console speed`);
+  window.setTimeout(() => openConsole(button, profile), 100);
 }
 
 function setLogButtons(session) {
