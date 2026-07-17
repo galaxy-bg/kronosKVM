@@ -191,3 +191,5 @@
   on its new port closes the stale window first, then reconnects after unlock.
 - Replaced WebSocket handshake rejection for busy serial ports with an explicit
   terminal message and close code so the GUI can explain the lock conflict.
+- Made terminal close immediate during WebSocket connection setup; the window
+  is removed first and a still-connecting socket is closed once it opens.

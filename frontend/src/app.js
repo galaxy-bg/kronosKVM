@@ -386,10 +386,17 @@ function closeTerminal(portId) {
   const session = terminals.get(portId);
   if (!session) return;
   if (session.logging) stopTerminalLog(session);
-  if (session.socket) session.socket.close(1000, "operator disconnect");
-  session.element.remove();
   terminals.delete(portId);
+  session.element.remove();
   setConnectionControls();
+  if (!session.socket) return;
+  if (session.socket.readyState === WebSocket.CONNECTING) {
+    session.socket.addEventListener(
+      "open", () => session.socket.close(1000, "operator disconnect"), { once: true }
+    );
+  } else if (session.socket.readyState === WebSocket.OPEN) {
+    session.socket.close(1000, "operator disconnect");
+  }
 }
 
 async function load() {
