@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import Optional, Tuple
 
 import serial
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -20,6 +21,43 @@ PARITY = {
     "even": serial.PARITY_EVEN,
     "odd": serial.PARITY_ODD,
 }
+AUTO_BAUD_RATES = (115200, 9600, 38400, 19200, 57600)
+
+
+def _probe_baud_rate(
+    device: str,
+    data_bits: int,
+    parity: str,
+    stop_bits: float,
+    flow_control: str,
+) -> Optional[Tuple[int, bytes]]:
+    best: Optional[Tuple[float, int, bytes]] = None
+    for baud_rate in AUTO_BAUD_RATES:
+        try:
+            with serial.Serial(
+                port=device,
+                baudrate=baud_rate,
+                bytesize=data_bits,
+                parity=PARITY[parity],
+                stopbits=stop_bits,
+                xonxoff=flow_control == "software",
+                rtscts=flow_control == "hardware",
+                timeout=0.7,
+                write_timeout=1,
+            ) as candidate:
+                candidate.reset_input_buffer()
+                candidate.write(b"\r")
+                payload = candidate.read(256)
+        except (OSError, serial.SerialException):
+            continue
+        if not payload:
+            continue
+        printable = sum(byte in (9, 10, 13) or 32 <= byte <= 126 for byte in payload)
+        ratio = printable / len(payload)
+        score = ratio + min(len(payload), 64) / 256
+        if ratio >= 0.75 and (best is None or score > best[0]):
+            best = (score, baud_rate, payload)
+    return (best[1], best[2]) if best else None
 
 
 @router.get("/devices", response_model=SerialInventory)
@@ -53,7 +91,7 @@ def release_lock(device_name: str, request: SerialUnlockRequest) -> None:
 async def serial_console(
     websocket: WebSocket,
     device_name: str,
-    baud_rate: int = 9600,
+    baud_rate: str = "9600",
     data_bits: int = 8,
     parity: str = "none",
     stop_bits: float = 1,
@@ -64,8 +102,12 @@ async def serial_console(
     valid_name = Path(device_name).name == device_name and device_name.startswith(
         ("ttyUSB", "ttyACM")
     )
+    try:
+        numeric_baud_rate = int(baud_rate) if baud_rate != "auto" else None
+    except ValueError:
+        numeric_baud_rate = -1
     valid_settings = (
-        50 <= baud_rate <= 4_000_000
+        (baud_rate == "auto" or 50 <= numeric_baud_rate <= 4_000_000)
         and data_bits in {5, 6, 7, 8}
         and parity in PARITY
         and stop_bits in {1, 1.5, 2}
@@ -83,9 +125,27 @@ async def serial_console(
     connection = None
     await websocket.accept()
     try:
+        initial_payload = b""
+        if baud_rate == "auto":
+            probe = await asyncio.to_thread(
+                _probe_baud_rate,
+                device,
+                data_bits,
+                parity,
+                stop_bits,
+                flow_control,
+            )
+            if probe is None:
+                await websocket.send_text("\r\n[KronosKVM: baud rate could not be detected]\r\n")
+                await websocket.close(code=4408)
+                return
+            numeric_baud_rate, initial_payload = probe
+            await websocket.send_text(
+                f"\r\n[KronosKVM: auto-detected {numeric_baud_rate} baud]\r\n"
+            )
         connection = serial.Serial(
             port=device,
-            baudrate=baud_rate,
+            baudrate=numeric_baud_rate,
             bytesize=data_bits,
             parity=PARITY[parity],
             stopbits=stop_bits,
@@ -94,6 +154,8 @@ async def serial_console(
             timeout=0.1,
             write_timeout=1,
         )
+        if initial_payload:
+            await websocket.send_bytes(initial_payload)
 
         async def serial_to_web() -> None:
             while True:

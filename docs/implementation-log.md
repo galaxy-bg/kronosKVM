@@ -185,3 +185,5 @@
   paste support, focus indication and live connection-state LEDs.
 - Moved connection state to the terminal footer and added explicit in-browser
   Start/Stop logging with local timestamped plain-text downloads.
+- Added opt-in automatic serial baud probing across common console speeds;
+  only sufficiently printable responses are accepted before opening a session.

@@ -59,7 +59,7 @@ let portRetryTimer = null;
 function serialProfile(portId) {
   const fallback = {
     display_name: "",
-    baud_rate: portId === "console_1" ? 115200 : 9600,
+    baud_rate: "auto",
     data_bits: 8,
     parity: "none",
     stop_bits: 1,
@@ -252,16 +252,27 @@ function openConsole(button) {
   setConnectionControls();
   const decoder = new TextDecoder();
   socket.binaryType = "arraybuffer";
-  socket.addEventListener("open", () => {
+  const markConnected = () => {
     const status = element.querySelector(".terminal-connection");
     status.className = "terminal-connection connected";
     status.querySelector("b").textContent = "Connected";
+  };
+  socket.addEventListener("open", () => {
+    if (profile.baud_rate === "auto") {
+      appendTerminal(session, "Testing common baud rates…\n");
+      return;
+    }
+    markConnected();
     appendTerminal(session, "Connected. Press Enter to request the prompt.\n");
     socket.send(new TextEncoder().encode("\r"));
     element.querySelector(".terminal").focus();
   });
   socket.addEventListener("message", (event) => {
     const output = event.data instanceof ArrayBuffer ? decoder.decode(event.data, { stream: true }) : event.data;
+    if (typeof output === "string" && output.includes("auto-detected")) {
+      markConnected();
+      element.querySelector(".terminal").focus();
+    }
     appendTerminal(session, output);
   });
   socket.addEventListener("close", (event) => {
@@ -407,7 +418,8 @@ document.querySelector("#config-form").addEventListener("submit", (event) => {
   const form = event.currentTarget;
   const profile = {
     display_name: document.querySelector("#config-display-name").value.trim(),
-    baud_rate: Number(document.querySelector("#config-baud").value),
+    baud_rate: document.querySelector("#config-baud").value === "auto"
+      ? "auto" : Number(document.querySelector("#config-baud").value),
     data_bits: Number(document.querySelector("#config-bits").value),
     parity: document.querySelector("#config-parity").value,
     stop_bits: Number(document.querySelector("#config-stop").value),
