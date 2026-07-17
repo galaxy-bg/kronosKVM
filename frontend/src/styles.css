@@ -146,15 +146,30 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
 .modal-heading p { margin: 4px 0 0; color: var(--muted); font-size: .77rem; }
 .modal-close { width: 32px; height: 32px; border: 0; border-radius: 8px; background: #f2f5f4; color: #5f6864; font-size: 1.2rem; cursor: pointer; }
 .modal label { display: grid; gap: 6px; margin-bottom: 14px; color: #4d5752; font-size: .76rem; font-weight: 700; }
-.modal select, .console-input input { width: 100%; padding: 10px 11px; border: 1px solid #cfe2db; border-radius: 8px; background: #fff; color: #29312e; }
+.modal select, .modal input, .console-input input { width: 100%; padding: 10px 11px; border: 1px solid #cfe2db; border-radius: 8px; background: #fff; color: #29312e; }
 .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .modal-actions button, .console-input button { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #4e5753; font-weight: 700; cursor: pointer; }
 .modal .primary { border-color: var(--green); background: var(--green); color: #fff; }
-.console-modal { width: min(920px, calc(100% - 28px)); }
-.terminal { min-height: 420px; max-height: 65vh; margin: 0; padding: 18px; overflow: auto; background: #111714; color: #b9f4d6; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+#terminal-layer { position: fixed; z-index: 18; inset: 0; overflow: hidden; pointer-events: none; }
+.terminal-window {
+  position: absolute; width: min(760px, calc(100vw - 32px)); height: 510px; min-width: 380px; min-height: 250px;
+  display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; resize: both; pointer-events: auto;
+  border: 1px solid #30443b; border-radius: 12px; background: #111714; box-shadow: 0 22px 65px rgba(0,0,0,.32);
+}
+.terminal-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 10px 12px 10px 15px; background: #203029; color: #eef8f3; cursor: move; touch-action: none; user-select: none; }
+.terminal-titlebar strong, .terminal-titlebar span { display: block; }
+.terminal-titlebar strong { font-size: .82rem; }
+.terminal-titlebar span { margin-top: 2px; color: #a9bcb4; font-size: .65rem; }
+.terminal-controls { display: flex; gap: 5px; }
+.terminal-controls button { width: 27px; height: 25px; padding: 0; border: 0; border-radius: 6px; background: #31443c; color: #dceae4; cursor: pointer; }
+.terminal-controls button:hover { background: #456256; }
+.terminal { min-height: 0; margin: 0; padding: 18px; overflow: auto; background: #111714; color: #b9f4d6; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
 .console-input { display: grid; grid-template-columns: 1fr auto; gap: 9px; padding: 14px; border-top: 1px solid #27342f; background: #18211d; }
 .console-input input { border-color: #3e544b; background: #111714; color: #e6f7ef; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.terminal-window.minimized { width: 300px !important; height: auto !important; min-width: 0; min-height: 0; resize: none; }
+.terminal-window.minimized .terminal, .terminal-window.minimized .console-input { display: none; }
+.terminal-window.maximized { inset: 92px 18px 55px !important; width: auto !important; height: auto !important; resize: none; }
 
 @media (max-width: 850px) {
   .nav-actions .nav-button:not(.active) { display: none; }
@@ -174,5 +189,6 @@ dd { margin: 0; max-width: 62%; text-align: right; overflow-wrap: anywhere; font
   .statusbar { justify-content: center; }
   .statusbar span:last-child { display: none; }
   .config-grid { grid-template-columns: 1fr; gap: 0; }
-  .terminal { min-height: 330px; }
+  .terminal-window { left: 12px !important; width: calc(100vw - 24px); min-width: 0; }
+  .terminal-window.maximized { inset: 76px 8px 50px !important; }
 }

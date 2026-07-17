@@ -179,3 +179,5 @@
   and a responsive web terminal for Console 1 and Console 2.
 - Decoupled physical-port loading from the other dashboard requests and added
   bounded automatic retries for transient API restarts during deployment.
+- Replaced the single console modal with independent floating terminal windows
+  that support custom port names, dragging, resizing, minimizing and maximizing.

@@ -52,12 +52,13 @@ const portIcons = {
   kvm_otg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H4zM8 19h8m-4-4v4M9 9l2 2 4-4"/></svg>`,
 };
 
-let activeSocket = null;
-let activePortId = null;
+const terminals = new Map();
+let terminalZIndex = 20;
 let portRetryTimer = null;
 
 function serialProfile(portId) {
   const fallback = {
+    display_name: "",
     baud_rate: portId === "console_1" ? 115200 : 9600,
     data_bits: 8,
     parity: "none",
@@ -128,7 +129,7 @@ function renderPorts(inventory) {
     button.addEventListener("click", () => openConsole(button));
   });
   document.querySelectorAll(".disconnect-action").forEach((button) => {
-    button.addEventListener("click", closeConsole);
+    button.addEventListener("click", () => closeTerminal(button.dataset.portId));
   });
   setConnectionControls();
 }
@@ -150,6 +151,7 @@ function openConfig(button) {
   document.querySelector("#config-port-name").textContent = button.dataset.portName;
   document.querySelector("#config-device").value = button.dataset.device;
   document.querySelector("#config-form").dataset.portId = button.dataset.portId;
+  document.querySelector("#config-display-name").value = profile.display_name;
   document.querySelector("#config-baud").value = profile.baud_rate;
   document.querySelector("#config-bits").value = profile.data_bits;
   document.querySelector("#config-parity").value = profile.parity;
@@ -161,65 +163,130 @@ function openConfig(button) {
 
 function setConnectionControls() {
   document.querySelectorAll(".connect-action, .console-action").forEach((button) => {
-    button.disabled = !button.dataset.device || activeSocket !== null;
+    button.disabled = !button.dataset.device || terminals.has(button.dataset.portId);
   });
   document.querySelectorAll(".disconnect-action").forEach((button) => {
-    button.disabled = button.dataset.portId !== activePortId;
+    button.disabled = !terminals.has(button.dataset.portId);
   });
 }
 
-function appendTerminal(value) {
-  const terminal = document.querySelector("#terminal");
+function appendTerminal(session, value) {
+  const terminal = session.element.querySelector(".terminal");
   terminal.textContent += value;
   if (terminal.textContent.length > 100000) terminal.textContent = terminal.textContent.slice(-80000);
   terminal.scrollTop = terminal.scrollHeight;
 }
 
+function focusTerminal(element) {
+  terminalZIndex += 1;
+  element.style.zIndex = terminalZIndex;
+}
+
+function enableTerminalDrag(element) {
+  const handle = element.querySelector(".terminal-titlebar");
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button") || element.classList.contains("maximized")) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startLeft = element.offsetLeft;
+    const startTop = element.offsetTop;
+    handle.setPointerCapture(event.pointerId);
+    const move = (moveEvent) => {
+      element.style.left = `${Math.max(0, startLeft + moveEvent.clientX - startX)}px`;
+      element.style.top = `${Math.max(84, startTop + moveEvent.clientY - startY)}px`;
+    };
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+  });
+}
+
+function createTerminalWindow(button, profile) {
+  const element = document.createElement("section");
+  const label = profile.display_name.trim() || button.dataset.portName;
+  const offset = terminals.size * 34;
+  element.className = "terminal-window";
+  element.dataset.portId = button.dataset.portId;
+  element.style.left = `${Math.max(12, Math.min(120 + offset, window.innerWidth - 420))}px`;
+  element.style.top = `${120 + offset}px`;
+  element.innerHTML = `<header class="terminal-titlebar">
+      <div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(button.dataset.portName)} · ${profile.baud_rate} · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}</span></div>
+      <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
+    </header>
+    <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} serial terminal output">Connecting…\n</pre>
+    <div class="console-input"><input type="text" autocomplete="off" spellcheck="false" placeholder="Type command and press Enter"><button class="primary" type="button">Send</button></div>`;
+  document.querySelector("#terminal-layer").appendChild(element);
+  focusTerminal(element);
+  enableTerminalDrag(element);
+  element.addEventListener("pointerdown", () => focusTerminal(element));
+  return element;
+}
+
 function openConsole(button) {
-  if (!button.dataset.device || activeSocket) return;
+  if (!button.dataset.device) return;
+  if (terminals.has(button.dataset.portId)) {
+    const existing = terminals.get(button.dataset.portId).element;
+    existing.classList.remove("minimized");
+    focusTerminal(existing);
+    return;
+  }
   const profile = serialProfile(button.dataset.portId);
   const deviceName = button.dataset.device.split("/").pop();
-  const query = new URLSearchParams(profile).toString();
+  const query = new URLSearchParams({
+    baud_rate: profile.baud_rate,
+    data_bits: profile.data_bits,
+    parity: profile.parity,
+    stop_bits: profile.stop_bits,
+    flow_control: profile.flow_control,
+  }).toString();
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/serial/ws/${encodeURIComponent(deviceName)}?${query}`);
-  const dialog = document.querySelector("#console-dialog");
-  activeSocket = socket;
-  activePortId = button.dataset.portId;
-  document.querySelector("#console-title").textContent = button.dataset.portName;
-  document.querySelector("#console-profile").textContent = `${profile.baud_rate} baud · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}`;
-  document.querySelector("#terminal").textContent = "Connecting…\n";
+  const element = createTerminalWindow(button, profile);
+  const session = { socket, element };
+  terminals.set(button.dataset.portId, session);
   button.closest("details").removeAttribute("open");
-  dialog.showModal();
   setConnectionControls();
   const decoder = new TextDecoder();
   socket.binaryType = "arraybuffer";
   socket.addEventListener("open", () => {
-    appendTerminal("Connected. Press Enter to request the prompt.\n");
+    appendTerminal(session, "Connected. Press Enter to request the prompt.\n");
     socket.send(new TextEncoder().encode("\r"));
   });
   socket.addEventListener("message", (event) => {
     const output = event.data instanceof ArrayBuffer ? decoder.decode(event.data, { stream: true }) : event.data;
-    appendTerminal(output);
+    appendTerminal(session, output);
   });
   socket.addEventListener("close", (event) => {
-    appendTerminal(`\nConnection closed (${event.code}).\n`);
-    activeSocket = null;
-    activePortId = null;
+    appendTerminal(session, `\nConnection closed (${event.code}).\n`);
+    session.socket = null;
     setConnectionControls();
   });
-  socket.addEventListener("error", () => appendTerminal("\nSerial connection error.\n"));
+  socket.addEventListener("error", () => appendTerminal(session, "\nSerial connection error.\n"));
+  const input = element.querySelector("input");
+  const send = () => {
+    if (!session.socket || session.socket.readyState !== WebSocket.OPEN) return;
+    session.socket.send(new TextEncoder().encode(`${input.value}\r`));
+    input.value = "";
+  };
+  element.querySelector(".console-input button").addEventListener("click", send);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); send(); }
+  });
+  element.querySelector(".terminal-close").addEventListener("click", () => closeTerminal(button.dataset.portId));
+  element.querySelector(".terminal-minimize").addEventListener("click", () => element.classList.toggle("minimized"));
+  element.querySelector(".terminal-maximize").addEventListener("click", () => element.classList.toggle("maximized"));
 }
 
-function closeConsole() {
-  if (activeSocket) activeSocket.close(1000, "operator disconnect");
-  document.querySelector("#console-dialog").close();
-}
-
-function sendConsoleInput() {
-  const input = document.querySelector("#console-command");
-  if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return;
-  activeSocket.send(new TextEncoder().encode(`${input.value}\r`));
-  input.value = "";
+function closeTerminal(portId) {
+  const session = terminals.get(portId);
+  if (!session) return;
+  if (session.socket) session.socket.close(1000, "operator disconnect");
+  session.element.remove();
+  terminals.delete(portId);
+  setConnectionControls();
 }
 
 async function load() {
@@ -270,6 +337,7 @@ document.querySelector("#config-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const profile = {
+    display_name: document.querySelector("#config-display-name").value.trim(),
     baud_rate: Number(document.querySelector("#config-baud").value),
     data_bits: Number(document.querySelector("#config-bits").value),
     parity: document.querySelector("#config-parity").value,
@@ -279,14 +347,6 @@ document.querySelector("#config-form").addEventListener("submit", (event) => {
   localStorage.setItem(`kronoskvm.serial.${form.dataset.portId}`, JSON.stringify(profile));
   document.querySelector("#config-dialog").close();
   showToast("Serial configuration saved");
-});
-document.querySelector("#console-close").addEventListener("click", closeConsole);
-document.querySelector("#console-dialog").addEventListener("close", () => {
-  if (activeSocket) activeSocket.close(1000, "console closed");
-});
-document.querySelector("#console-send").addEventListener("click", sendConsoleInput);
-document.querySelector("#console-command").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") { event.preventDefault(); sendConsoleInput(); }
 });
 document.addEventListener("click", (event) => {
   document.querySelectorAll(".action-menu[open]").forEach((menu) => {

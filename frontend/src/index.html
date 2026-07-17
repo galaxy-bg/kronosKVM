@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.1.9.css">
+  <link rel="stylesheet" href="/styles-0.2.0.css">
 </head>
 <body>
   <nav class="topbar">
@@ -81,17 +81,14 @@
     <form id="config-form" method="dialog">
       <div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div>
       <input id="config-device" type="hidden">
+      <label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label>
       <label>Baud rate<select id="config-baud"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option selected>115200</option></select></label>
       <div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div>
       <div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div>
       <div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div>
     </form>
   </dialog>
-  <dialog id="console-dialog" class="modal console-modal">
-    <div class="modal-heading"><div><h2 id="console-title">Serial console</h2><p id="console-profile"></p></div><button id="console-close" class="modal-close" aria-label="Close">×</button></div>
-    <pre id="terminal" class="terminal" tabindex="0" aria-label="Serial terminal output"></pre>
-    <div class="console-input"><input id="console-command" type="text" autocomplete="off" spellcheck="false" placeholder="Type command and press Enter"><button id="console-send" class="primary" type="button">Send</button></div>
-  </dialog>
-  <script src="/app-0.1.9.js" defer></script>
+  <div id="terminal-layer" aria-live="polite"></div>
+  <script src="/app-0.2.0.js" defer></script>
 </body>
 </html>
