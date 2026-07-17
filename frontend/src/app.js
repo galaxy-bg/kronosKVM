@@ -234,6 +234,21 @@ function openConsole(button) {
     focusTerminal(existing);
     return;
   }
+  const conflictingEntry = [...terminals.entries()].find(
+    ([, session]) => session.device === button.dataset.device
+  );
+  if (conflictingEntry) {
+    const [conflictingPortId, conflictingSession] = conflictingEntry;
+    if (conflictingSession.socket && conflictingSession.socket.readyState !== WebSocket.CLOSED) {
+      conflictingSession.socket.addEventListener(
+        "close", () => window.setTimeout(() => openConsole(button), 100), { once: true }
+      );
+      closeTerminal(conflictingPortId);
+      showToast("Serial adapter moved; previous terminal closed");
+      return;
+    }
+    closeTerminal(conflictingPortId);
+  }
   const profile = serialProfile(button.dataset.portId);
   const deviceName = button.dataset.device.split("/").pop();
   const query = new URLSearchParams({
@@ -246,7 +261,15 @@ function openConsole(button) {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/serial/ws/${encodeURIComponent(deviceName)}?${query}`);
   const element = createTerminalWindow(button, profile);
-  const session = { socket, element, label, profile, logging: false, logParts: [] };
+  const session = {
+    socket,
+    element,
+    device: button.dataset.device,
+    label,
+    profile,
+    logging: false,
+    logParts: [],
+  };
   terminals.set(button.dataset.portId, session);
   button.closest("details").removeAttribute("open");
   setConnectionControls();

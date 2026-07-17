@@ -119,6 +119,10 @@ async def serial_console(
 
     lock = serial_locks.acquire(device, "web-console")
     if lock is None:
+        await websocket.accept()
+        await websocket.send_text(
+            "\r\n[KronosKVM: serial port is already open in another terminal]\r\n"
+        )
         await websocket.close(code=4409)
         return
 

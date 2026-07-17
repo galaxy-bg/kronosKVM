@@ -187,3 +187,7 @@
   Start/Stop logging with local timestamped plain-text downloads.
 - Added opt-in automatic serial baud probing across common console speeds;
   only sufficiently printable responses are accepted before opening a session.
+- Added serial-adapter handoff between chassis ports: opening the same adapter
+  on its new port closes the stale window first, then reconnects after unlock.
+- Replaced WebSocket handshake rejection for busy serial ports with an explicit
+  terminal message and close code so the GUI can explain the lock conflict.
