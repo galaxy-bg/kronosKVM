@@ -65,6 +65,13 @@ def test_serial_lock_is_exclusive() -> None:
     assert registry.release("/dev/ttyUSB0", first.token) is True
 
 
+def test_serial_lock_can_be_force_released() -> None:
+    registry = SerialLockRegistry()
+    assert registry.acquire("/dev/ttyUSB0", "operator") is not None
+    assert registry.force_release("/dev/ttyUSB0") is True
+    assert registry.acquire("/dev/ttyUSB0", "replacement") is not None
+
+
 def test_serial_api_reports_no_devices() -> None:
     client = TestClient(create_app())
     response = client.get("/api/v1/serial/devices")
@@ -80,3 +87,9 @@ def test_lock_rejects_unknown_device() -> None:
         json={"device": "/dev/ttyUSB999", "owner": "test"},
     )
     assert response.status_code == 404
+
+
+def test_reset_rejects_invalid_device_name() -> None:
+    client = TestClient(create_app())
+    response = client.delete("/api/v1/serial/sessions/not-a-serial-device")
+    assert response.status_code == 400

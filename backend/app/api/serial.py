@@ -22,6 +22,7 @@ PARITY = {
     "odd": serial.PARITY_ODD,
 }
 AUTO_BAUD_RATES = (115200, 9600, 38400, 19200, 57600)
+active_sessions: dict[str, tuple[WebSocket, str]] = {}
 
 
 def _probe_baud_rate(
@@ -87,6 +88,23 @@ def release_lock(device_name: str, request: SerialUnlockRequest) -> None:
         raise HTTPException(status_code=403, detail="Invalid serial lock token")
 
 
+@router.delete("/sessions/{device_name}", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_session(device_name: str) -> None:
+    if Path(device_name).name != device_name or not device_name.startswith(("ttyUSB", "ttyACM")):
+        raise HTTPException(status_code=400, detail="Invalid serial device")
+    device = f"/dev/{device_name}"
+    active = active_sessions.pop(device, None)
+    if active is not None:
+        websocket, token = active
+        serial_locks.release(device, token)
+        try:
+            await websocket.close(code=4410, reason="operator reset")
+        except RuntimeError:
+            pass
+    else:
+        serial_locks.force_release(device)
+
+
 @router.websocket("/ws/{device_name}")
 async def serial_console(
     websocket: WebSocket,
@@ -128,6 +146,7 @@ async def serial_console(
 
     connection = None
     await websocket.accept()
+    active_sessions[device] = (websocket, lock.token)
     try:
         initial_payload = b""
         if baud_rate == "auto":
@@ -190,6 +209,9 @@ async def serial_console(
     except (OSError, serial.SerialException, WebSocketDisconnect):
         pass
     finally:
+        current = active_sessions.get(device)
+        if current is not None and current[0] is websocket:
+            active_sessions.pop(device, None)
         if connection is not None and connection.is_open:
             connection.close()
         serial_locks.release(device, lock.token)

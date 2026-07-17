@@ -82,5 +82,9 @@ class SerialLockRegistry:
         with self._mutex:
             return list(self._locks.values())
 
+    def force_release(self, device: str) -> bool:
+        with self._mutex:
+            return self._locks.pop(device, None) is not None
+
 
 serial_locks = SerialLockRegistry()

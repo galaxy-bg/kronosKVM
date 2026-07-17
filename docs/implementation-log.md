@@ -193,3 +193,7 @@
   terminal message and close code so the GUI can explain the lock conflict.
 - Made terminal close immediate during WebSocket connection setup; the window
   is removed first and a still-connecting socket is closed once it opens.
+- Fixed terminal initialization aborting before event handlers were installed,
+  which left accepted sessions visually stuck on Connecting with an inert X.
+- Added a per-console Reset session action that closes the selected WebSocket
+  and force-releases only that serial device lock without restarting services.

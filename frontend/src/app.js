@@ -109,7 +109,10 @@ function renderPorts(inventory) {
             data-port-id="${escapeHtml(port.id)}" disabled>⊘ Disconnect</button>
           <button class="console-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
-            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>⌘ Console</button>` :
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>⌘ Console</button>
+          <button class="reset-action" type="button" role="menuitem"
+            data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
+            data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>↻ Reset session</button>` :
             `<button type="button" role="menuitem" title="Port control backend is not enabled yet" disabled>${connected ? "⊘ Disconnect" : `→ ${connectionAction}`}</button>`}
         </div>
       </details></td>
@@ -130,6 +133,9 @@ function renderPorts(inventory) {
   });
   document.querySelectorAll(".disconnect-action").forEach((button) => {
     button.addEventListener("click", () => closeTerminal(button.dataset.portId));
+  });
+  document.querySelectorAll(".reset-action").forEach((button) => {
+    button.addEventListener("click", () => resetSerialSession(button));
   });
   setConnectionControls();
 }
@@ -260,6 +266,7 @@ function openConsole(button) {
   }).toString();
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/serial/ws/${encodeURIComponent(deviceName)}?${query}`);
+  const label = profile.display_name.trim() || button.dataset.portName;
   const element = createTerminalWindow(button, profile);
   const session = {
     socket,
@@ -339,6 +346,22 @@ function openConsole(button) {
   element.querySelector(".log-start").addEventListener("click", () => startTerminalLog(session));
   element.querySelector(".log-stop").addEventListener("click", () => stopTerminalLog(session));
   element.querySelector(".log-download").addEventListener("click", () => downloadTerminalLog(session));
+}
+
+async function resetSerialSession(button) {
+  const deviceName = button.dataset.device.split("/").pop();
+  button.closest("details").removeAttribute("open");
+  if (terminals.has(button.dataset.portId)) closeTerminal(button.dataset.portId);
+  try {
+    const response = await fetch(`/api/v1/serial/sessions/${encodeURIComponent(deviceName)}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    showToast(`${button.dataset.portName}: serial session reset`);
+  } catch (error) {
+    showToast(`${button.dataset.portName}: reset failed`);
+    console.error("Serial session reset failed", error);
+  }
 }
 
 function setLogButtons(session) {
