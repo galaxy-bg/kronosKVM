@@ -12,7 +12,7 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     assert api["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in api["security_opt"]
     assert "/var/run/docker.sock" not in str(api.get("volumes", []))
-    assert api["group_add"] == ["20"]
+    assert api["user"] == "10001:20"
     assert api["devices"] == ["/dev/ttyUSB0:/dev/ttyUSB0"]
     assert (
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
@@ -22,7 +22,7 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
 
 def test_container_runs_as_non_root() -> None:
     dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
-    assert "USER 10001:10001" in dockerfile
+    assert "USER 10001:20" in dockerfile
     assert '--host", "127.0.0.1"' in dockerfile
     assert "HEALTHCHECK" in dockerfile
 

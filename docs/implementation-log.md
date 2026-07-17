@@ -174,6 +174,6 @@
 - Consolidated per-port controls into an ellipsis action menu with Config,
   Status, Connect/Disconnect and context-aware Console entries.
 - Added constrained Console 1 access for the non-root API container, limited
-  to `/dev/ttyUSB0` and the dialout group for legacy Compose compatibility.
+  to `/dev/ttyUSB0`; UID 10001 uses dialout GID 20 for legacy Compose support.
 - Added an exclusive WebSocket serial bridge, per-port browser serial profiles
   and a responsive web terminal for Console 1 and Console 2.
