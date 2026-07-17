@@ -177,3 +177,5 @@
   to `/dev/ttyUSB0`; UID 10001 uses dialout GID 20 for legacy Compose support.
 - Added an exclusive WebSocket serial bridge, per-port browser serial profiles
   and a responsive web terminal for Console 1 and Console 2.
+- Decoupled physical-port loading from the other dashboard requests and added
+  bounded automatic retries for transient API restarts during deployment.

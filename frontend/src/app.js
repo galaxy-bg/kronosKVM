@@ -54,6 +54,7 @@ const portIcons = {
 
 let activeSocket = null;
 let activePortId = null;
+let portRetryTimer = null;
 
 function serialProfile(portId) {
   const fallback = {
@@ -130,6 +131,18 @@ function renderPorts(inventory) {
     button.addEventListener("click", closeConsole);
   });
   setConnectionControls();
+}
+
+async function loadPorts(attempt = 0) {
+  window.clearTimeout(portRetryTimer);
+  try {
+    renderPorts(await getJson("/api/v1/hardware/ports"));
+  } catch (error) {
+    document.querySelector("#ports").innerHTML =
+      `<tr><td colspan="5" class="loading-cell">Port status unavailable${attempt < 3 ? "; retrying…" : ". Use Refresh to try again."}</td></tr>`;
+    console.error("Port status request failed", error);
+    if (attempt < 3) portRetryTimer = window.setTimeout(() => loadPorts(attempt + 1), 1500);
+  }
 }
 
 function openConfig(button) {
@@ -211,13 +224,13 @@ function sendConsoleInput() {
 
 async function load() {
   const health = document.querySelector("#health");
+  loadPorts();
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
     getJson("/api/v1/system/network"),
-    getJson("/api/v1/hardware/ports"),
   ]);
-  const [healthResult, systemResult, networkResult, portsResult] = results;
+  const [healthResult, systemResult, networkResult] = results;
 
   if (healthResult.status === "fulfilled") {
     const healthData = healthResult.value;
@@ -247,15 +260,6 @@ async function load() {
       renderNetwork(networkResult.value);
     } catch (error) {
       console.error("Network render failed", error);
-    }
-  }
-  if (portsResult.status === "fulfilled") {
-    try {
-      renderPorts(portsResult.value);
-    } catch (error) {
-      document.querySelector("#ports").innerHTML =
-        '<tr><td colspan="5" class="loading-cell">Port status could not be displayed.</td></tr>';
-      console.error("Port render failed", error);
     }
   }
 }

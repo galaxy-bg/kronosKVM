@@ -30,9 +30,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.1.8.js" in html
-    assert "/styles-0.1.8.css" in html
-    assert "app-0.1.8.js" in dockerfile
+    assert "/app-0.1.9.js" in html
+    assert "/styles-0.1.9.css" in html
+    assert "app-0.1.9.js" in dockerfile
     assert 'class="metrics"' not in html
     assert 'class="port-table"' in html
     assert 'class="action-menu"' in Path("frontend/src/app.js").read_text(
