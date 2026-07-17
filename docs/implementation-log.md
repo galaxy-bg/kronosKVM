@@ -173,7 +173,7 @@
   ports as a centered, responsive table with serial, USB, LAN and KVM icons.
 - Consolidated per-port controls into an ellipsis action menu with Config,
   Status, Connect/Disconnect and context-aware Console entries.
-- Added constrained USB serial device access for the non-root API container,
-  limited by ttyUSB/ttyACM device cgroup rules and the dialout group.
+- Added constrained Console 1 access for the non-root API container, limited
+  to `/dev/ttyUSB0` and the dialout group for legacy Compose compatibility.
 - Added an exclusive WebSocket serial bridge, per-port browser serial profiles
   and a responsive web terminal for Console 1 and Console 2.

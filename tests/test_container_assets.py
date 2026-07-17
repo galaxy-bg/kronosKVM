@@ -12,9 +12,8 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     assert api["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in api["security_opt"]
     assert "/var/run/docker.sock" not in str(api.get("volumes", []))
-    assert "/dev:/dev" in api["volumes"]
     assert api["group_add"] == ["20"]
-    assert api["device_cgroup_rules"] == ["c 188:* rw", "c 166:* rw"]
+    assert api["devices"] == ["/dev/ttyUSB0:/dev/ttyUSB0"]
     assert (
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
         in api["volumes"]
