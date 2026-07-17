@@ -213,11 +213,10 @@ function createTerminalWindow(button, profile) {
   element.style.left = `${Math.max(12, Math.min(120 + offset, window.innerWidth - 420))}px`;
   element.style.top = `${120 + offset}px`;
   element.innerHTML = `<header class="terminal-titlebar">
-      <div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(button.dataset.portName)} · ${profile.baud_rate} · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}</span></div>
+      <div class="terminal-heading"><div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(button.dataset.portName)} · ${profile.baud_rate} · ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}</span></div><span class="terminal-connection connecting"><i></i><b>Connecting</b></span></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
-    <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} serial terminal output">Connecting…\n</pre>
-    <div class="console-input"><input type="text" autocomplete="off" spellcheck="false" placeholder="Type command and press Enter"><button class="primary" type="button">Send</button></div>`;
+    <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} interactive serial terminal">Connecting…\n</pre>`;
   document.querySelector("#terminal-layer").appendChild(element);
   focusTerminal(element);
   enableTerminalDrag(element);
@@ -252,28 +251,51 @@ function openConsole(button) {
   const decoder = new TextDecoder();
   socket.binaryType = "arraybuffer";
   socket.addEventListener("open", () => {
+    const status = element.querySelector(".terminal-connection");
+    status.className = "terminal-connection connected";
+    status.querySelector("b").textContent = "Connected";
     appendTerminal(session, "Connected. Press Enter to request the prompt.\n");
     socket.send(new TextEncoder().encode("\r"));
+    element.querySelector(".terminal").focus();
   });
   socket.addEventListener("message", (event) => {
     const output = event.data instanceof ArrayBuffer ? decoder.decode(event.data, { stream: true }) : event.data;
     appendTerminal(session, output);
   });
   socket.addEventListener("close", (event) => {
+    const status = element.querySelector(".terminal-connection");
+    status.className = "terminal-connection disconnected";
+    status.querySelector("b").textContent = "Disconnected";
     appendTerminal(session, `\nConnection closed (${event.code}).\n`);
     session.socket = null;
     setConnectionControls();
   });
   socket.addEventListener("error", () => appendTerminal(session, "\nSerial connection error.\n"));
-  const input = element.querySelector("input");
-  const send = () => {
-    if (!session.socket || session.socket.readyState !== WebSocket.OPEN) return;
-    session.socket.send(new TextEncoder().encode(`${input.value}\r`));
-    input.value = "";
+  const terminal = element.querySelector(".terminal");
+  const send = (value) => {
+    if (!session.socket || session.socket.readyState !== WebSocket.OPEN || !value) return;
+    session.socket.send(new TextEncoder().encode(value));
   };
-  element.querySelector(".console-input button").addEventListener("click", send);
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") { event.preventDefault(); send(); }
+  const specialKeys = {
+    Enter: "\r", Backspace: "\x7f", Tab: "\t", Escape: "\x1b",
+    ArrowUp: "\x1b[A", ArrowDown: "\x1b[B", ArrowRight: "\x1b[C", ArrowLeft: "\x1b[D",
+    Home: "\x1b[H", End: "\x1b[F", Delete: "\x1b[3~", PageUp: "\x1b[5~", PageDown: "\x1b[6~",
+  };
+  terminal.addEventListener("keydown", (event) => {
+    let value = specialKeys[event.key];
+    if (event.ctrlKey && event.key.length === 1 && /[a-z]/i.test(event.key)) {
+      value = String.fromCharCode(event.key.toUpperCase().charCodeAt(0) - 64);
+    } else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+      value = event.key;
+    }
+    if (value !== undefined) {
+      event.preventDefault();
+      send(value);
+    }
+  });
+  terminal.addEventListener("paste", (event) => {
+    event.preventDefault();
+    send(event.clipboardData.getData("text"));
   });
   element.querySelector(".terminal-close").addEventListener("click", () => closeTerminal(button.dataset.portId));
   element.querySelector(".terminal-minimize").addEventListener("click", () => element.classList.toggle("minimized"));

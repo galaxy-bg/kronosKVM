@@ -181,3 +181,5 @@
   bounded automatic retries for transient API restarts during deployment.
 - Replaced the single console modal with independent floating terminal windows
   that support custom port names, dragging, resizing, minimizing and maximizing.
+- Made terminal windows directly keyboard-driven with control/navigation keys,
+  paste support, focus indication and live connection-state LEDs.

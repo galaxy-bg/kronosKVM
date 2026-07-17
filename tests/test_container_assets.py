@@ -30,9 +30,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.2.0.js" in html
-    assert "/styles-0.2.0.css" in html
-    assert "app-0.2.0.js" in dockerfile
+    assert "/app-0.2.1.js" in html
+    assert "/styles-0.2.1.css" in html
+    assert "app-0.2.1.js" in dockerfile
     assert 'id="terminal-layer"' in html
     assert "const terminals = new Map()" in Path("frontend/src/app.js").read_text(
         encoding="utf-8"
