@@ -8,6 +8,20 @@ const escapeHtml = (value) => text(value)
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#039;");
 
+const themeStorageKey = "kronoskvm.theme";
+
+function applyTheme(theme) {
+  const selected = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = selected;
+  document.querySelector('meta[name="theme-color"]').content =
+    selected === "dark" ? "#08100d" : "#f4f7f6";
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.themeChoice === selected));
+  });
+}
+
+applyTheme(localStorage.getItem(themeStorageKey) || "light");
+
 async function getJson(path) {
   const response = await fetch(path, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
@@ -140,6 +154,27 @@ function renderPorts(inventory) {
     button.addEventListener("click", () => redetectAndConnect(button));
   });
   setConnectionControls();
+  filterPortRows(document.querySelector("#session-search").value);
+}
+
+function filterPortRows(query) {
+  const normalized = query.trim().toLowerCase();
+  document.querySelectorAll("#ports tr").forEach((row) => {
+    row.hidden = Boolean(normalized) && !row.textContent.toLowerCase().includes(normalized);
+  });
+}
+
+function consoleButtonForPort(portId) {
+  return document.querySelector(`.console-action[data-port-id="${portId}"]`);
+}
+
+function openPortConsole(portId) {
+  const button = consoleButtonForPort(portId);
+  if (!button || button.disabled) {
+    showToast(`${portId === "console_2" ? "Console 2" : "Console 1"}: adapter not detected`);
+    return;
+  }
+  openConsole(button);
 }
 
 async function loadPorts(attempt = 0) {
@@ -479,6 +514,55 @@ async function load() {
 }
 
 document.querySelector("#refresh").addEventListener("click", load);
+document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+  button.addEventListener("click", () => {
+    localStorage.setItem(themeStorageKey, button.dataset.themeChoice);
+    applyTheme(button.dataset.themeChoice);
+  });
+});
+document.querySelector("#sidebar-toggle").addEventListener("click", () => {
+  const sidebar = document.querySelector("#sidebar");
+  sidebar.classList.toggle("compact");
+  localStorage.setItem("kronoskvm.sidebar.compact", String(sidebar.classList.contains("compact")));
+});
+if (localStorage.getItem("kronoskvm.sidebar.compact") === "true") {
+  document.querySelector("#sidebar").classList.add("compact");
+}
+document.querySelector("#mobile-menu").addEventListener("click", () => {
+  document.querySelector("#sidebar").classList.toggle("mobile-open");
+});
+document.querySelectorAll(".side-link[data-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".side-link[data-view]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const target = button.dataset.view === "devices"
+      ? document.querySelector("#devices-panel")
+      : button.dataset.view === "dashboard" ? document.querySelector("#status-panel") : document.querySelector(".page-header");
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector("#sidebar").classList.remove("mobile-open");
+  });
+});
+document.querySelector("#session-search").addEventListener("input", (event) => {
+  filterPortRows(event.currentTarget.value);
+  if (event.currentTarget.value.trim()) document.querySelector("#devices-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+document.querySelectorAll("[data-open-port]").forEach((button) => {
+  button.addEventListener("click", () => openPortConsole(button.dataset.openPort));
+});
+document.querySelector("#open-first-console").addEventListener("click", () => {
+  const portId = consoleButtonForPort("console_1")?.disabled === false ? "console_1" : "console_2";
+  openPortConsole(portId);
+});
+document.querySelector("#new-session").addEventListener("click", () => document.querySelector("#session-dialog").showModal());
+document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+  button.addEventListener("click", () => document.querySelector(`#${button.dataset.closeDialog}`).close());
+});
+document.querySelectorAll("[data-session-port]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelector("#session-dialog").close();
+    openPortConsole(button.dataset.sessionPort);
+  });
+});
 document.querySelector("#config-form").addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel") return;
   event.preventDefault();

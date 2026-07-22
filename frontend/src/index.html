@@ -1,94 +1,110 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f7f6">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.2.7.css">
+  <link rel="stylesheet" href="/styles-0.3.0.css">
 </head>
 <body>
-  <nav class="topbar">
-    <a class="brand" href="/" aria-label="KronosKVM dashboard">
-      <img class="brand-logo" src="/kronoskvm-logo.png" alt="kronosKVM — All-in-One IP-KVM System">
-    </a>
-    <div class="nav-actions">
-      <button class="nav-button active" type="button">▦ Dashboard</button>
-      <button class="nav-button" type="button" disabled>⌨ Console</button>
-      <button class="nav-button" type="button" disabled>⚙ Settings</button>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar">
+      <a class="brand" href="/" aria-label="KronosKVM home">
+        <img class="brand-logo" src="/kronoskvm-logo.png" alt="KronosKVM">
+      </a>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button class="side-link" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+        <button class="side-link active" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
+        <button class="side-link" type="button" data-view="devices"><span class="nav-icon">▣</span><span>Devices</span></button>
+        <button class="side-link future" type="button" disabled><span class="nav-icon">⊞</span><span>Workspaces</span></button>
+        <button class="side-link future" type="button" disabled><span class="nav-icon">♙</span><span>Profiles</span></button>
+        <button class="side-link future" type="button" disabled><span class="nav-icon">▤</span><span>Storage</span></button>
+        <button class="side-link future" type="button" disabled><span class="nav-icon">☷</span><span>Logs</span></button>
+        <button class="side-link future" type="button" disabled><span class="nav-icon">⚙</span><span>Settings</span></button>
+      </nav>
+      <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar"><span>‹</span><b>Collapse</b></button>
+      <div class="sidebar-version">v0.3.0</div>
+    </aside>
+
+    <div class="app-content">
+      <header class="topbar">
+        <button id="mobile-menu" class="icon-button mobile-menu" type="button" aria-label="Open navigation">☰</button>
+        <label class="search"><span>⌕</span><input id="session-search" type="search" placeholder="Search ports, devices…" aria-label="Search ports and devices"></label>
+        <div class="topbar-actions">
+          <div class="theme-switcher" role="group" aria-label="Color theme">
+            <button type="button" data-theme-choice="light" aria-pressed="true">☀ <span>Light</span></button>
+            <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
+          </div>
+          <span id="health" class="badge pending"><i></i> Checking API</span>
+          <button class="user-button" type="button" aria-label="Current user">◎ <span>admin</span></button>
+        </div>
+      </header>
+
+      <main>
+        <header class="page-header">
+          <div><p class="eyebrow">Remote console toolkit</p><h1>Sessions</h1><p>Manage live connections and appliance hardware from one workspace.</p></div>
+          <button id="new-session" class="primary-action" type="button">＋ New Session</button>
+        </header>
+
+        <section class="session-strip" aria-labelledby="active-sessions-title">
+          <div class="section-title"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><span class="live-label"><i></i> Live</span></div>
+          <div id="session-cards" class="session-cards">
+            <button class="session-card video pending-session" type="button" disabled><span class="session-dot"></span><span><b>KVM Video</b><small>X630 · cable pending</small></span></button>
+            <button class="session-card" type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1</b><small>Serial console</small></span></button>
+            <button class="session-card" type="button" data-open-port="console_2"><span class="session-dot"></span><span><b>Console 2</b><small>Serial console</small></span></button>
+            <button class="session-card pending-session" type="button" disabled><span class="session-dot"></span><span><b>SSH</b><small>Coming next</small></span></button>
+            <button class="session-card pending-session" type="button" disabled><span class="session-dot"></span><span><b>Web (iLO)</b><small>Coming next</small></span></button>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <article class="workspace-card kvm-preview">
+            <div class="workspace-toolbar"><span>KVM Video</span><span class="state offline">Awaiting cable</span></div>
+            <div class="preview-content"><div class="preview-mark">K</div><strong>X630 capture module ready</strong><p>Connect the FFC cable to activate HDMI capture.</p></div>
+            <footer><button type="button" disabled>1080p60</button><span>Video input offline</span></footer>
+          </article>
+          <article class="workspace-card console-preview">
+            <div class="workspace-toolbar"><span>Console workspace</span><button id="open-first-console" type="button">Open console ↗</button></div>
+            <div class="terminal-sample"><span>KronosKVM serial workspace</span><p>Select Console 1 or Console 2 to open a movable, resizable native-style terminal.</p><code>status: ready for connection <i></i></code></div>
+          </article>
+        </section>
+
+        <section class="quick-actions" aria-label="Quick actions">
+          <div><h2>Quick actions</h2><p>Common KVM operations</p></div>
+          <button type="button" disabled>◉ ISO Mount</button><button type="button" disabled>♧ USB Devices</button>
+          <button type="button" disabled>⌁ Power Control</button><button type="button" disabled>▧ Screenshot</button>
+          <button type="button" disabled>● Record</button><button id="refresh" type="button">↻ Refresh status</button>
+        </section>
+
+        <section class="notice">
+          <span class="notice-icon">i</span><div><strong>Isolated management access</strong><p>Frontend is available from the permanent AP at 192.168.34.100. Updates and deployments use ETH0.</p></div>
+        </section>
+
+        <section id="devices-panel" class="panel ports-panel">
+          <div class="panel-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><span class="verified-label">✓ Mapped</span></div>
+          <div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
+          <div class="port-warning"><strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1, Console 2, Service USB and ETH1 from the CM4 host USB topology.</div>
+        </section>
+
+        <section id="status-panel" class="panel status-panel">
+          <div class="panel-heading"><div><h2>Appliance status</h2><p>Live system and connectivity information</p></div><span class="live-label"><i></i> Monitoring</span></div>
+          <div class="detail-grid"><section class="detail-section"><h3>System</h3><dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl></section><section class="detail-section"><h3>Network</h3><div id="network" class="stack">Loading…</div></section><section class="detail-section"><h3>KVM Services</h3><div id="services" class="stack">Loading…</div></section></div>
+        </section>
+      </main>
+
+      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span>192.168.34.100 · Version 0.3.0</span></footer>
     </div>
-  </nav>
+  </div>
 
-  <main>
-    <header class="page-header">
-      <div>
-        <h1>Dashboard</h1>
-        <p>Overview of your KronosKVM appliance</p>
-      </div>
-      <span id="health" class="badge pending"><i></i> Checking API</span>
-    </header>
-
-    <section class="notice">
-      <span class="notice-icon">i</span>
-      <div><strong>Development access</strong><p>Connected through the isolated management AP at 192.168.34.100. Authentication and HTTPS are pending.</p></div>
-    </section>
-
-    <section class="panel ports-panel">
-      <div class="panel-heading">
-        <div><h2>Physical ports</h2><p>Verified chassis assignments and stable Linux topology paths</p></div>
-        <span class="verified-label">✓ Mapped</span>
-      </div>
-      <div class="port-table-wrap">
-        <table class="port-table">
-          <thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead>
-          <tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="port-warning">
-        <strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1,
-        Console 2, Service USB and ETH1 from the CM4 host USB topology.
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-heading">
-        <div><h2>Appliance status</h2><p>Live system and connectivity information</p></div>
-        <button id="refresh" class="refresh-button" type="button">↻ Refresh</button>
-      </div>
-      <div class="detail-grid">
-        <section class="detail-section">
-          <h3>System</h3>
-          <dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl>
-        </section>
-        <section class="detail-section">
-          <h3>Network</h3>
-          <div id="network" class="stack">Loading…</div>
-        </section>
-        <section class="detail-section">
-          <h3>KVM Services</h3>
-          <div id="services" class="stack">Loading…</div>
-        </section>
-      </div>
-    </section>
-  </main>
-
-  <footer class="statusbar">
-    <span><i></i> KronosKVM management interface</span>
-    <span>192.168.34.100 · Version 0.1.0</span>
-  </footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <dialog id="config-dialog" class="modal">
-    <form id="config-form" method="dialog">
-      <div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div>
-      <input id="config-device" type="hidden">
-      <label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label>
-      <label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label>
-      <div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div>
-      <div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div>
-      <div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div>
-    </form>
+  <dialog id="session-dialog" class="modal session-modal">
+    <div class="modal-heading"><div><h2>New session</h2><p>Select a connection type</p></div><button class="modal-close" type="button" data-close-dialog="session-dialog" aria-label="Close">×</button></div>
+    <div class="session-types"><button type="button" data-session-port="console_1"><b>⌘</b><strong>Console 1</strong><span>USB serial port</span></button><button type="button" data-session-port="console_2"><b>⌘</b><strong>Console 2</strong><span>USB serial port</span></button><button type="button" disabled><b>▣</b><strong>KVM Video</strong><span>X630 capture</span></button><button type="button" disabled><b>›_</b><strong>SSH</strong><span>Secure shell</span></button></div>
   </dialog>
+  <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.2.7.js" defer></script>
+  <script src="/app-0.3.0.js" defer></script>
 </body>
 </html>

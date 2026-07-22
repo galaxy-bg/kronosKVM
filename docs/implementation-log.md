@@ -205,3 +205,7 @@
   requirements after a reboot without a serial adapter prevented API startup.
 - Removed the stale `0.1.0` image pin from the container boot unit so normal
   development reboots continue with the current `dev` images.
+- Rebuilt the management frontend as a sessions-focused application shell with
+  responsive sidebar navigation, active connection cards and KVM workspace.
+- Added persistent Light and Dark themes; Light remains the default and the
+  explicit operator choice is restored without following later OS changes.

@@ -37,9 +37,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.2.7.js" in html
-    assert "/styles-0.2.7.css" in html
-    assert "app-0.2.7.js" in dockerfile
+    assert "/app-0.3.0.js" in html
+    assert "/styles-0.3.0.css" in html
+    assert "app-0.3.0.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -51,6 +51,11 @@ def test_web_assets_use_filename_versioning() -> None:
         encoding="utf-8"
     )
     assert "/kronoskvm-logo.png" in html
+    assert 'data-theme-choice="light"' in html
+    assert 'data-theme-choice="dark"' in html
+    assert 'class="side-nav"' in html
+    assert 'class="session-strip"' in html
+    assert 'localStorage.getItem(themeStorageKey) || "light"' in app
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:
