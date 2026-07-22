@@ -103,6 +103,7 @@ const portIcons = {
 };
 
 const terminals = new Map();
+let connectionProfiles = [];
 let terminalZIndex = 20;
 let portRetryTimer = null;
 
@@ -216,6 +217,87 @@ function filterPortRows(query) {
   document.querySelectorAll("#ports tr").forEach((row) => {
     row.hidden = Boolean(normalized) && !row.textContent.toLowerCase().includes(normalized);
   });
+}
+
+const connectionDefaults = {
+  ssh: { port: 22, name: "SSH connection" },
+  telnet: { port: 23, name: "Telnet connection" },
+  rdp: { port: 3389, name: "RDP connection" },
+  vnc: { port: 5900, name: "VNC connection" },
+  web: { port: 443, name: "Web connection" },
+};
+
+function connectionUri(profile) {
+  const user = profile.username ? `${encodeURIComponent(profile.username)}@` : "";
+  if (profile.type === "web") {
+    const scheme = profile.port === 443 ? "https" : "http";
+    const defaultPort = (scheme === "https" && profile.port === 443) || (scheme === "http" && profile.port === 80);
+    return `${scheme}://${profile.host}${defaultPort ? "" : `:${profile.port}`}${profile.path || "/"}`;
+  }
+  if (profile.type === "rdp") return `rdp://full%20address=s:${profile.host}:${profile.port}`;
+  return `${profile.type}://${user}${profile.host}:${profile.port}`;
+}
+
+function launchConnection(profile) {
+  const uri = connectionUri(profile);
+  if (profile.type === "web") window.open(uri, "_blank", "noopener,noreferrer");
+  else window.location.href = uri;
+}
+
+function renderConnections(profiles) {
+  connectionProfiles = profiles;
+  const container = document.querySelector("#network-connections");
+  container.innerHTML = profiles.map((profile) => `<article class="session-card network-session" data-connection-id="${escapeHtml(profile.id)}"><button type="button" class="launch-connection"><span class="session-dot"></span><span><b>${escapeHtml(profile.name)}</b><small>${escapeHtml(profile.type.toUpperCase())} · ${escapeHtml(profile.host)}:${profile.port}</small></span></button><details class="action-menu session-action-menu"><summary aria-label="${escapeHtml(profile.name)} actions">⋯</summary><div class="action-menu-list"><button type="button" data-connection-action="open">↗ Open</button><button type="button" data-connection-action="edit">⚙ Edit</button><button type="button" data-connection-action="delete">⊘ Delete</button></div></details></article>`).join("");
+  container.querySelectorAll(".launch-connection").forEach((button) => {
+    button.addEventListener("click", () => launchConnection(
+      connectionProfiles.find((item) => item.id === button.closest("[data-connection-id]").dataset.connectionId)
+    ));
+  });
+  container.querySelectorAll("[data-connection-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const card = button.closest("[data-connection-id]");
+      const profile = connectionProfiles.find((item) => item.id === card.dataset.connectionId);
+      button.closest("details").removeAttribute("open");
+      if (button.dataset.connectionAction === "open") launchConnection(profile);
+      if (button.dataset.connectionAction === "edit") openConnectionForm(profile.type, profile);
+      if (button.dataset.connectionAction === "delete" && window.confirm(`Delete ${profile.name}?`)) {
+        const response = await fetch(`/api/v1/connections/${encodeURIComponent(profile.id)}`, { method: "DELETE" });
+        if (response.ok) {
+          showToast(`${profile.name}: deleted`);
+          loadConnections();
+        } else showToast(`${profile.name}: delete failed`);
+      }
+    });
+  });
+}
+
+async function loadConnections() {
+  try {
+    renderConnections(await getJson("/api/v1/connections"));
+  } catch (error) {
+    console.error("Connection registry request failed", error);
+  }
+}
+
+function openConnectionForm(type, profile = null) {
+  const defaults = connectionDefaults[type];
+  document.querySelector(".connection-types").hidden = true;
+  document.querySelector("#connection-form").hidden = false;
+  document.querySelector("#connection-id").value = profile?.id || "";
+  document.querySelector("#connection-type").value = type;
+  document.querySelector("#connection-name").value = profile?.name || defaults.name;
+  document.querySelector("#connection-host").value = profile?.host || "";
+  document.querySelector("#connection-port").value = profile?.port || defaults.port;
+  document.querySelector("#connection-username").value = profile?.username || "";
+  document.querySelector("#connection-path").value = profile?.path || "/";
+  document.querySelector("#connection-path-label").hidden = type !== "web";
+  if (!document.querySelector("#session-dialog").open) document.querySelector("#session-dialog").showModal();
+  document.querySelector("#connection-host").focus();
+}
+
+function showConnectionTypes() {
+  document.querySelector("#connection-form").hidden = true;
+  document.querySelector(".connection-types").hidden = false;
 }
 
 const formatBytes = (value) => {
@@ -633,6 +715,7 @@ async function load() {
   const health = document.querySelector("#health");
   loadPorts();
   loadStorage();
+  loadConnections();
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
@@ -754,15 +837,50 @@ document.querySelectorAll("[data-session-action]").forEach((button) => {
     target.click();
   });
 });
-document.querySelector("#new-session").addEventListener("click", () => document.querySelector("#session-dialog").showModal());
-document.querySelectorAll("[data-close-dialog]").forEach((button) => {
-  button.addEventListener("click", () => document.querySelector(`#${button.dataset.closeDialog}`).close());
+document.querySelector("#new-session").addEventListener("click", () => {
+  showConnectionTypes();
+  document.querySelector("#session-dialog").showModal();
 });
-document.querySelectorAll("[data-session-port]").forEach((button) => {
+document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelector(`#${button.dataset.closeDialog}`).close();
+    showConnectionTypes();
+  });
+});
+document.querySelectorAll(".session-types [data-session-port]").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelector("#session-dialog").close();
     openPortConsole(button.dataset.sessionPort);
   });
+});
+document.querySelectorAll("[data-connection-type]").forEach((button) => {
+  button.addEventListener("click", () => openConnectionForm(button.dataset.connectionType));
+});
+document.querySelector("#connection-back").addEventListener("click", showConnectionTypes);
+document.querySelector("#connection-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const id = document.querySelector("#connection-id").value;
+  const payload = {
+    type: document.querySelector("#connection-type").value,
+    name: document.querySelector("#connection-name").value,
+    host: document.querySelector("#connection-host").value,
+    port: Number(document.querySelector("#connection-port").value),
+    username: document.querySelector("#connection-username").value || null,
+    path: document.querySelector("#connection-path").value || "/",
+  };
+  const response = await fetch(id ? `/api/v1/connections/${encodeURIComponent(id)}` : "/api/v1/connections", {
+    method: id ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    showToast("Connection could not be saved");
+    return;
+  }
+  document.querySelector("#session-dialog").close();
+  showConnectionTypes();
+  showToast(`${payload.name}: saved`);
+  loadConnections();
 });
 document.querySelector("#config-form").addEventListener("submit", (event) => {
   if (event.submitter?.value === "cancel") return;

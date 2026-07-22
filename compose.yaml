@@ -24,9 +24,11 @@ services:
       - /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro
       - /etc/kronoskvm:/etc/kronoskvm:ro
       - /mnt/kronoskvm-storage:/storage
+      - /var/lib/kronoskvm/state:/state
     environment:
       KRONOSKVM_STORAGE_PATH: /storage
       KRONOSKVM_STORAGE_REQUIRE_MARKER: "1"
+      KRONOSKVM_STATE_PATH: /state
     healthcheck:
       test:
         - CMD

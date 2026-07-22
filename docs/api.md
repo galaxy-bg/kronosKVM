@@ -22,6 +22,10 @@ session coordination and the dedicated staging-file directory.
 - `PUT /api/v1/storage/files/{filename}` — stream a raw file upload
 - `GET /api/v1/storage/files/{filename}` — download a staged file
 - `DELETE /api/v1/storage/files/{filename}` — delete a staged file
+- `GET /api/v1/connections` — list saved network connection profiles
+- `POST /api/v1/connections` — create a password-free connection profile
+- `PUT /api/v1/connections/{id}` — update a connection profile
+- `DELETE /api/v1/connections/{id}` — delete a connection profile
 - `POST /api/v1/serial/locks`
 - `DELETE /api/v1/serial/locks/{device_name}`
 

@@ -21,8 +21,10 @@ docker run --detach \
     --volume /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro \
     --volume /etc/kronoskvm:/etc/kronoskvm:ro \
     --volume /mnt/kronoskvm-storage:/storage \
+    --volume /var/lib/kronoskvm/state:/state \
     --env KRONOSKVM_STORAGE_PATH=/storage \
     --env KRONOSKVM_STORAGE_REQUIRE_MARKER=1 \
+    --env KRONOSKVM_STATE_PATH=/state \
     "kronoskvm-api:${version}" >/dev/null
 
 docker-compose -f compose.yaml up --detach --no-deps web

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend.app.api.routes import router
+from backend.app.api.connections import router as connections_router
 from backend.app.api.serial import router as serial_router
 from backend.app.api.storage import router as storage_router
 from backend.app.logging import configure_logging
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
         return response
 
     application.include_router(router)
+    application.include_router(connections_router)
     application.include_router(serial_router)
     application.include_router(storage_router)
     return application

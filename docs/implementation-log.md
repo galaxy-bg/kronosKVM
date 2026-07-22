@@ -245,3 +245,5 @@
 - Restored hot-plug serial access without making optional adapters a boot
   dependency: the API runner grants only USB-serial major 188 through cgroup,
   retains non-root dialout permissions and does not use privileged mode.
+- Added a persistent, password-free network connection registry for SSH,
+  Telnet, RDP, VNC and Web URL profiles with native-client launch actions.

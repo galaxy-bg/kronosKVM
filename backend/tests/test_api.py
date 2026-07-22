@@ -6,6 +6,7 @@ from backend.app.hardware.serial import serial_devices
 from backend.app.hardware.usb_gadget import controllers
 from backend.app.hardware.video import capture_devices
 from backend.app.main import create_app
+from backend.app.services import connections as connection_service
 from backend.app.services import storage as storage_service
 
 client = TestClient(create_app())
@@ -115,3 +116,24 @@ def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch)
     assert response.status_code == 200
     assert response.json()["status"] == "media_missing"
     assert client.put("/api/v1/storage/files/test.iso", content=b"data").status_code == 503
+
+
+def test_connection_profile_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(connection_service, "STATE_PATH", tmp_path)
+    monkeypatch.setattr(connection_service, "CONNECTIONS_FILE", tmp_path / "connections.json")
+    payload = {
+        "name": "Core switch",
+        "type": "ssh",
+        "host": "192.168.10.2",
+        "port": 22,
+        "username": "admin",
+        "path": "/",
+    }
+    created = client.post("/api/v1/connections", json=payload)
+    assert created.status_code == 201
+    profile_id = created.json()["id"]
+    assert client.get("/api/v1/connections").json()[0]["name"] == "Core switch"
+    payload["name"] = "Core switch updated"
+    assert client.put(f"/api/v1/connections/{profile_id}", json=payload).status_code == 200
+    assert client.delete(f"/api/v1/connections/{profile_id}").status_code == 204
+    assert client.get("/api/v1/connections").json() == []
