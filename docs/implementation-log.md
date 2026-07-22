@@ -201,3 +201,7 @@
   stale or browser-orphaned backend sessions.
 - Replaced passive reset with Re-detect & connect: it disconnects every local
   window using that adapter, clears the backend session and forces auto-baud.
+- Removed the optional `/dev/ttyUSB0` node from the API container's boot
+  requirements after a reboot without a serial adapter prevented API startup.
+- Removed the stale `0.1.0` image pin from the container boot unit so normal
+  development reboots continue with the current `dev` images.

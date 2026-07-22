@@ -18,6 +18,7 @@ The API image is ARM64 compatible and uses:
 - localhost-only port 8000 through host networking;
 - no Docker socket;
 - no broad `/dev` mount;
+- no mandatory device node that can prevent boot when optional hardware is absent;
 - read-only `/sys` and `/etc/kronoskvm` mounts.
 
 ## Host hardware plane
@@ -30,13 +31,18 @@ These remain host-managed:
 - boot and device-tree configuration;
 - privileged hardware helpers.
 
-Serial and capture may later use dedicated containers with only explicit
-`/dev/tty*` or `/dev/video*` mappings. They must not receive `privileged: true`.
+Serial and capture will use dedicated host-side brokers or narrowly scoped
+containers with explicit `/dev/tty*` or `/dev/video*` access. Optional hardware
+must not be a boot dependency and these services must not receive
+`privileged: true`.
 
 ## Lifecycle
 
 `kronoskvm-containers.service` manages Compose at boot. The native
 `kronoskvm-api.service` remains installed but disabled as a rollback path.
+The unit intentionally does not pin `KRONOSKVM_VERSION`; development boots use
+the Compose default (`dev`) and release deployments may supply an environment
+value explicitly.
 
 Rollback:
 

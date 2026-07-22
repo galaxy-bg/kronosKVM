@@ -9,7 +9,6 @@ Conflicts=kronoskvm-api.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/kronoskvm
-Environment=KRONOSKVM_VERSION=0.1.0
 ExecStart=/usr/bin/docker-compose -f compose.yaml up --detach --remove-orphans
 ExecReload=/usr/bin/docker-compose -f compose.yaml up --detach --build --remove-orphans
 ExecStop=/usr/bin/docker-compose -f compose.yaml down

@@ -13,11 +13,18 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     assert "no-new-privileges:true" in api["security_opt"]
     assert "/var/run/docker.sock" not in str(api.get("volumes", []))
     assert api["user"] == "10001:20"
-    assert api["devices"] == ["/dev/ttyUSB0:/dev/ttyUSB0"]
+    assert "devices" not in api
     assert (
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
         in api["volumes"]
     )
+
+
+def test_boot_service_does_not_pin_a_stale_image_version() -> None:
+    unit = Path("deploy/systemd/kronoskvm-containers.service").read_text(
+        encoding="utf-8"
+    )
+    assert "Environment=KRONOSKVM_VERSION=" not in unit
 
 
 def test_container_runs_as_non_root() -> None:
