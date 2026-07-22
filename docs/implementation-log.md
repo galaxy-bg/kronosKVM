@@ -238,3 +238,7 @@
   and the management-access notice to keep the session screen focused.
 - Added live device state and Physical Ports-equivalent ellipsis actions to the
   Console 1 and Console 2 session cards.
+- Reduced primary session choices to VGA KVM and the two USB console ports;
+  future SSH/Web connections will appear only after they can be created.
+- Removed unused Workspaces and Profiles navigation entries and made session
+  ellipsis menus click-only instead of opening on hover/focus.

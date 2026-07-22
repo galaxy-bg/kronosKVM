@@ -41,9 +41,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.5.js" in html
-    assert "/styles-0.3.5.css" in html
-    assert "app-0.3.5.js" in dockerfile
+    assert "/app-0.3.6.js" in html
+    assert "/styles-0.3.6.css" in html
+    assert "app-0.3.6.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -79,6 +79,14 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'class="workspace-grid"' not in html
     assert 'class="quick-actions"' not in html
     assert 'class="notice"' not in html
+    assert "Workspaces" not in html
+    assert "Profiles" not in html
+    assert ">SSH<" not in html
+    assert "Web (iLO)" not in html
+    assert "Manage sessions" in html
+    assert "Console 1 · USB" in html
+    styles = Path("frontend/src/styles.css").read_text(encoding="utf-8")
+    assert ".action-menu:hover .action-menu-list" not in styles
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:

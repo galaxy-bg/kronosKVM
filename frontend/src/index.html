@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.5.css">
+  <link rel="stylesheet" href="/styles-0.3.6.css">
 </head>
 <body>
   <div class="app-shell">
@@ -18,14 +18,12 @@
         <button class="side-link" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
         <button class="side-link active" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="devices"><span class="nav-icon">▣</span><span>Devices</span></button>
-        <button class="side-link future" type="button" disabled><span class="nav-icon">⊞</span><span>Workspaces</span></button>
-        <button class="side-link future" type="button" disabled><span class="nav-icon">♙</span><span>Profiles</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">☷</span><span>Logs</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">⚙</span><span>Settings</span></button>
       </nav>
       <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar"><span>‹</span><b>Collapse</b></button>
-      <div class="sidebar-version">v0.3.5</div>
+      <div class="sidebar-version">v0.3.6</div>
     </aside>
 
     <div class="app-content">
@@ -47,13 +45,11 @@
 
       <main>
         <section class="session-strip collapsible" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
-          <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Active sessions</h2><p>Connections, configuration and console access</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button id="refresh" class="session-refresh" type="button" aria-label="Refresh sessions">↻</button><button id="new-session" class="primary-action" type="button">＋ New Session</button><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Active sessions">⌃</button></div></div>
+          <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Manage sessions</h2><p>Primary connections, configuration and console access</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button id="refresh" class="session-refresh" type="button" aria-label="Refresh sessions">↻</button><button id="new-session" class="primary-action" type="button">＋ New Connection</button><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Manage sessions">⌃</button></div></div>
           <div id="session-cards" class="session-cards collapsible-content">
-            <article class="session-card pending-session"><button type="button" disabled><span class="session-dot"></span><span><b>KVM Video</b><small>X630 · cable pending</small></span></button><span class="session-kebab disabled">⋯</span></article>
-            <article class="session-card" data-session-port="console_1"><button type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 1 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
-            <article class="session-card" data-session-port="console_2"><button type="button" data-open-port="console_2"><span class="session-dot"></span><span><b>Console 2</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 2 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
-            <article class="session-card pending-session"><button type="button" disabled><span class="session-dot"></span><span><b>SSH</b><small>Coming next</small></span></button><span class="session-kebab disabled">⋯</span></article>
-            <article class="session-card pending-session"><button type="button" disabled><span class="session-dot"></span><span><b>Web (iLO)</b><small>Coming next</small></span></button><span class="session-kebab disabled">⋯</span></article>
+            <article class="session-card pending-session"><button type="button" disabled><span class="session-dot"></span><span><b>VGA KVM</b><small>X630 · cable pending</small></span></button><span class="session-kebab disabled">⋯</span></article>
+            <article class="session-card" data-session-port="console_1"><button type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1 · USB</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 1 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
+            <article class="session-card" data-session-port="console_2"><button type="button" data-open-port="console_2"><span class="session-dot"></span><span><b>Console 2 · USB</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 2 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
           </div>
         </section>
 
@@ -79,17 +75,17 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.5</span></footer>
+      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.6</span></footer>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <dialog id="session-dialog" class="modal session-modal">
-    <div class="modal-heading"><div><h2>New session</h2><p>Select a connection type</p></div><button class="modal-close" type="button" data-close-dialog="session-dialog" aria-label="Close">×</button></div>
-    <div class="session-types"><button type="button" data-session-port="console_1"><b>⌘</b><strong>Console 1</strong><span>USB serial port</span></button><button type="button" data-session-port="console_2"><b>⌘</b><strong>Console 2</strong><span>USB serial port</span></button><button type="button" disabled><b>▣</b><strong>KVM Video</strong><span>X630 capture</span></button><button type="button" disabled><b>›_</b><strong>SSH</strong><span>Secure shell</span></button></div>
+    <div class="modal-heading"><div><h2>New connection</h2><p>Select a connection type</p></div><button class="modal-close" type="button" data-close-dialog="session-dialog" aria-label="Close">×</button></div>
+    <div class="session-types"><button type="button" data-session-port="console_1"><b>⌘</b><strong>Console 1</strong><span>USB serial port</span></button><button type="button" data-session-port="console_2"><b>⌘</b><strong>Console 2</strong><span>USB serial port</span></button><button type="button" disabled><b>▣</b><strong>VGA KVM</strong><span>X630 capture</span></button></div>
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.5.js" defer></script>
+  <script src="/app-0.3.6.js" defer></script>
 </body>
 </html>
