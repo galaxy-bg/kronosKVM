@@ -29,6 +29,16 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
     )
     assert "Environment=KRONOSKVM_VERSION=" not in unit
     assert "ExecStartPre=/usr/bin/install -d -m 0755 -o root -g root /mnt/kronoskvm-storage" in unit
+    assert "ExecStart=/opt/kronoskvm/scripts/start-containers.sh" in unit
+
+
+def test_runtime_grants_only_usb_serial_device_class() -> None:
+    runner = Path("scripts/start-containers.sh").read_text(encoding="utf-8")
+    assert "--device-cgroup-rule 'c 188:* rmw'" in runner
+    assert "--volume /dev:/dev:rw" in runner
+    assert "--user 10001:20" in runner
+    assert "--cap-drop ALL" in runner
+    assert "--privileged" not in runner
 
 
 def test_container_runs_as_non_root() -> None:

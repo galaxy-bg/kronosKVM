@@ -47,6 +47,9 @@ command -v docker-compose >/dev/null
 run install -m 0755 \
     "${PROJECT_DIR}/scripts/kronoskvm" \
     /usr/local/bin/kronoskvm
+run chmod 0755 \
+    "${PROJECT_DIR}/scripts/start-containers.sh" \
+    "${PROJECT_DIR}/scripts/stop-containers.sh"
 
 run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
 run install -d -m 0755 -o root -g root /mnt/kronoskvm-storage

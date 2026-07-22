@@ -60,5 +60,3 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
       - /var/cache/nginx:size=16m,mode=0755
-    depends_on:
-      - api

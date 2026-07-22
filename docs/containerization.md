@@ -38,6 +38,12 @@ containers with explicit `/dev/tty*` or `/dev/video*` access. Optional hardware
 must not be a boot dependency and these services must not receive
 `privileged: true`.
 
+The legacy Compose release on the prototype cannot express dynamic device
+cgroup rules. The boot unit therefore starts the API with a constrained Docker
+runner: `/dev` is visible for hot-plug discovery, while cgroup access is granted
+only to USB serial character devices (`c 188:*`) and Unix dialout permissions
+still apply. The container remains non-root, capability-free and unprivileged.
+
 ## Lifecycle
 
 `kronoskvm-containers.service` manages Compose at boot. The native

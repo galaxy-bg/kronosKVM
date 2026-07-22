@@ -242,3 +242,6 @@
   future SSH/Web connections will appear only after they can be created.
 - Removed unused Workspaces and Profiles navigation entries and made session
   ellipsis menus click-only instead of opening on hover/focus.
+- Restored hot-plug serial access without making optional adapters a boot
+  dependency: the API runner grants only USB-serial major 188 through cgroup,
+  retains non-root dialout permissions and does not use privileged mode.
