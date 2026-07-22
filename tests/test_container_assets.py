@@ -51,9 +51,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.9.js" in html
-    assert "/styles-0.3.9.css" in html
-    assert "app-0.3.9.js" in dockerfile
+    assert "/app-0.3.10.js" in html
+    assert "/styles-0.3.10.css" in html
+    assert "app-0.3.10.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -105,6 +105,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert "Delete connection" in app
     assert "connection-action-popover" in app
     assert "function terminalMarkup" in app
+    assert "function terminalLogProfile" in app
     assert "> Live</span>" not in html
 
 

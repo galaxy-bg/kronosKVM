@@ -599,7 +599,8 @@ function openSshTerminal(profile) {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/ssh/ws`);
   const session = {
-    socket, element, device: profile.host, label: profile.name, profile, logging: false, logParts: [],
+    socket, element, device: profile.host, label: profile.name,
+    profile: { ...profile, username: username.trim() }, logging: false, logParts: [],
   };
   terminals.set(portId, session);
   socket.addEventListener("open", () => socket.send(JSON.stringify({
@@ -800,15 +801,23 @@ function setLogButtons(session) {
   session.element.querySelector(".log-download").disabled = session.logging || session.logParts.length === 0;
 }
 
+function terminalLogProfile(session) {
+  if (session.profile.type === "ssh") {
+    return `Profile: SSH ${session.profile.username || "user"}@${session.profile.host}:${session.profile.port}`;
+  }
+  const profile = session.profile;
+  return `Profile: ${profile.baud_rate} baud, ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}, flow=${profile.flow_control}`;
+}
+
 function startTerminalLog(session) {
   const started = new Date();
   session.logging = true;
   session.logStartedAt = started;
   session.logParts = [
-    `KronosKVM serial console log\n`,
+    `KronosKVM terminal session log\n`,
     `Terminal: ${session.label}\n`,
     `Started: ${started.toISOString()}\n`,
-    `Profile: ${session.profile.baud_rate} baud, ${session.profile.data_bits}${session.profile.parity[0].toUpperCase()}${session.profile.stop_bits}, flow=${session.profile.flow_control}\n`,
+    `${terminalLogProfile(session)}\n`,
     `${"-".repeat(72)}\n`,
   ];
   setLogButtons(session);
