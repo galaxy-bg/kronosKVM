@@ -27,6 +27,7 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
         encoding="utf-8"
     )
     assert "Environment=KRONOSKVM_VERSION=" not in unit
+    assert "ExecStartPre=/usr/bin/install -d -m 0750 -o 10001 -g 20 /var/lib/kronoskvm/storage" in unit
 
 
 def test_container_runs_as_non_root() -> None:

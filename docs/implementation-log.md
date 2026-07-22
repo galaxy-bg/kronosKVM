@@ -224,3 +224,5 @@
   `/var/lib/kronoskvm/storage` as a non-destructive persistent staging area.
 - Added streamed upload, inventory, download and delete APIs plus a responsive
   Storage manager for ISO, firmware and deployment files with capacity display.
+- Made the container boot unit recreate the staging directory with constrained
+  UID/GID ownership when it is absent, without formatting or repartitioning media.
