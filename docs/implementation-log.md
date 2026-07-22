@@ -218,3 +218,5 @@
 - Separated product identity from session controls: the global header now owns
   the KronosKVM mark, toolkit name and product slogan, while New Session lives
   exclusively inside the Active Sessions module.
+- Removed the duplicate graphic mark from the global header while preserving
+  the product name, toolkit descriptor and slogan; sidebar branding remains.
