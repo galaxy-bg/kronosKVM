@@ -251,20 +251,48 @@ function launchConnection(profile) {
 function renderConnections(profiles) {
   connectionProfiles = profiles;
   const container = document.querySelector("#network-connections");
-  container.innerHTML = profiles.map((profile) => `<article class="session-card network-session" data-connection-id="${escapeHtml(profile.id)}"><button type="button" class="launch-connection"><span class="session-dot"></span><span><b>${escapeHtml(profile.name)}</b><small>${escapeHtml(profile.type.toUpperCase())} · ${escapeHtml(profile.host)}:${profile.port}</small></span></button><details class="action-menu session-action-menu"><summary aria-label="${escapeHtml(profile.name)} actions">⋯</summary><div class="action-menu-list"><button type="button" data-connection-action="open">↗ Open</button><button type="button" data-connection-action="edit">⚙ Edit</button><button class="delete-connection" type="button" data-connection-action="delete">⊘ Delete connection</button></div></details></article>`).join("");
+  container.innerHTML = profiles.map((profile) => `<article class="session-card network-session" data-connection-id="${escapeHtml(profile.id)}"><button type="button" class="launch-connection"><span class="session-dot"></span><span><b>${escapeHtml(profile.name)}</b><small>${escapeHtml(profile.type.toUpperCase())} · ${escapeHtml(profile.host)}:${profile.port}</small></span></button><button type="button" class="connection-menu-trigger" aria-label="${escapeHtml(profile.name)} actions" aria-expanded="false">⋯</button></article>`).join("");
   container.querySelectorAll(".launch-connection").forEach((button) => {
     button.addEventListener("click", () => launchConnection(
       connectionProfiles.find((item) => item.id === button.closest("[data-connection-id]").dataset.connectionId)
     ));
   });
-  container.querySelectorAll("[data-connection-action]").forEach((button) => {
+  container.querySelectorAll(".connection-menu-trigger").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const profile = connectionProfiles.find(
+        (item) => item.id === button.closest("[data-connection-id]").dataset.connectionId
+      );
+      openConnectionMenu(button, profile);
+    });
+  });
+}
+
+function closeConnectionMenu() {
+  document.querySelector("#connection-action-popover")?.remove();
+  document.querySelectorAll(".connection-menu-trigger[aria-expanded='true']").forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function openConnectionMenu(trigger, profile) {
+  closeConnectionMenu();
+  trigger.setAttribute("aria-expanded", "true");
+  const menu = document.createElement("div");
+  menu.id = "connection-action-popover";
+  menu.className = "connection-action-popover";
+  menu.innerHTML = `<button type="button" data-action="open">↗ Open</button><button type="button" data-action="edit">⚙ Edit</button><button class="delete-connection" type="button" data-action="delete">⊘ Delete connection</button>`;
+  document.body.appendChild(menu);
+  const rectangle = trigger.getBoundingClientRect();
+  const menuWidth = 190;
+  menu.style.left = `${Math.max(8, Math.min(rectangle.right - menuWidth, window.innerWidth - menuWidth - 8))}px`;
+  menu.style.top = `${Math.min(rectangle.bottom + 6, window.innerHeight - menu.offsetHeight - 8)}px`;
+  menu.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const card = button.closest("[data-connection-id]");
-      const profile = connectionProfiles.find((item) => item.id === card.dataset.connectionId);
-      button.closest("details").removeAttribute("open");
-      if (button.dataset.connectionAction === "open") launchConnection(profile);
-      if (button.dataset.connectionAction === "edit") openConnectionForm(profile.type, profile);
-      if (button.dataset.connectionAction === "delete" && window.confirm(`Delete ${profile.name}?`)) {
+      closeConnectionMenu();
+      if (button.dataset.action === "open") launchConnection(profile);
+      if (button.dataset.action === "edit") openConnectionForm(profile.type, profile);
+      if (button.dataset.action === "delete" && window.confirm(`Delete ${profile.name}?`)) {
         const response = await fetch(`/api/v1/connections/${encodeURIComponent(profile.id)}`, { method: "DELETE" });
         if (response.ok) {
           showToast(`${profile.name}: deleted`);
@@ -457,10 +485,48 @@ function setConnectionControls() {
   });
 }
 
+const ansiColors = {
+  30: "ansi-black", 31: "ansi-red", 32: "ansi-green", 33: "ansi-yellow",
+  34: "ansi-blue", 35: "ansi-magenta", 36: "ansi-cyan", 37: "ansi-white",
+  90: "ansi-bright-black", 91: "ansi-bright-red", 92: "ansi-bright-green",
+  93: "ansi-bright-yellow", 94: "ansi-bright-blue", 95: "ansi-bright-magenta",
+  96: "ansi-bright-cyan", 97: "ansi-bright-white",
+};
+
+function terminalMarkup(session, value) {
+  const input = `${session.ansiPending || ""}${value}`
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[\??[0-9;]*[A-HJKSTfhlnsu]/g, "");
+  session.ansiPending = "";
+  let output = "";
+  let position = 0;
+  input.replace(/\x1b\[([0-9;]*)m/g, (match, parameters, offset) => {
+    output += escapeHtml(input.slice(position, offset));
+    const codes = (parameters || "0").split(";").map(Number);
+    for (const code of codes) {
+      if (code === 0) session.ansiClasses = [];
+      else if (code === 1 && !session.ansiClasses?.includes("ansi-bold")) {
+        session.ansiClasses = [...(session.ansiClasses || []), "ansi-bold"];
+      } else if (code === 22) session.ansiClasses = (session.ansiClasses || []).filter((item) => item !== "ansi-bold");
+      else if (code === 39) session.ansiClasses = (session.ansiClasses || []).filter((item) => !item.startsWith("ansi-") || item === "ansi-bold");
+      else if (ansiColors[code]) {
+        session.ansiClasses = (session.ansiClasses || []).filter((item) => !item.startsWith("ansi-") || item === "ansi-bold");
+        session.ansiClasses.push(ansiColors[code]);
+      }
+    }
+    position = offset + match.length;
+    return match;
+  });
+  output += escapeHtml(input.slice(position));
+  const plain = input.replace(/\x1b\[[0-9;]*m/g, "").replace(/\r(?!\n)/g, "");
+  return { html: session.ansiClasses?.length ? `<span class="${session.ansiClasses.join(" ")}">${output}</span>` : output, plain };
+}
+
 function appendTerminal(session, value) {
   const terminal = session.element.querySelector(".terminal");
-  terminal.textContent += value;
-  if (session.logging) session.logParts.push(value);
+  const rendered = terminalMarkup(session, String(value));
+  terminal.insertAdjacentHTML("beforeend", rendered.html);
+  if (session.logging) session.logParts.push(rendered.plain);
   if (terminal.textContent.length > 100000) terminal.textContent = terminal.textContent.slice(-80000);
   terminal.scrollTop = terminal.scrollHeight;
 }
@@ -975,6 +1041,7 @@ document.querySelector("#config-form").addEventListener("submit", (event) => {
   showToast("Serial configuration saved");
 });
 document.addEventListener("click", (event) => {
+  if (!event.target.closest("#connection-action-popover, .connection-menu-trigger")) closeConnectionMenu();
   document.querySelectorAll(".action-menu[open]").forEach((menu) => {
     if (!menu.contains(event.target)) menu.removeAttribute("open");
   });
