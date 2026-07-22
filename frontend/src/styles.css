@@ -98,6 +98,8 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .session-action-menu { flex: 0 0 32px; padding-right: 6px; }
 .session-action-menu summary { width: 28px; height: 28px; border-color: transparent; background: transparent; }
 .session-action-menu .action-menu-list { right: 0; top: calc(100% + 9px); }
+.network-session .action-menu-list { z-index: 25; }
+.network-session .delete-connection { color: var(--danger); }
 .session-kebab { width: 28px; margin-right: 6px; color: var(--muted); font-size: 1rem; text-align: center; }
 .network-connections { display: contents; }
 .session-refresh { width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--accent-strong); cursor: pointer; }

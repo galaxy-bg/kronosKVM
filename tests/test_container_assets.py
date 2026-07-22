@@ -51,9 +51,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.7.js" in html
+    assert "/app-0.3.8.js" in html
     assert "/styles-0.3.7.css" in html
-    assert "app-0.3.7.js" in dockerfile
+    assert "app-0.3.8.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -101,6 +101,8 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-connection-type="vnc"' in html
     assert 'data-connection-type="web"' in html
     assert 'getJson("/api/v1/connections")' in app
+    assert 'new WebSocket(`${protocol}://${location.host}/api/v1/ssh/ws`)' in app
+    assert "Delete connection" in app
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:

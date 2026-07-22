@@ -239,6 +239,10 @@ function connectionUri(profile) {
 }
 
 function launchConnection(profile) {
+  if (profile.type === "ssh") {
+    openSshTerminal(profile);
+    return;
+  }
   const uri = connectionUri(profile);
   if (profile.type === "web") window.open(uri, "_blank", "noopener,noreferrer");
   else window.location.href = uri;
@@ -247,7 +251,7 @@ function launchConnection(profile) {
 function renderConnections(profiles) {
   connectionProfiles = profiles;
   const container = document.querySelector("#network-connections");
-  container.innerHTML = profiles.map((profile) => `<article class="session-card network-session" data-connection-id="${escapeHtml(profile.id)}"><button type="button" class="launch-connection"><span class="session-dot"></span><span><b>${escapeHtml(profile.name)}</b><small>${escapeHtml(profile.type.toUpperCase())} · ${escapeHtml(profile.host)}:${profile.port}</small></span></button><details class="action-menu session-action-menu"><summary aria-label="${escapeHtml(profile.name)} actions">⋯</summary><div class="action-menu-list"><button type="button" data-connection-action="open">↗ Open</button><button type="button" data-connection-action="edit">⚙ Edit</button><button type="button" data-connection-action="delete">⊘ Delete</button></div></details></article>`).join("");
+  container.innerHTML = profiles.map((profile) => `<article class="session-card network-session" data-connection-id="${escapeHtml(profile.id)}"><button type="button" class="launch-connection"><span class="session-dot"></span><span><b>${escapeHtml(profile.name)}</b><small>${escapeHtml(profile.type.toUpperCase())} · ${escapeHtml(profile.host)}:${profile.port}</small></span></button><details class="action-menu session-action-menu"><summary aria-label="${escapeHtml(profile.name)} actions">⋯</summary><div class="action-menu-list"><button type="button" data-connection-action="open">↗ Open</button><button type="button" data-connection-action="edit">⚙ Edit</button><button class="delete-connection" type="button" data-connection-action="delete">⊘ Delete connection</button></div></details></article>`).join("");
   container.querySelectorAll(".launch-connection").forEach((button) => {
     button.addEventListener("click", () => launchConnection(
       connectionProfiles.find((item) => item.id === button.closest("[data-connection-id]").dataset.connectionId)
@@ -507,6 +511,77 @@ function createTerminalWindow(button, profile) {
   enableTerminalDrag(element);
   element.addEventListener("pointerdown", () => focusTerminal(element));
   return element;
+}
+
+function openSshTerminal(profile) {
+  const portId = `ssh-${profile.id}`;
+  if (terminals.has(portId)) {
+    focusTerminal(terminals.get(portId).element);
+    return;
+  }
+  const username = window.prompt(`SSH username for ${profile.host}`, profile.username || "");
+  if (username === null || !username.trim()) return;
+  const password = window.prompt(`SSH password for ${username}@${profile.host}\n(Not saved)`);
+  if (password === null) return;
+
+  const button = { dataset: { portId, portName: `SSH · ${profile.host}` } };
+  const terminalProfile = {
+    display_name: profile.name, baud_rate: "SSH", data_bits: "", parity: " ", stop_bits: "",
+  };
+  const element = createTerminalWindow(button, terminalProfile);
+  element.querySelector(".terminal-heading span").textContent = `${username}@${profile.host}:${profile.port}`;
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${protocol}://${location.host}/api/v1/ssh/ws`);
+  const session = {
+    socket, element, device: profile.host, label: profile.name, profile, logging: false, logParts: [],
+  };
+  terminals.set(portId, session);
+  socket.addEventListener("open", () => socket.send(JSON.stringify({
+    host: profile.host, port: profile.port, username: username.trim(), password,
+  })));
+  socket.addEventListener("message", (event) => {
+    appendTerminal(session, event.data);
+    if (String(event.data).includes("SSH connected")) {
+      const status = element.querySelector(".terminal-connection");
+      status.className = "terminal-connection connected";
+      status.querySelector("b").textContent = "Connected";
+      element.querySelector(".terminal").focus();
+    }
+  });
+  socket.addEventListener("close", () => {
+    const status = element.querySelector(".terminal-connection");
+    status.className = "terminal-connection disconnected";
+    status.querySelector("b").textContent = "Disconnected";
+    session.socket = null;
+  });
+  socket.addEventListener("error", () => appendTerminal(session, "\nSSH WebSocket error.\n"));
+  const send = (value) => {
+    if (session.socket?.readyState === WebSocket.OPEN) session.socket.send(value);
+  };
+  const specialKeys = {
+    Enter: "\r", Backspace: "\x7f", Tab: "\t", Escape: "\x1b",
+    ArrowUp: "\x1b[A", ArrowDown: "\x1b[B", ArrowRight: "\x1b[C", ArrowLeft: "\x1b[D",
+    Home: "\x1b[H", End: "\x1b[F", Delete: "\x1b[3~", PageUp: "\x1b[5~", PageDown: "\x1b[6~",
+  };
+  element.querySelector(".terminal").addEventListener("keydown", (event) => {
+    let value = specialKeys[event.key];
+    if (event.ctrlKey && event.key.length === 1 && /[a-z]/i.test(event.key)) {
+      value = String.fromCharCode(event.key.toUpperCase().charCodeAt(0) - 64);
+    } else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+      value = event.key;
+    }
+    if (value !== undefined) { event.preventDefault(); send(value); }
+  });
+  element.querySelector(".terminal").addEventListener("paste", (event) => {
+    event.preventDefault();
+    send(event.clipboardData.getData("text"));
+  });
+  element.querySelector(".terminal-close").addEventListener("click", () => closeTerminal(portId));
+  element.querySelector(".terminal-minimize").addEventListener("click", () => element.classList.toggle("minimized"));
+  element.querySelector(".terminal-maximize").addEventListener("click", () => element.classList.toggle("maximized"));
+  element.querySelector(".log-start").addEventListener("click", () => startTerminalLog(session));
+  element.querySelector(".log-stop").addEventListener("click", () => stopTerminalLog(session));
+  element.querySelector(".log-download").addEventListener("click", () => downloadTerminalLog(session));
 }
 
 function openConsole(button, profileOverride = null) {

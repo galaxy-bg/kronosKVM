@@ -9,6 +9,7 @@ description = "Portable infrastructure-management appliance by KronosDX"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "asyncssh>=2.20,<3",
     "fastapi>=0.115,<1",
     "pydantic>=2.7,<3",
     "pyserial>=3.5,<4",
