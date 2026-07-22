@@ -22,6 +22,26 @@ function applyTheme(theme) {
 
 applyTheme(localStorage.getItem(themeStorageKey) || "light");
 
+function setCollapsed(panel, collapsed) {
+  panel.classList.toggle("collapsed", collapsed);
+  const button = panel.querySelector(":scope > .collapse-heading .collapse-button");
+  if (!button) return;
+  button.setAttribute("aria-expanded", String(!collapsed));
+  const title = panel.querySelector(":scope > .collapse-heading h2")?.textContent || "panel";
+  button.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${title}`);
+}
+
+document.querySelectorAll("[data-collapse-id]").forEach((panel) => {
+  const storageKey = `kronoskvm.panel.${panel.dataset.collapseId}.collapsed`;
+  setCollapsed(panel, localStorage.getItem(storageKey) === "true");
+  panel.querySelector(":scope > .collapse-heading").addEventListener("click", (event) => {
+    if (event.target.closest("a, input, select")) return;
+    const collapsed = !panel.classList.contains("collapsed");
+    setCollapsed(panel, collapsed);
+    localStorage.setItem(storageKey, String(collapsed));
+  });
+});
+
 async function getJson(path) {
   const response = await fetch(path, { headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);

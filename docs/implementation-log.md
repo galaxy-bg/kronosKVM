@@ -209,3 +209,5 @@
   responsive sidebar navigation, active connection cards and KVM workspace.
 - Added persistent Light and Dark themes; Light remains the default and the
   explicit operator choice is restored without following later OS changes.
+- Added persistent accordion controls to Active Sessions, Physical Ports and
+  Appliance Status so dense modules can be reduced to their heading rows.

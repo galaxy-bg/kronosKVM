@@ -54,8 +54,11 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-theme-choice="light"' in html
     assert 'data-theme-choice="dark"' in html
     assert 'class="side-nav"' in html
-    assert 'class="session-strip"' in html
+    assert 'class="session-strip collapsible"' in html
     assert 'localStorage.getItem(themeStorageKey) || "light"' in app
+    assert 'data-collapse-id="physical-ports"' in html
+    assert 'data-collapse-id="appliance-status"' in html
+    assert "function setCollapsed" in app
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:

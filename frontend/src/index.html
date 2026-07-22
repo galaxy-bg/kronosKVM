@@ -48,9 +48,9 @@
           <button id="new-session" class="primary-action" type="button">＋ New Session</button>
         </header>
 
-        <section class="session-strip" aria-labelledby="active-sessions-title">
-          <div class="section-title"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><span class="live-label"><i></i> Live</span></div>
-          <div id="session-cards" class="session-cards">
+        <section class="session-strip collapsible" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
+          <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Active sessions">⌃</button></div></div>
+          <div id="session-cards" class="session-cards collapsible-content">
             <button class="session-card video pending-session" type="button" disabled><span class="session-dot"></span><span><b>KVM Video</b><small>X630 · cable pending</small></span></button>
             <button class="session-card" type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1</b><small>Serial console</small></span></button>
             <button class="session-card" type="button" data-open-port="console_2"><span class="session-dot"></span><span><b>Console 2</b><small>Serial console</small></span></button>
@@ -82,15 +82,15 @@
           <span class="notice-icon">i</span><div><strong>Isolated management access</strong><p>Frontend is available from the permanent AP at 192.168.34.100. Updates and deployments use ETH0.</p></div>
         </section>
 
-        <section id="devices-panel" class="panel ports-panel">
-          <div class="panel-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><span class="verified-label">✓ Mapped</span></div>
-          <div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
-          <div class="port-warning"><strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1, Console 2, Service USB and ETH1 from the CM4 host USB topology.</div>
+        <section id="devices-panel" class="panel ports-panel collapsible" data-collapse-id="physical-ports">
+          <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
+          <div class="collapsible-content"><div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
+          <div class="port-warning"><strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1, Console 2, Service USB and ETH1 from the CM4 host USB topology.</div></div>
         </section>
 
-        <section id="status-panel" class="panel status-panel">
-          <div class="panel-heading"><div><h2>Appliance status</h2><p>Live system and connectivity information</p></div><span class="live-label"><i></i> Monitoring</span></div>
-          <div class="detail-grid"><section class="detail-section"><h3>System</h3><dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl></section><section class="detail-section"><h3>Network</h3><div id="network" class="stack">Loading…</div></section><section class="detail-section"><h3>KVM Services</h3><div id="services" class="stack">Loading…</div></section></div>
+        <section id="status-panel" class="panel status-panel collapsible" data-collapse-id="appliance-status">
+          <div class="panel-heading collapse-heading"><div><h2>Appliance status</h2><p>Live system and connectivity information</p></div><div class="heading-actions"><span class="live-label"><i></i> Monitoring</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Appliance status">⌃</button></div></div>
+          <div class="detail-grid collapsible-content"><section class="detail-section"><h3>System</h3><dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl></section><section class="detail-section"><h3>Network</h3><div id="network" class="stack">Loading…</div></section><section class="detail-section"><h3>KVM Services</h3><div id="services" class="stack">Loading…</div></section></div>
         </section>
       </main>
 

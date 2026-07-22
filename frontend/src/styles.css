@@ -66,6 +66,14 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .session-strip, .panel, .workspace-card, .quick-actions { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
 .session-strip { padding: 16px; margin-bottom: 14px; }
 .section-title, .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.heading-actions { display: flex; align-items: center; gap: 8px; }
+.collapse-heading { cursor: pointer; user-select: none; }
+.collapse-button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); color: var(--muted); font-size: .9rem; cursor: pointer; transition: transform .18s ease, color .18s ease, background .18s ease; }
+.collapse-heading:hover .collapse-button { background: var(--accent-soft); color: var(--accent-strong); }
+.collapsible.collapsed .collapse-button { transform: rotate(180deg); }
+.collapsible.collapsed > .collapsible-content { display: none; }
+.panel.collapsed .panel-heading { border-bottom: 0; }
+.session-strip.collapsed .section-title { margin-bottom: 0; }
 .section-title { margin-bottom: 13px; }
 .section-title h2, .panel-heading h2, .quick-actions h2 { margin: 0; font-size: .88rem; }
 .section-title p, .panel-heading p, .quick-actions p { margin: 3px 0 0; color: var(--muted); font-size: .69rem; }
