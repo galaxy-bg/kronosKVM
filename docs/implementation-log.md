@@ -232,3 +232,5 @@
   mounted at `/mnt/kronoskvm-storage` and otherwise remains read-only/unavailable.
 - Published the complete management gateway on both the permanent AP and the
   dynamic ETH0 address while keeping the API process localhost-only.
+- Hid the loopback interface from the operator-facing network summary while
+  retaining it in the diagnostic API response.

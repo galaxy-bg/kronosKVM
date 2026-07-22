@@ -76,7 +76,9 @@ function renderSystem(system) {
 }
 
 function renderNetwork(network) {
-  document.querySelector("#network").innerHTML = network.interfaces.map((item) =>
+  document.querySelector("#network").innerHTML = network.interfaces
+    .filter((item) => item.name !== "lo")
+    .map((item) =>
     `<div class="row"><span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.addresses?.join(", ") || "no address")}</span></span><span class="state ${item.state === "up" ? "" : "offline"}">${escapeHtml(item.state)}</span></div>`
   ).join("");
 }
