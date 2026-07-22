@@ -33,10 +33,21 @@ function setCollapsed(panel, collapsed) {
 
 document.querySelectorAll("[data-collapse-id]").forEach((panel) => {
   const storageKey = `kronoskvm.panel.${panel.dataset.collapseId}.collapsed`;
-  setCollapsed(panel, localStorage.getItem(storageKey) === "true");
+  const savedState = localStorage.getItem(storageKey);
+  const initiallyCollapsed = savedState === null
+    ? panel.dataset.defaultCollapsed === "true"
+    : savedState === "true";
+  setCollapsed(panel, initiallyCollapsed);
   panel.querySelector(":scope > .collapse-heading").addEventListener("click", (event) => {
     if (event.target.closest("a, input, select")) return;
     const collapsed = !panel.classList.contains("collapsed");
+    if (!collapsed && panel.dataset.collapseGroup) {
+      document.querySelectorAll(`[data-collapse-group="${panel.dataset.collapseGroup}"]`).forEach((sibling) => {
+        if (sibling === panel) return;
+        setCollapsed(sibling, true);
+        localStorage.setItem(`kronoskvm.panel.${sibling.dataset.collapseId}.collapsed`, "true");
+      });
+    }
     setCollapsed(panel, collapsed);
     localStorage.setItem(storageKey, String(collapsed));
   });
@@ -557,7 +568,7 @@ document.querySelectorAll(".side-link[data-view]").forEach((button) => {
     button.classList.add("active");
     const target = button.dataset.view === "devices"
       ? document.querySelector("#devices-panel")
-      : button.dataset.view === "dashboard" ? document.querySelector("#status-panel") : document.querySelector(".page-header");
+      : button.dataset.view === "dashboard" ? document.querySelector("#status-panel") : document.querySelector(".session-strip");
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     document.querySelector("#sidebar").classList.remove("mobile-open");
   });

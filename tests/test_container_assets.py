@@ -56,8 +56,10 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'class="side-nav"' in html
     assert 'class="session-strip collapsible"' in html
     assert 'localStorage.getItem(themeStorageKey) || "light"' in app
-    assert 'data-collapse-id="physical-ports"' in html
-    assert 'data-collapse-id="appliance-status"' in html
+    assert 'data-collapse-id="physical-ports-v2"' in html
+    assert 'data-collapse-id="appliance-status-v2"' in html
+    assert html.count('data-collapse-group="hardware-details"') == 2
+    assert html.count('data-default-collapsed="true"') == 2
     assert "function setCollapsed" in app
 
 

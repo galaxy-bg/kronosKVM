@@ -211,3 +211,7 @@
   explicit operator choice is restored without following later OS changes.
 - Added persistent accordion controls to Active Sessions, Physical Ports and
   Appliance Status so dense modules can be reduced to their heading rows.
+- Defaulted Physical Ports and Appliance Status to collapsed and made them an
+  exclusive accordion group so opening either automatically closes the other.
+- Moved session context into the responsive top bar and refined compact
+  navigation to retain only the product mark and icon controls.

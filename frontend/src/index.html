@@ -31,8 +31,10 @@
     <div class="app-content">
       <header class="topbar">
         <button id="mobile-menu" class="icon-button mobile-menu" type="button" aria-label="Open navigation">☰</button>
+        <div class="topbar-context"><p>Remote console toolkit</p><div><h1>Sessions</h1><span>Manage live connections and appliance hardware</span></div></div>
         <label class="search"><span>⌕</span><input id="session-search" type="search" placeholder="Search ports, devices…" aria-label="Search ports and devices"></label>
         <div class="topbar-actions">
+          <button id="new-session" class="primary-action" type="button">＋ New Session</button>
           <div class="theme-switcher" role="group" aria-label="Color theme">
             <button type="button" data-theme-choice="light" aria-pressed="true">☀ <span>Light</span></button>
             <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
@@ -43,11 +45,6 @@
       </header>
 
       <main>
-        <header class="page-header">
-          <div><p class="eyebrow">Remote console toolkit</p><h1>Sessions</h1><p>Manage live connections and appliance hardware from one workspace.</p></div>
-          <button id="new-session" class="primary-action" type="button">＋ New Session</button>
-        </header>
-
         <section class="session-strip collapsible" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
           <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Active sessions">⌃</button></div></div>
           <div id="session-cards" class="session-cards collapsible-content">
@@ -82,13 +79,13 @@
           <span class="notice-icon">i</span><div><strong>Isolated management access</strong><p>Frontend is available from the permanent AP at 192.168.34.100. Updates and deployments use ETH0.</p></div>
         </section>
 
-        <section id="devices-panel" class="panel ports-panel collapsible" data-collapse-id="physical-ports">
+        <section id="devices-panel" class="panel ports-panel collapsible" data-collapse-id="physical-ports-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
           <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
           <div class="collapsible-content"><div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
           <div class="port-warning"><strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1, Console 2, Service USB and ETH1 from the CM4 host USB topology.</div></div>
         </section>
 
-        <section id="status-panel" class="panel status-panel collapsible" data-collapse-id="appliance-status">
+        <section id="status-panel" class="panel status-panel collapsible" data-collapse-id="appliance-status-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
           <div class="panel-heading collapse-heading"><div><h2>Appliance status</h2><p>Live system and connectivity information</p></div><div class="heading-actions"><span class="live-label"><i></i> Monitoring</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Appliance status">⌃</button></div></div>
           <div class="detail-grid collapsible-content"><section class="detail-section"><h3>System</h3><dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl></section><section class="detail-section"><h3>Network</h3><div id="network" class="stack">Loading…</div></section><section class="detail-section"><h3>KVM Services</h3><div id="services" class="stack">Loading…</div></section></div>
         </section>
