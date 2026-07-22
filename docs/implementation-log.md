@@ -220,3 +220,7 @@
   exclusively inside the Active Sessions module.
 - Removed the duplicate graphic mark from the global header while preserving
   the product name, toolkit descriptor and slogan; sidebar branding remains.
+- Identified the 32 GB microSD as the live root disk and reserved
+  `/var/lib/kronoskvm/storage` as a non-destructive persistent staging area.
+- Added streamed upload, inventory, download and delete APIs plus a responsive
+  Storage manager for ISO, firmware and deployment files with capacity display.

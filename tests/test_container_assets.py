@@ -18,6 +18,8 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
         in api["volumes"]
     )
+    assert "/var/lib/kronoskvm/storage:/storage" in api["volumes"]
+    assert api["environment"]["KRONOSKVM_STORAGE_PATH"] == "/storage"
 
 
 def test_boot_service_does_not_pin_a_stale_image_version() -> None:
@@ -37,9 +39,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.0.js" in html
-    assert "/styles-0.3.0.css" in html
-    assert "app-0.3.0.js" in dockerfile
+    assert "/app-0.3.1.js" in html
+    assert "/styles-0.3.1.css" in html
+    assert "app-0.3.1.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -59,13 +61,16 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-collapse-id="physical-ports-v2"' in html
     assert 'data-collapse-id="appliance-status-v2"' in html
     assert html.count('data-collapse-group="hardware-details"') == 2
-    assert html.count('data-default-collapsed="true"') == 2
+    assert html.count('data-default-collapsed="true"') == 3
     assert 'class="header-brand"' in html
     assert "header-brand-mark" not in html
     assert "Remote Console Toolkit" in html
     assert "All-in-One IP-KVM System" in html
     assert html.index('id="new-session"') > html.index('id="active-sessions-title"')
     assert "function setCollapsed" in app
+    assert 'id="storage-panel"' in html
+    assert 'id="storage-file-input"' in html
+    assert 'getJson("/api/v1/storage")' in app
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:
@@ -82,6 +87,8 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
+    assert "client_max_body_size 16g;" in nginx
+    assert "proxy_request_buffering off;" in nginx
 
 
 def test_docker_daemon_does_not_manage_routing() -> None:

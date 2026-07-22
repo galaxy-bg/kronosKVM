@@ -197,6 +197,99 @@ function filterPortRows(query) {
   });
 }
 
+const formatBytes = (value) => {
+  const bytes = Number(value) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length);
+  return `${(bytes / (1024 ** exponent)).toFixed(exponent > 2 ? 1 : 0)} ${units[exponent - 1]}`;
+};
+
+function renderStorage(storage) {
+  const percent = storage.total_bytes ? Math.round((storage.used_bytes / storage.total_bytes) * 100) : 0;
+  document.querySelector("#storage-state").textContent = storage.status === "ready" ? "✓ Ready" : storage.status;
+  document.querySelector("#storage-capacity").textContent = `${formatBytes(storage.used_bytes)} / ${formatBytes(storage.total_bytes)}`;
+  document.querySelector("#storage-free").textContent = `${formatBytes(storage.free_bytes)} free · 1 GB system reserve protected`;
+  document.querySelector("#storage-capacity-bar").style.width = `${percent}%`;
+  document.querySelector("#storage-file-count").textContent = storage.file_count;
+  const body = document.querySelector("#storage-files");
+  if (!storage.files.length) {
+    body.innerHTML = '<tr><td colspan="5" class="loading-cell">No staged files. Upload an ISO or firmware package to begin.</td></tr>';
+    return;
+  }
+  body.innerHTML = storage.files.map((file) => {
+    const extension = file.name.includes(".") ? file.name.split(".").pop().slice(0, 4).toUpperCase() : "FILE";
+    return `<tr><td><div class="file-name"><i>${escapeHtml(extension)}</i><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span></div></td><td>${escapeHtml(file.media_type)}</td><td>${formatBytes(file.size_bytes)}</td><td>${new Date(file.modified_at).toLocaleString()}</td><td><div class="file-actions"><a href="/api/v1/storage/files/${encodeURIComponent(file.name)}" download>↓ Download</a><button class="delete-file" type="button" data-filename="${escapeHtml(file.name)}">Delete</button></div></td></tr>`;
+  }).join("");
+  document.querySelectorAll(".delete-file").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm(`Delete ${button.dataset.filename}?`)) return;
+      button.disabled = true;
+      try {
+        const response = await fetch(`/api/v1/storage/files/${encodeURIComponent(button.dataset.filename)}`, { method: "DELETE" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        showToast(`${button.dataset.filename}: deleted`);
+        await loadStorage();
+      } catch (error) {
+        button.disabled = false;
+        showToast(`${button.dataset.filename}: delete failed`);
+        console.error("Storage delete failed", error);
+      }
+    });
+  });
+}
+
+async function loadStorage() {
+  try {
+    renderStorage(await getJson("/api/v1/storage"));
+  } catch (error) {
+    document.querySelector("#storage-state").textContent = "Unavailable";
+    document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Staging storage unavailable.</td></tr>';
+    console.error("Storage request failed", error);
+  }
+}
+
+function uploadStorageFile(file) {
+  return new Promise((resolve, reject) => {
+    const status = document.querySelector("#upload-status");
+    const progress = document.querySelector("#upload-progress");
+    const percent = document.querySelector("#upload-percent");
+    status.hidden = false;
+    document.querySelector("#upload-name").textContent = `Uploading ${file.name}`;
+    progress.style.width = "0%";
+    percent.textContent = "0%";
+    const request = new XMLHttpRequest();
+    request.open("PUT", `/api/v1/storage/files/${encodeURIComponent(file.name)}`);
+    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      const value = Math.round((event.loaded / event.total) * 100);
+      progress.style.width = `${value}%`;
+      percent.textContent = `${value}%`;
+    });
+    request.addEventListener("load", () => request.status >= 200 && request.status < 300
+      ? resolve() : reject(new Error(`HTTP ${request.status}`)));
+    request.addEventListener("error", () => reject(new Error("Network error")));
+    request.send(file);
+  });
+}
+
+async function uploadStorageFiles(files) {
+  for (const file of files) {
+    try {
+      await uploadStorageFile(file);
+      showToast(`${file.name}: upload complete`);
+    } catch (error) {
+      showToast(`${file.name}: upload failed`);
+      console.error("Storage upload failed", error);
+      break;
+    }
+  }
+  document.querySelector("#upload-status").hidden = true;
+  document.querySelector("#storage-file-input").value = "";
+  await loadStorage();
+}
+
 function consoleButtonForPort(portId) {
   return document.querySelector(`.console-action[data-port-id="${portId}"]`);
 }
@@ -507,6 +600,7 @@ function closeTerminal(portId) {
 async function load() {
   const health = document.querySelector("#health");
   loadPorts();
+  loadStorage();
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
@@ -568,13 +662,38 @@ document.querySelectorAll(".side-link[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".side-link[data-view]").forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
-    const target = button.dataset.view === "devices"
+    const target = button.dataset.view === "storage"
+      ? document.querySelector("#storage-panel")
+      : button.dataset.view === "devices"
       ? document.querySelector("#devices-panel")
       : button.dataset.view === "dashboard" ? document.querySelector("#status-panel") : document.querySelector(".session-strip");
+    if (target.matches("[data-collapse-id]")) {
+      setCollapsed(target, false);
+      localStorage.setItem(`kronoskvm.panel.${target.dataset.collapseId}.collapsed`, "false");
+    }
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     document.querySelector("#sidebar").classList.remove("mobile-open");
   });
 });
+const storageInput = document.querySelector("#storage-file-input");
+const storageDropzone = document.querySelector("#storage-dropzone");
+document.querySelector("#storage-choose").addEventListener("click", () => storageInput.click());
+storageInput.addEventListener("change", () => uploadStorageFiles([...storageInput.files]));
+storageDropzone.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    storageInput.click();
+  }
+});
+["dragenter", "dragover"].forEach((name) => storageDropzone.addEventListener(name, (event) => {
+  event.preventDefault();
+  storageDropzone.classList.add("dragging");
+}));
+["dragleave", "drop"].forEach((name) => storageDropzone.addEventListener(name, (event) => {
+  event.preventDefault();
+  storageDropzone.classList.remove("dragging");
+}));
+storageDropzone.addEventListener("drop", (event) => uploadStorageFiles([...event.dataTransfer.files]));
 document.querySelector("#session-search").addEventListener("input", (event) => {
   filterPortRows(event.currentTarget.value);
   if (event.currentTarget.value.trim()) document.querySelector("#devices-panel").scrollIntoView({ behavior: "smooth", block: "start" });

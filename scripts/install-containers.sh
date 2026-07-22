@@ -49,6 +49,7 @@ run install -m 0755 \
     /usr/local/bin/kronoskvm
 
 run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
+run install -d -m 0750 -o 10001 -g 20 /var/lib/kronoskvm/storage
 run install -d -m 0755 -o root -g root /etc/docker
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/docker/daemon.json" \

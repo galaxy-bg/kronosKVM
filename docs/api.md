@@ -1,6 +1,7 @@
 # KronosKVM API
 
-The Milestone 3 API is read-only and listens on `127.0.0.1:8000`.
+The API listens on `127.0.0.1:8000`. Mutating endpoints are limited to serial
+session coordination and the dedicated staging-file directory.
 
 ## Endpoints
 
@@ -17,6 +18,10 @@ The Milestone 3 API is read-only and listens on `127.0.0.1:8000`.
 - `GET /api/v1/hardware/temperature`
 - `GET /api/v1/hardware/ports`
 - `GET /api/v1/serial/devices`
+- `GET /api/v1/storage` — staging capacity and managed file inventory
+- `PUT /api/v1/storage/files/{filename}` — stream a raw file upload
+- `GET /api/v1/storage/files/{filename}` — download a staged file
+- `DELETE /api/v1/storage/files/{filename}` — delete a staged file
 - `POST /api/v1/serial/locks`
 - `DELETE /api/v1/serial/locks/{device_name}`
 

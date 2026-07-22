@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.0.css">
+  <link rel="stylesheet" href="/styles-0.3.1.css">
 </head>
 <body>
   <div class="app-shell">
@@ -20,12 +20,12 @@
         <button class="side-link" type="button" data-view="devices"><span class="nav-icon">▣</span><span>Devices</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">⊞</span><span>Workspaces</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">♙</span><span>Profiles</span></button>
-        <button class="side-link future" type="button" disabled><span class="nav-icon">▤</span><span>Storage</span></button>
+        <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">☷</span><span>Logs</span></button>
         <button class="side-link future" type="button" disabled><span class="nav-icon">⚙</span><span>Settings</span></button>
       </nav>
       <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar"><span>‹</span><b>Collapse</b></button>
-      <div class="sidebar-version">v0.3.0</div>
+      <div class="sidebar-version">v0.3.1</div>
     </aside>
 
     <div class="app-content">
@@ -80,6 +80,16 @@
           <span class="notice-icon">i</span><div><strong>Isolated management access</strong><p>Frontend is available from the permanent AP at 192.168.34.100. Updates and deployments use ETH0.</p></div>
         </section>
 
+        <section id="storage-panel" class="panel storage-panel collapsible" data-collapse-id="staging-storage" data-default-collapsed="true">
+          <div class="panel-heading collapse-heading"><div><h2>Staging storage</h2><p>ISO images, firmware and deployment files on the internal 32 GB card</p></div><div class="heading-actions"><span id="storage-state" class="verified-label">Checking…</span><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Staging storage">⌃</button></div></div>
+          <div class="collapsible-content storage-content">
+            <div class="storage-summary"><div><span>Capacity</span><strong id="storage-capacity">Loading…</strong><div class="capacity-track"><i id="storage-capacity-bar"></i></div><small id="storage-free"></small></div><div><span>Files</span><strong id="storage-file-count">—</strong><small>Available for future virtual media mounting</small></div></div>
+            <div id="storage-dropzone" class="storage-dropzone" tabindex="0"><input id="storage-file-input" type="file" multiple hidden><span class="upload-icon">⇧</span><div><strong>Upload files</strong><p>Drop ISO, firmware or installation files here, or choose from this computer.</p></div><button id="storage-choose" type="button">Choose files</button></div>
+            <div id="upload-status" class="upload-status" hidden><div><span id="upload-name">Uploading…</span><b id="upload-percent">0%</b></div><div class="capacity-track"><i id="upload-progress"></i></div></div>
+            <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>Name</th><th>Type</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead><tbody id="storage-files"><tr><td colspan="5" class="loading-cell">Loading staging files…</td></tr></tbody></table></div>
+          </div>
+        </section>
+
         <section id="devices-panel" class="panel ports-panel collapsible" data-collapse-id="physical-ports-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
           <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
           <div class="collapsible-content"><div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
@@ -92,7 +102,7 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span>192.168.34.100 · Version 0.3.0</span></footer>
+      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span>192.168.34.100 · Version 0.3.1</span></footer>
     </div>
   </div>
 
@@ -103,6 +113,6 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.0.js" defer></script>
+  <script src="/app-0.3.1.js" defer></script>
 </body>
 </html>

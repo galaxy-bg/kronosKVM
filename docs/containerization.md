@@ -19,6 +19,8 @@ The API image is ARM64 compatible and uses:
 - no Docker socket;
 - no broad `/dev` mount;
 - no mandatory device node that can prevent boot when optional hardware is absent;
+- a single writable bind mount limited to `/var/lib/kronoskvm/storage` for
+  staged operator files;
 - read-only `/sys` and `/etc/kronoskvm` mounts.
 
 ## Host hardware plane
