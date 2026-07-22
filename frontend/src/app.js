@@ -40,6 +40,8 @@ document.querySelectorAll("[data-collapse-id]").forEach((panel) => {
   setCollapsed(panel, initiallyCollapsed);
   panel.querySelector(":scope > .collapse-heading").addEventListener("click", (event) => {
     if (event.target.closest("a, input, select")) return;
+    const clickedButton = event.target.closest("button");
+    if (clickedButton && !clickedButton.classList.contains("collapse-button")) return;
     const collapsed = !panel.classList.contains("collapsed");
     if (!collapsed && panel.dataset.collapseGroup) {
       document.querySelectorAll(`[data-collapse-group="${panel.dataset.collapseGroup}"]`).forEach((sibling) => {

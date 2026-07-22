@@ -31,10 +31,12 @@
     <div class="app-content">
       <header class="topbar">
         <button id="mobile-menu" class="icon-button mobile-menu" type="button" aria-label="Open navigation">☰</button>
-        <div class="topbar-context"><p>Remote console toolkit</p><div><h1>Sessions</h1><span>Manage live connections and appliance hardware</span></div></div>
+        <a class="header-brand" href="/" aria-label="KronosKVM home">
+          <span class="header-brand-mark"><img src="/kronoskvm-logo.png" alt=""></span>
+          <span class="header-brand-copy"><strong>KronosKVM</strong><small>Remote Console Toolkit</small><em>All-in-One IP-KVM System</em></span>
+        </a>
         <label class="search"><span>⌕</span><input id="session-search" type="search" placeholder="Search ports, devices…" aria-label="Search ports and devices"></label>
         <div class="topbar-actions">
-          <button id="new-session" class="primary-action" type="button">＋ New Session</button>
           <div class="theme-switcher" role="group" aria-label="Color theme">
             <button type="button" data-theme-choice="light" aria-pressed="true">☀ <span>Light</span></button>
             <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
@@ -46,7 +48,7 @@
 
       <main>
         <section class="session-strip collapsible" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
-          <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Active sessions">⌃</button></div></div>
+          <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Active sessions</h2><p>Detected interfaces and available connection types</p></div><div class="heading-actions"><span class="live-label"><i></i> Live</span><button id="new-session" class="primary-action" type="button">＋ New Session</button><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Active sessions">⌃</button></div></div>
           <div id="session-cards" class="session-cards collapsible-content">
             <button class="session-card video pending-session" type="button" disabled><span class="session-dot"></span><span><b>KVM Video</b><small>X630 · cable pending</small></span></button>
             <button class="session-card" type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1</b><small>Serial console</small></span></button>

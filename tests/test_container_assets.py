@@ -60,6 +60,10 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-collapse-id="appliance-status-v2"' in html
     assert html.count('data-collapse-group="hardware-details"') == 2
     assert html.count('data-default-collapsed="true"') == 2
+    assert 'class="header-brand"' in html
+    assert "Remote Console Toolkit" in html
+    assert "All-in-One IP-KVM System" in html
+    assert html.index('id="new-session"') > html.index('id="active-sessions-title"')
     assert "function setCollapsed" in app
 
 

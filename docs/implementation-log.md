@@ -215,3 +215,6 @@
   exclusive accordion group so opening either automatically closes the other.
 - Moved session context into the responsive top bar and refined compact
   navigation to retain only the product mark and icon controls.
+- Separated product identity from session controls: the global header now owns
+  the KronosKVM mark, toolkit name and product slogan, while New Session lives
+  exclusively inside the Active Sessions module.
