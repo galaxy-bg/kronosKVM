@@ -21,6 +21,8 @@ function applyTheme(theme) {
 }
 
 applyTheme(localStorage.getItem(themeStorageKey) || "light");
+document.querySelector("#management-address").textContent = location.host;
+document.querySelector("#footer-address").textContent = location.hostname;
 
 function setCollapsed(panel, collapsed) {
   panel.classList.toggle("collapsed", collapsed);

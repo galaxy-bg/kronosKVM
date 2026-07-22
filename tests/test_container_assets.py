@@ -41,9 +41,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.2.js" in html
-    assert "/styles-0.3.2.css" in html
-    assert "app-0.3.2.js" in dockerfile
+    assert "/app-0.3.3.js" in html
+    assert "/styles-0.3.3.css" in html
+    assert "app-0.3.3.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -84,13 +84,13 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert web["cap_drop"] == ["ALL"]
     assert web["cap_add"] == ["CHOWN", "NET_BIND_SERVICE", "SETGID", "SETUID"]
     assert "no-new-privileges:true" in web["security_opt"]
-    assert "listen 192.168.34.100:80;" in nginx
-    assert "listen 80" not in nginx
+    assert "listen 0.0.0.0:80 default_server;" in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
     assert "client_max_body_size 16g;" in nginx
     assert "proxy_request_buffering off;" in nginx
+    assert "listen 127.0.0.1:8000" not in nginx
 
 
 def test_docker_daemon_does_not_manage_routing() -> None:

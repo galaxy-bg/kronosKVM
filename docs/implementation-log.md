@@ -230,3 +230,5 @@
   disk, and the CM4IO microSD socket is unavailable on eMMC CM4 variants.
 - Disabled eMMC fallback; Storage now requires marker-validated removable media
   mounted at `/mnt/kronoskvm-storage` and otherwise remains read-only/unavailable.
+- Published the complete management gateway on both the permanent AP and the
+  dynamic ETH0 address while keeping the API process localhost-only.

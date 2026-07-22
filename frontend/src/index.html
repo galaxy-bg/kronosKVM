@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.2.css">
+  <link rel="stylesheet" href="/styles-0.3.3.css">
 </head>
 <body>
   <div class="app-shell">
@@ -25,7 +25,7 @@
         <button class="side-link future" type="button" disabled><span class="nav-icon">⚙</span><span>Settings</span></button>
       </nav>
       <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar"><span>‹</span><b>Collapse</b></button>
-      <div class="sidebar-version">v0.3.2</div>
+      <div class="sidebar-version">v0.3.3</div>
     </aside>
 
     <div class="app-content">
@@ -77,7 +77,7 @@
         </section>
 
         <section class="notice">
-          <span class="notice-icon">i</span><div><strong>Isolated management access</strong><p>Frontend is available from the permanent AP at 192.168.34.100. Updates and deployments use ETH0.</p></div>
+          <span class="notice-icon">i</span><div><strong>Management access</strong><p>Full management is available through the permanent AP and the current ETH0 customer-network address. Connected via <b id="management-address">this device</b>.</p></div>
         </section>
 
         <section id="storage-panel" class="panel storage-panel collapsible" data-collapse-id="staging-storage" data-default-collapsed="true">
@@ -102,7 +102,7 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span>192.168.34.100 · Version 0.3.2</span></footer>
+      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.3</span></footer>
     </div>
   </div>
 
@@ -113,6 +113,6 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.2.js" defer></script>
+  <script src="/app-0.3.3.js" defer></script>
 </body>
 </html>

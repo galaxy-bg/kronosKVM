@@ -77,9 +77,10 @@ for rollback. The deployment has been verified across a reboot with:
 
 ## Development web gateway
 
-The `kronoskvm-web` container serves the initial dashboard and proxies `/api/`
-to the localhost API. Nginx listens specifically on `192.168.34.100:80`; port
-80 is not open on ETH0.
+The `kronoskvm-web` container serves the dashboard and proxies `/api/` to the
+localhost API. Nginx listens on all appliance IPv4 addresses so the full GUI is
+available from both the permanent AP and the current ETH0 customer-network
+address. The API itself remains bound only to localhost.
 
 The container has a read-only root filesystem, drops all capabilities and adds
 back only those required to bind port 80, prepare temporary directories and
