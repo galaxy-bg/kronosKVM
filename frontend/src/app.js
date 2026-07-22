@@ -21,7 +21,6 @@ function applyTheme(theme) {
 }
 
 applyTheme(localStorage.getItem(themeStorageKey) || "light");
-document.querySelector("#management-address").textContent = location.host;
 document.querySelector("#footer-address").textContent = location.hostname;
 
 function setCollapsed(panel, collapsed) {
@@ -191,7 +190,25 @@ function renderPorts(inventory) {
     button.addEventListener("click", () => redetectAndConnect(button));
   });
   setConnectionControls();
+  updateSessionCards(inventory);
   filterPortRows(document.querySelector("#session-search").value);
+}
+
+function updateSessionCards(inventory) {
+  ["console_1", "console_2"].forEach((portId) => {
+    const port = inventory.ports.find((item) => item.id === portId);
+    const card = document.querySelector(`[data-session-port="${portId}"]`);
+    if (!port || !card) return;
+    card.classList.toggle("session-connected", port.connected);
+    card.querySelector("small").textContent = port.connected
+      ? (port.device_name || "Serial adapter connected")
+      : "Adapter disconnected";
+    card.querySelectorAll("[data-session-action]").forEach((button) => {
+      button.disabled = button.dataset.sessionAction !== "config"
+        && button.dataset.sessionAction !== "status"
+        && !port.console_available;
+    });
+  });
 }
 
 function filterPortRows(query) {
@@ -716,9 +733,26 @@ document.querySelector("#session-search").addEventListener("input", (event) => {
 document.querySelectorAll("[data-open-port]").forEach((button) => {
   button.addEventListener("click", () => openPortConsole(button.dataset.openPort));
 });
-document.querySelector("#open-first-console").addEventListener("click", () => {
-  const portId = consoleButtonForPort("console_1")?.disabled === false ? "console_1" : "console_2";
-  openPortConsole(portId);
+const sessionActionSelectors = {
+  config: ".config-action",
+  status: ".menu-action",
+  console: ".console-action",
+  disconnect: ".disconnect-action",
+  reset: ".reset-action",
+};
+document.querySelectorAll("[data-session-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const card = button.closest("[data-session-port]");
+    const target = document.querySelector(
+      `${sessionActionSelectors[button.dataset.sessionAction]}[data-port-id="${card.dataset.sessionPort}"]`
+    );
+    button.closest("details").removeAttribute("open");
+    if (!target || target.disabled) {
+      showToast(`${card.dataset.sessionPort === "console_1" ? "Console 1" : "Console 2"}: adapter not detected`);
+      return;
+    }
+    target.click();
+  });
 });
 document.querySelector("#new-session").addEventListener("click", () => document.querySelector("#session-dialog").showModal());
 document.querySelectorAll("[data-close-dialog]").forEach((button) => {

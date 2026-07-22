@@ -84,14 +84,22 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .section-title h2, .panel-heading h2, .quick-actions h2 { margin: 0; font-size: .88rem; }
 .section-title p, .panel-heading p, .quick-actions p { margin: 3px 0 0; color: var(--muted); font-size: .69rem; }
 .session-cards { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 2px; }
-.session-card { min-width: 142px; height: 52px; display: flex; align-items: center; gap: 9px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); text-align: left; cursor: pointer; }
-.session-card:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
-.session-card:disabled { opacity: .65; cursor: not-allowed; }
+.session-card { position: relative; min-width: 185px; height: 58px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); text-align: left; }
+.session-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.session-card > button { min-width: 0; height: 100%; display: flex; align-items: center; flex: 1; gap: 9px; padding: 0 8px 0 11px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.session-card > button:disabled { cursor: not-allowed; }
+.session-card.pending-session { opacity: .65; }
+.session-card.session-connected { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 .session-dot { width: 8px; height: 8px; flex: 0 0 auto; border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 0 3px var(--accent-soft); }
 .pending-session .session-dot { border-color: var(--muted); box-shadow: none; }
 .session-card b, .session-card small { display: block; white-space: nowrap; }
 .session-card b { font-size: .72rem; }
 .session-card small { margin-top: 3px; color: var(--muted); font-size: .6rem; }
+.session-action-menu { flex: 0 0 32px; padding-right: 6px; }
+.session-action-menu summary { width: 28px; height: 28px; border-color: transparent; background: transparent; }
+.session-action-menu .action-menu-list { right: 0; top: calc(100% + 9px); }
+.session-kebab { width: 28px; margin-right: 6px; color: var(--muted); font-size: 1rem; text-align: center; }
+.session-refresh { width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--accent-strong); cursor: pointer; }
 .workspace-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-bottom: 14px; }
 .workspace-card { min-height: 290px; overflow: hidden; }
 .workspace-toolbar { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line); font-size: .72rem; font-weight: 750; }

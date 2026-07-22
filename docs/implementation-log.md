@@ -234,3 +234,7 @@
   dynamic ETH0 address while keeping the API process localhost-only.
 - Hid the loopback interface from the operator-facing network summary while
   retaining it in the diagnostic API response.
+- Removed empty KVM/console preview panels, the separate Quick Actions strip
+  and the management-access notice to keep the session screen focused.
+- Added live device state and Physical Ports-equivalent ellipsis actions to the
+  Console 1 and Console 2 session cards.
