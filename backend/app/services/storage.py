@@ -11,6 +11,8 @@ from backend.app.models.storage import FileOperation, StagedFile, StagingStorage
 STORAGE_PATH = Path(os.environ.get("KRONOSKVM_STORAGE_PATH", "/var/lib/kronoskvm/storage"))
 MAX_UPLOAD_BYTES = int(os.environ.get("KRONOSKVM_MAX_UPLOAD_BYTES", str(16 * 1024**3)))
 MIN_FREE_BYTES = int(os.environ.get("KRONOSKVM_STORAGE_RESERVE_BYTES", str(1024**3)))
+REQUIRE_MARKER = os.environ.get("KRONOSKVM_STORAGE_REQUIRE_MARKER", "0") == "1"
+MEDIA_MARKER = ".kronoskvm-storage"
 
 
 def _safe_name(filename: str) -> str:
@@ -36,11 +38,29 @@ def _storage_root() -> Path:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Staging storage is unavailable",
         ) from error
+    if REQUIRE_MARKER and not (STORAGE_PATH / MEDIA_MARKER).is_file():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Removable staging media is not mounted or initialized",
+        )
     return STORAGE_PATH
 
 
 def staging_info() -> StagingStorage:
-    root = _storage_root()
+    try:
+        root = _storage_root()
+    except HTTPException as error:
+        if error.status_code != status.HTTP_503_SERVICE_UNAVAILABLE:
+            raise
+        return StagingStorage(
+            status="media_missing",
+            path=str(STORAGE_PATH),
+            total_bytes=0,
+            used_bytes=0,
+            free_bytes=0,
+            file_count=0,
+            files=[],
+        )
     usage = shutil.disk_usage(root)
     files = []
     try:
@@ -48,7 +68,8 @@ def staging_info() -> StagingStorage:
     except OSError as error:
         raise HTTPException(status_code=503, detail="Unable to read staging storage") from error
     for path in entries:
-        if path.name.endswith(".uploading") or path.is_symlink() or not path.is_file():
+        hidden_upload = path.name == MEDIA_MARKER or path.name.endswith(".uploading")
+        if hidden_upload or path.is_symlink() or not path.is_file():
             continue
         stat = path.stat()
         files.append(

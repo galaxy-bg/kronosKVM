@@ -80,6 +80,9 @@ def test_capture_requires_video_zero(tmp_path: Path) -> None:
 
 def test_staging_storage_file_lifecycle(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path / "staging")
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", True)
+    storage_service.STORAGE_PATH.mkdir()
+    (storage_service.STORAGE_PATH / storage_service.MEDIA_MARKER).touch()
     payload = b"KronosKVM firmware test"
     upload = client.put("/api/v1/storage/files/switch-fw.bin", content=payload)
     assert upload.status_code == 200
@@ -103,3 +106,12 @@ def test_staging_storage_rejects_unsafe_names() -> None:
             assert getattr(error, "status_code", None) == 400
         else:
             raise AssertionError(f"Unsafe name accepted: {name}")
+
+
+def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path / "external")
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", True)
+    response = client.get("/api/v1/storage")
+    assert response.status_code == 200
+    assert response.json()["status"] == "media_missing"
+    assert client.put("/api/v1/storage/files/test.iso", content=b"data").status_code == 503

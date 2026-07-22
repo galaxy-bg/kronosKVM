@@ -226,3 +226,7 @@
   Storage manager for ISO, firmware and deployment files with capacity display.
 - Made the container boot unit recreate the staging directory with constrained
   UID/GID ownership when it is absent, without formatting or repartitioning media.
+- Corrected storage detection: `mmcblk0` is the non-removable 32 GB eMMC root
+  disk, and the CM4IO microSD socket is unavailable on eMMC CM4 variants.
+- Disabled eMMC fallback; Storage now requires marker-validated removable media
+  mounted at `/mnt/kronoskvm-storage` and otherwise remains read-only/unavailable.

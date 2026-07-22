@@ -18,8 +18,9 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
         "/sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro"
         in api["volumes"]
     )
-    assert "/var/lib/kronoskvm/storage:/storage" in api["volumes"]
+    assert "/mnt/kronoskvm-storage:/storage" in api["volumes"]
     assert api["environment"]["KRONOSKVM_STORAGE_PATH"] == "/storage"
+    assert api["environment"]["KRONOSKVM_STORAGE_REQUIRE_MARKER"] == "1"
 
 
 def test_boot_service_does_not_pin_a_stale_image_version() -> None:
@@ -27,7 +28,7 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
         encoding="utf-8"
     )
     assert "Environment=KRONOSKVM_VERSION=" not in unit
-    assert "ExecStartPre=/usr/bin/install -d -m 0750 -o 10001 -g 20 /var/lib/kronoskvm/storage" in unit
+    assert "ExecStartPre=/usr/bin/install -d -m 0755 -o root -g root /mnt/kronoskvm-storage" in unit
 
 
 def test_container_runs_as_non_root() -> None:
@@ -40,9 +41,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.1.js" in html
-    assert "/styles-0.3.1.css" in html
-    assert "app-0.3.1.js" in dockerfile
+    assert "/app-0.3.2.js" in html
+    assert "/styles-0.3.2.css" in html
+    assert "app-0.3.2.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app

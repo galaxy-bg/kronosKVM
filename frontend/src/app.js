@@ -206,8 +206,19 @@ const formatBytes = (value) => {
 };
 
 function renderStorage(storage) {
+  const mediaReady = storage.status === "ready";
   const percent = storage.total_bytes ? Math.round((storage.used_bytes / storage.total_bytes) * 100) : 0;
-  document.querySelector("#storage-state").textContent = storage.status === "ready" ? "✓ Ready" : storage.status;
+  document.querySelector("#storage-state").textContent = mediaReady ? "✓ Ready" : "Media missing";
+  document.querySelector("#storage-choose").disabled = !mediaReady;
+  document.querySelector("#storage-dropzone").classList.toggle("storage-disabled", !mediaReady);
+  if (!mediaReady) {
+    document.querySelector("#storage-capacity").textContent = "No removable media";
+    document.querySelector("#storage-free").textContent = "Connect an initialized USB microSD reader";
+    document.querySelector("#storage-capacity-bar").style.width = "0%";
+    document.querySelector("#storage-file-count").textContent = "0";
+    document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Removable staging media is not connected.</td></tr>';
+    return;
+  }
   document.querySelector("#storage-capacity").textContent = `${formatBytes(storage.used_bytes)} / ${formatBytes(storage.total_bytes)}`;
   document.querySelector("#storage-free").textContent = `${formatBytes(storage.free_bytes)} free · 1 GB system reserve protected`;
   document.querySelector("#storage-capacity-bar").style.width = `${percent}%`;
