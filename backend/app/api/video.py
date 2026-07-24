@@ -93,6 +93,7 @@ def video_frame() -> Response:
             str(VIDEO_DEVICE),
             f"--set-fmt-video=width={width},height={height},pixelformat=RGB3",
             "--stream-mmap=4",
+            "--stream-skip=3",
             "--stream-count=1",
             "--stream-to=-",
             "--stream-poll",

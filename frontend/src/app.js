@@ -917,7 +917,7 @@ function openVideoWindow() {
     next.onerror = () => { status.textContent = "Frame unavailable; retrying…"; };
     next.src = `/api/v1/video/frame.png?t=${Date.now()}`;
   };
-  videoWindow = { element, timer: window.setInterval(refreshFrame, 1200) };
+  videoWindow = { element, timer: window.setInterval(refreshFrame, 700) };
   refreshFrame();
   focusTerminal(element);
   enableTerminalDrag(element);
