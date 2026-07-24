@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import struct
 from pathlib import Path
 
@@ -14,8 +15,17 @@ RELATIVE_MOUSE_DEVICE = Path("/dev/hidg2")
 
 
 def _write_report(device: Path, report: bytes) -> None:
-    with device.open("wb", buffering=0) as output:
-        output.write(report)
+    descriptor = os.open(device, os.O_WRONLY | os.O_NONBLOCK)
+    try:
+        try:
+            os.write(descriptor, report)
+        except BlockingIOError:
+            # The target may not have claimed this HID interface yet (common
+            # during BIOS/UEFI transitions). Drop this report without blocking
+            # the API event loop; the next browser input will retry.
+            pass
+    finally:
+        os.close(descriptor)
 
 
 @router.get("/status")
@@ -56,5 +66,10 @@ async def hid_websocket(websocket: WebSocket) -> None:
                         MOUSE_DEVICE,
                         struct.pack("<BHHb", buttons, x, y, wheel),
                     )
-    except (WebSocketDisconnect, FileNotFoundError, PermissionError, ValueError):
+    except (
+        WebSocketDisconnect,
+        FileNotFoundError,
+        PermissionError,
+        ValueError,
+    ):
         return
