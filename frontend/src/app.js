@@ -940,7 +940,7 @@ function openVideoWindow() {
     </header>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
-    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
+    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="mouse-mode-toggle">Mouse: Absolute</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
@@ -1014,8 +1014,33 @@ function openVideoWindow() {
   });
   image.addEventListener("blur", releaseAllKeys);
   let buttons = 0;
+  let mouseMode = localStorage.getItem("kronoskvm.mouse-mode") === "relative" ? "relative" : "absolute";
+  const mouseModeButton = element.querySelector(".mouse-mode-toggle");
+  const renderMouseMode = () => {
+    mouseModeButton.textContent = mouseMode === "relative" ? "Mouse: BIOS" : "Mouse: Absolute";
+    mouseModeButton.classList.toggle("active", mouseMode === "relative");
+    mouseModeButton.title = mouseMode === "relative"
+      ? "BIOS boot mouse active. Click video to capture the pointer; press Escape to release."
+      : "Absolute pointer mode for operating systems.";
+  };
+  renderMouseMode();
+  mouseModeButton.addEventListener("click", () => {
+    mouseMode = mouseMode === "absolute" ? "relative" : "absolute";
+    localStorage.setItem("kronoskvm.mouse-mode", mouseMode);
+    buttons = 0;
+    sendHid({ type: "mouse", mode: mouseMode, buttons: 0, x: 0, y: 0, wheel: 0 });
+    if (mouseMode === "absolute" && document.pointerLockElement === image) document.exitPointerLock();
+    renderMouseMode();
+    image.focus();
+  });
   let lastMouseSent = 0;
   const sendMouse = (event, wheel = 0) => {
+    if (mouseMode === "relative") {
+      const x = Math.round(Math.max(-127, Math.min(127, event.movementX || 0)));
+      const y = Math.round(Math.max(-127, Math.min(127, event.movementY || 0)));
+      sendHid({ type: "mouse", mode: "relative", buttons, x, y, wheel });
+      return;
+    }
     const rect = image.getBoundingClientRect();
     const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
     const width = Math.min(rect.width, rect.height * ratio);
@@ -1024,7 +1049,7 @@ function openVideoWindow() {
     const top = rect.top + (rect.height - height) / 2;
     const x = Math.round(Math.max(0, Math.min(1, (event.clientX - left) / width)) * 32767);
     const y = Math.round(Math.max(0, Math.min(1, (event.clientY - top) / height)) * 32767);
-    sendHid({ type: "mouse", buttons, x, y, wheel });
+    sendHid({ type: "mouse", mode: "absolute", buttons, x, y, wheel });
   };
   image.addEventListener("mousemove", (event) => {
     if (performance.now() - lastMouseSent < 30) return;
@@ -1034,6 +1059,7 @@ function openVideoWindow() {
   image.addEventListener("mousedown", (event) => {
     event.preventDefault();
     image.focus();
+    if (mouseMode === "relative" && document.pointerLockElement !== image) image.requestPointerLock();
     buttons |= event.button === 0 ? 1 : event.button === 2 ? 2 : 4;
     sendMouse(event);
   });
