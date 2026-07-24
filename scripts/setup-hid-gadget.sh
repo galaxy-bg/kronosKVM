@@ -7,8 +7,13 @@ udc=fe980000.usb
 modprobe libcomposite
 mkdir -p "${gadget}"
 
-if [[ -n "$(cat "${gadget}/UDC" 2>/dev/null || true)" ]]; then
-    printf '' >"${gadget}/UDC"
+if [[ -d "${gadget}/functions/hid.keyboard" && -d "${gadget}/functions/hid.mouse" ]]; then
+    if [[ -z "$(cat "${gadget}/UDC" 2>/dev/null || true)" ]]; then
+        printf '%s' "${udc}" >"${gadget}/UDC"
+    fi
+    chmod 0660 /dev/hidg0 /dev/hidg1
+    chgrp dialout /dev/hidg0 /dev/hidg1
+    exit 0
 fi
 
 printf '0x1d6b' >"${gadget}/idVendor"
