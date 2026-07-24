@@ -1051,7 +1051,7 @@ function openVideoWindow() {
     if (!keyboard.hidden) focusTerminal(keyboard);
   });
   keyboard.querySelector(".keyboard-hide").addEventListener("click", () => { keyboard.hidden = true; });
-  element.querySelector(".keyboard-release").addEventListener("click", releaseAllKeys);
+  keyboard.querySelector(".keyboard-release").addEventListener("click", releaseAllKeys);
   keyboard.querySelectorAll(".keyboard-key").forEach((keyButton) => {
     keyButton.addEventListener("click", () => {
       const code = keyButton.dataset.hidCode;
