@@ -916,6 +916,7 @@ async function loadVideoStatus() {
 function closeVideoWindow() {
   if (!videoWindow) return;
   videoWindow.image.src = "";
+  window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.releaseAllKeys?.();
   videoWindow.socket?.close();
   videoWindow.element.remove();
@@ -938,7 +939,7 @@ function openVideoWindow() {
     </header>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
     <div class="video-keyboard" hidden><div class="keyboard-heading"><span>Raw HID · US physical layout</span><button type="button" class="keyboard-release">Release all keys</button></div>${screenKeyboardMarkup()}</div>
-    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
+    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
@@ -955,7 +956,9 @@ function openVideoWindow() {
     connection.className = "terminal-connection disconnected";
     connection.querySelector("b").textContent = "HID disconnected";
   });
-  const sendHid = (message) => {
+  let lastOperatorActivity = Date.now();
+  const sendHid = (message, operatorActivity = true) => {
+    if (operatorActivity) lastOperatorActivity = Date.now();
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
   const pressedKeys = new Set();
@@ -1065,7 +1068,29 @@ function openVideoWindow() {
       }, 75);
     });
   });
-  videoWindow = { element, image, releaseAllKeys, socket };
+  const keepAwakeButton = element.querySelector(".keep-awake-toggle");
+  let keepAwake = localStorage.getItem("kronoskvm.keep-awake") !== "false";
+  const renderKeepAwake = () => {
+    keepAwakeButton.classList.toggle("active", keepAwake);
+    keepAwakeButton.textContent = keepAwake ? "◉ Keep awake" : "○ Keep awake";
+    keepAwakeButton.title = keepAwake
+      ? "Prevents target sleep after two minutes of operator inactivity"
+      : "Target sleep prevention is disabled";
+  };
+  keepAwakeButton.addEventListener("click", () => {
+    keepAwake = !keepAwake;
+    localStorage.setItem("kronoskvm.keep-awake", String(keepAwake));
+    lastOperatorActivity = Date.now();
+    renderKeepAwake();
+  });
+  renderKeepAwake();
+  const keepAwakeTimer = window.setInterval(() => {
+    if (!keepAwake || socket.readyState !== WebSocket.OPEN || Date.now() - lastOperatorActivity < 120000) return;
+    sendHid({ type: "keyboard", modifiers: 2, keys: [] }, false);
+    window.setTimeout(() => sendHid({ type: "keyboard", modifiers: 0, keys: [] }, false), 80);
+    lastOperatorActivity = Date.now();
+  }, 30000);
+  videoWindow = { element, image, keepAwakeTimer, releaseAllKeys, socket };
   image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);

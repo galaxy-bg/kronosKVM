@@ -193,7 +193,8 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .video-frame { width: 100%; height: 100%; display: block; object-fit: contain; background: #030806; }
 .video-frame-status { color: #a9bcb4; font-size: .65rem; }
 .video-footer-tools { display: flex; align-items: center; gap: 9px; }
-.keyboard-toggle, .keyboard-release { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
+.keyboard-toggle, .keyboard-release, .keep-awake-toggle { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
+.keep-awake-toggle.active { border-color: #31775c; color: #62d7a7; }
 .video-keyboard { position: absolute; z-index: 4; right: 8px; bottom: 48px; left: 8px; max-height: calc(100% - 96px); padding: 9px; overflow: auto; border: 1px solid #3c5248; border-radius: 9px; background: rgba(12, 25, 20, .97); box-shadow: 0 -14px 40px rgba(0, 0, 0, .42); }
 .video-keyboard[hidden] { display: none; }
 .keyboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; color: #a9bcb4; font-size: .62rem; font-weight: 700; }
