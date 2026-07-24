@@ -862,6 +862,24 @@ function closeTerminal(portId) {
 }
 
 let videoWindow = null;
+const hidKeyCodes = {
+  KeyA: 4, KeyB: 5, KeyC: 6, KeyD: 7, KeyE: 8, KeyF: 9, KeyG: 10, KeyH: 11,
+  KeyI: 12, KeyJ: 13, KeyK: 14, KeyL: 15, KeyM: 16, KeyN: 17, KeyO: 18, KeyP: 19,
+  KeyQ: 20, KeyR: 21, KeyS: 22, KeyT: 23, KeyU: 24, KeyV: 25, KeyW: 26, KeyX: 27,
+  KeyY: 28, KeyZ: 29, Digit1: 30, Digit2: 31, Digit3: 32, Digit4: 33, Digit5: 34,
+  Digit6: 35, Digit7: 36, Digit8: 37, Digit9: 38, Digit0: 39, Enter: 40, Escape: 41,
+  Backspace: 42, Tab: 43, Space: 44, Minus: 45, Equal: 46, BracketLeft: 47,
+  BracketRight: 48, Backslash: 49, Semicolon: 51, Quote: 52, Backquote: 53, Comma: 54,
+  Period: 55, Slash: 56, CapsLock: 57, F1: 58, F2: 59, F3: 60, F4: 61, F5: 62,
+  F6: 63, F7: 64, F8: 65, F9: 66, F10: 67, F11: 68, F12: 69, PrintScreen: 70,
+  ScrollLock: 71, Pause: 72, Insert: 73, Home: 74, PageUp: 75, Delete: 76, End: 77,
+  PageDown: 78, ArrowRight: 79, ArrowLeft: 80, ArrowDown: 81, ArrowUp: 82,
+};
+
+function hidModifiers(event) {
+  return (event.ctrlKey ? 1 : 0) | (event.shiftKey ? 2 : 0) |
+    (event.altKey ? 4 : 0) | (event.metaKey ? 8 : 0);
+}
 
 async function loadVideoStatus() {
   const card = document.querySelector("#video-session-card");
@@ -885,6 +903,7 @@ async function loadVideoStatus() {
 function closeVideoWindow() {
   if (!videoWindow) return;
   window.clearInterval(videoWindow.timer);
+  videoWindow.socket?.close();
   videoWindow.element.remove();
   videoWindow = null;
 }
@@ -903,8 +922,8 @@ function openVideoWindow() {
       <div class="terminal-heading"><div><strong>VGA KVM · X630</strong><span>Live HDMI capture</span></div></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
-    <div class="video-stage"><img class="video-frame" alt="KronosKVM target video"></div>
-    <footer class="terminal-footer"><span class="video-frame-status">Loading video…</span><span class="terminal-connection connected"><i></i><b>Signal locked</b></span></footer>`;
+    <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
+    <footer class="terminal-footer"><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
@@ -917,7 +936,66 @@ function openVideoWindow() {
     next.onerror = () => { status.textContent = "Frame unavailable; retrying…"; };
     next.src = `/api/v1/video/frame.png?t=${Date.now()}`;
   };
-  videoWindow = { element, timer: window.setInterval(refreshFrame, 700) };
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${protocol}://${location.host}/api/v1/hid/ws`);
+  const connection = element.querySelector(".terminal-connection");
+  socket.addEventListener("open", () => {
+    connection.className = "terminal-connection connected";
+    connection.querySelector("b").textContent = "HID connected";
+  });
+  socket.addEventListener("close", () => {
+    connection.className = "terminal-connection disconnected";
+    connection.querySelector("b").textContent = "HID disconnected";
+  });
+  const sendHid = (message) => {
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  };
+  image.addEventListener("keydown", (event) => {
+    const key = hidKeyCodes[event.code];
+    if (!key) return;
+    event.preventDefault();
+    sendHid({ type: "keyboard", modifiers: hidModifiers(event), keys: [key] });
+  });
+  image.addEventListener("keyup", (event) => {
+    if (!hidKeyCodes[event.code]) return;
+    event.preventDefault();
+    sendHid({ type: "keyboard", modifiers: 0, keys: [] });
+  });
+  image.addEventListener("blur", () => sendHid({ type: "keyboard", modifiers: 0, keys: [] }));
+  let buttons = 0;
+  let lastMouseSent = 0;
+  const sendMouse = (event, wheel = 0) => {
+    const rect = image.getBoundingClientRect();
+    const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
+    const width = Math.min(rect.width, rect.height * ratio);
+    const height = width / ratio;
+    const left = rect.left + (rect.width - width) / 2;
+    const top = rect.top + (rect.height - height) / 2;
+    const x = Math.round(Math.max(0, Math.min(1, (event.clientX - left) / width)) * 32767);
+    const y = Math.round(Math.max(0, Math.min(1, (event.clientY - top) / height)) * 32767);
+    sendHid({ type: "mouse", buttons, x, y, wheel });
+  };
+  image.addEventListener("mousemove", (event) => {
+    if (performance.now() - lastMouseSent < 30) return;
+    lastMouseSent = performance.now();
+    sendMouse(event);
+  });
+  image.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    image.focus();
+    buttons |= event.button === 0 ? 1 : event.button === 2 ? 2 : 4;
+    sendMouse(event);
+  });
+  image.addEventListener("mouseup", (event) => {
+    buttons &= ~(event.button === 0 ? 1 : event.button === 2 ? 2 : 4);
+    sendMouse(event);
+  });
+  image.addEventListener("contextmenu", (event) => event.preventDefault());
+  image.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    sendMouse(event, event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  videoWindow = { element, socket, timer: window.setInterval(refreshFrame, 700) };
   refreshFrame();
   focusTerminal(element);
   enableTerminalDrag(element);
