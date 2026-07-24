@@ -13,10 +13,6 @@ services:
     restart: unless-stopped
     read_only: true
     user: "10001:20"
-    group_add:
-      - "44"
-    device_cgroup_rules:
-      - "c 81:* rmw"
     cap_drop:
       - ALL
     security_opt:
