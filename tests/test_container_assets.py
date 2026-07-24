@@ -32,9 +32,11 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
     assert "ExecStart=/opt/kronoskvm/scripts/start-containers.sh" in unit
 
 
-def test_runtime_grants_only_usb_serial_device_class() -> None:
+def test_runtime_grants_serial_and_video_device_classes() -> None:
     runner = Path("scripts/start-containers.sh").read_text(encoding="utf-8")
     assert "--device-cgroup-rule 'c 188:* rmw'" in runner
+    assert "--device-cgroup-rule 'c 81:* rmw'" in runner
+    assert "--group-add 44" in runner
     assert "--volume /dev:/dev:rw" in runner
     assert "--user 10001:20" in runner
     assert "--cap-drop ALL" in runner
@@ -51,9 +53,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.10.js" in html
-    assert "/styles-0.3.10.css" in html
-    assert "app-0.3.10.js" in dockerfile
+    assert "/app-0.3.11.js" in html
+    assert "/styles-0.3.11.css" in html
+    assert "app-0.3.11.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app

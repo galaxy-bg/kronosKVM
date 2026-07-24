@@ -861,11 +861,78 @@ function closeTerminal(portId) {
   }
 }
 
+let videoWindow = null;
+
+async function loadVideoStatus() {
+  const card = document.querySelector("#video-session-card");
+  const button = document.querySelector("#open-video");
+  const label = document.querySelector("#video-session-status");
+  try {
+    const status = await getJson("/api/v1/video/status");
+    button.disabled = !status.signal;
+    card.classList.toggle("pending-session", !status.signal);
+    label.textContent = status.signal
+      ? `${status.width}×${status.height} · X630 ready`
+      : status.ready ? "X630 · waiting for HDMI signal" : "X630 · capture unavailable";
+  } catch (error) {
+    button.disabled = true;
+    card.classList.add("pending-session");
+    label.textContent = "X630 · status unavailable";
+    console.error(error);
+  }
+}
+
+function closeVideoWindow() {
+  if (!videoWindow) return;
+  window.clearInterval(videoWindow.timer);
+  videoWindow.element.remove();
+  videoWindow = null;
+}
+
+function openVideoWindow() {
+  if (videoWindow) {
+    videoWindow.element.classList.remove("minimized");
+    focusTerminal(videoWindow.element);
+    return;
+  }
+  const element = document.createElement("section");
+  element.className = "terminal-window video-window";
+  element.style.left = `${Math.max(12, Math.min(110, window.innerWidth - 420))}px`;
+  element.style.top = "105px";
+  element.innerHTML = `<header class="terminal-titlebar">
+      <div class="terminal-heading"><div><strong>VGA KVM · X630</strong><span>Live HDMI capture</span></div></div>
+      <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
+    </header>
+    <div class="video-stage"><img class="video-frame" alt="KronosKVM target video"></div>
+    <footer class="terminal-footer"><span class="video-frame-status">Loading video…</span><span class="terminal-connection connected"><i></i><b>Signal locked</b></span></footer>`;
+  document.querySelector("#terminal-layer").appendChild(element);
+  const image = element.querySelector(".video-frame");
+  const status = element.querySelector(".video-frame-status");
+  const refreshFrame = () => {
+    const next = new Image();
+    next.onload = () => {
+      image.src = next.src;
+      status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    };
+    next.onerror = () => { status.textContent = "Frame unavailable; retrying…"; };
+    next.src = `/api/v1/video/frame.png?t=${Date.now()}`;
+  };
+  videoWindow = { element, timer: window.setInterval(refreshFrame, 1200) };
+  refreshFrame();
+  focusTerminal(element);
+  enableTerminalDrag(element);
+  element.addEventListener("pointerdown", () => focusTerminal(element));
+  element.querySelector(".terminal-close").addEventListener("click", closeVideoWindow);
+  element.querySelector(".terminal-minimize").addEventListener("click", () => element.classList.toggle("minimized"));
+  element.querySelector(".terminal-maximize").addEventListener("click", () => element.classList.toggle("maximized"));
+}
+
 async function load() {
   const health = document.querySelector("#health");
   loadPorts();
   loadStorage();
   loadConnections();
+  loadVideoStatus();
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
@@ -906,6 +973,7 @@ async function load() {
 }
 
 document.querySelector("#refresh").addEventListener("click", load);
+document.querySelector("#open-video").addEventListener("click", openVideoWindow);
 document.querySelectorAll("[data-theme-choice]").forEach((button) => {
   button.addEventListener("click", () => {
     localStorage.setItem(themeStorageKey, button.dataset.themeChoice);

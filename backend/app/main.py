@@ -10,6 +10,7 @@ from backend.app.api.routes import router
 from backend.app.api.serial import router as serial_router
 from backend.app.api.ssh import router as ssh_router
 from backend.app.api.storage import router as storage_router
+from backend.app.api.video import router as video_router
 from backend.app.logging import configure_logging
 
 configure_logging()
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     application.include_router(serial_router)
     application.include_router(ssh_router)
     application.include_router(storage_router)
+    application.include_router(video_router)
     return application
 
 

@@ -16,7 +16,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends iproute2 \
+    && apt-get install --yes --no-install-recommends iproute2 v4l-utils \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 kronoskvm \
     && useradd --uid 10001 --gid 10001 --no-create-home \

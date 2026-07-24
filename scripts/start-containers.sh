@@ -12,9 +12,11 @@ docker run --detach \
     --restart unless-stopped \
     --read-only \
     --user 10001:20 \
+    --group-add 44 \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
     --device-cgroup-rule 'c 188:* rmw' \
+    --device-cgroup-rule 'c 81:* rmw' \
     --volume /dev:/dev:rw \
     --tmpfs /tmp:size=16m,mode=1777 \
     --volume /sys:/sys:ro \
