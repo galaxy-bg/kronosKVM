@@ -1014,6 +1014,7 @@ function openVideoWindow() {
   });
   image.addEventListener("blur", releaseAllKeys);
   let buttons = 0;
+  let relativeSyncing = false;
   let mouseMode = localStorage.getItem("kronoskvm.mouse-mode") === "relative" ? "relative" : "absolute";
   const mouseModeButton = element.querySelector(".mouse-mode-toggle");
   const renderMouseMode = () => {
@@ -1033,8 +1034,50 @@ function openVideoWindow() {
     renderMouseMode();
     image.focus();
   });
+  const displayedVideoPoint = (event) => {
+    const rect = image.getBoundingClientRect();
+    const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
+    const width = Math.min(rect.width, rect.height * ratio);
+    const height = width / ratio;
+    const left = rect.left + (rect.width - width) / 2;
+    const top = rect.top + (rect.height - height) / 2;
+    return {
+      x: Math.round(Math.max(0, Math.min(1, (event.clientX - left) / width)) * (image.naturalWidth || 1024)),
+      y: Math.round(Math.max(0, Math.min(1, (event.clientY - top) / height)) * (image.naturalHeight || 768)),
+    };
+  };
+  const syncRelativePointer = (event) => {
+    const target = displayedVideoPoint(event);
+    const clickedButtons = event.button === 0 ? 1 : event.button === 2 ? 2 : 4;
+    const reports = Array.from({ length: 24 }, () => ({ x: -100, y: -100 }));
+    let remainingX = target.x;
+    let remainingY = target.y;
+    while (remainingX || remainingY) {
+      const x = Math.min(16, remainingX);
+      const y = Math.min(16, remainingY);
+      reports.push({ x, y });
+      remainingX -= x;
+      remainingY -= y;
+    }
+    relativeSyncing = true;
+    status.textContent = "Syncing BIOS pointer…";
+    reports.forEach((report, index) => {
+      window.setTimeout(() => {
+        sendHid({ type: "mouse", mode: "relative", buttons: 0, x: report.x, y: report.y, wheel: 0 });
+      }, index * 7);
+    });
+    window.setTimeout(() => {
+      sendHid({ type: "mouse", mode: "relative", buttons: clickedButtons, x: 0, y: 0, wheel: 0 });
+      window.setTimeout(() => {
+        sendHid({ type: "mouse", mode: "relative", buttons: 0, x: 0, y: 0, wheel: 0 });
+        relativeSyncing = false;
+        status.textContent = "Live stream · 12 FPS";
+      }, 45);
+    }, reports.length * 7 + 20);
+  };
   let lastMouseSent = 0;
   const sendMouse = (event, wheel = 0) => {
+    if (relativeSyncing) return;
     if (mouseMode === "relative") {
       const x = Math.round(Math.max(-127, Math.min(127, event.movementX || 0)));
       const y = Math.round(Math.max(-127, Math.min(127, event.movementY || 0)));
@@ -1059,11 +1102,16 @@ function openVideoWindow() {
   image.addEventListener("mousedown", (event) => {
     event.preventDefault();
     image.focus();
-    if (mouseMode === "relative" && document.pointerLockElement !== image) image.requestPointerLock();
+    if (mouseMode === "relative" && document.pointerLockElement !== image) {
+      image.requestPointerLock();
+      syncRelativePointer(event);
+      return;
+    }
     buttons |= event.button === 0 ? 1 : event.button === 2 ? 2 : 4;
     sendMouse(event);
   });
   image.addEventListener("mouseup", (event) => {
+    if (relativeSyncing) return;
     buttons &= ~(event.button === 0 ? 1 : event.button === 2 ? 2 : 4);
     sendMouse(event);
   });
