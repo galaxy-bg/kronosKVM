@@ -195,9 +195,11 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .video-footer-tools { display: flex; align-items: center; gap: 9px; }
 .keyboard-toggle, .keyboard-release, .keep-awake-toggle { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
 .keep-awake-toggle.active { border-color: #31775c; color: #62d7a7; }
-.video-keyboard { position: absolute; z-index: 4; right: 8px; bottom: 48px; left: 8px; max-height: calc(100% - 96px); padding: 9px; overflow: auto; border: 1px solid #3c5248; border-radius: 9px; background: rgba(12, 25, 20, .97); box-shadow: 0 -14px 40px rgba(0, 0, 0, .42); }
+.video-keyboard { position: absolute; z-index: 21; width: min(900px, calc(100vw - 16px)); max-height: calc(100vh - 100px); padding: 0 9px 9px; overflow: auto; pointer-events: auto; border: 1px solid #3c5248; border-radius: 9px; background: rgba(12, 25, 20, .78); box-shadow: 0 14px 40px rgba(0, 0, 0, .32); backdrop-filter: blur(5px); }
 .video-keyboard[hidden] { display: none; }
-.keyboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; color: #a9bcb4; font-size: .62rem; font-weight: 700; }
+.keyboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -9px 7px; padding: 8px 10px; color: #a9bcb4; font-size: .62rem; font-weight: 700; }
+.keyboard-heading > div { display: flex; align-items: center; gap: 5px; }
+.keyboard-hide { width: 27px; height: 27px; border: 0; border-radius: 6px; background: #294137; color: #dceae4; cursor: pointer; }
 .keyboard-row { display: flex; justify-content: center; gap: 4px; margin-top: 4px; }
 .keyboard-key { min-width: 38px; height: 31px; padding: 0 7px; border: 1px solid #3c5248; border-radius: 5px; background: #1d3028; color: #e5f1eb; font-size: .61rem; font-weight: 700; cursor: pointer; }
 .keyboard-key:hover, .keyboard-key.active { border-color: #40d294; background: #24513e; color: #72e7b8; }

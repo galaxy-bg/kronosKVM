@@ -7,6 +7,7 @@ import subprocess
 import threading
 import zlib
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response, StreamingResponse
@@ -15,6 +16,8 @@ router = APIRouter(prefix="/api/v1/video", tags=["video"])
 
 VIDEO_DEVICE = Path("/dev/video0")
 _capture_lock = threading.Lock()
+_stream_state_lock = threading.Lock()
+_stream_process: Optional[subprocess.Popen] = None  # noqa: UP045
 
 
 def _run(*args: str, timeout: float = 5.0) -> subprocess.CompletedProcess:
@@ -114,9 +117,18 @@ def video_frame() -> Response:
 
 @router.get("/stream.mjpg")
 def video_stream() -> StreamingResponse:
+    global _stream_process
     if not VIDEO_DEVICE.exists():
         raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
-    if not _capture_lock.acquire(blocking=False):
+    with _stream_state_lock:
+        previous_process = _stream_process
+    if previous_process and previous_process.poll() is None:
+        previous_process.terminate()
+        try:
+            previous_process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            previous_process.kill()
+    if not _capture_lock.acquire(timeout=3):
         raise HTTPException(status_code=429, detail="Video capture is already active")
     timing = _timings()
     if not timing:
@@ -164,8 +176,11 @@ def video_stream() -> StreamingResponse:
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
+    with _stream_state_lock:
+        _stream_process = process
 
     def frames():
+        global _stream_process
         try:
             while process.stdout:
                 chunk = process.stdout.read(64 * 1024)
@@ -179,6 +194,9 @@ def video_stream() -> StreamingResponse:
             except subprocess.TimeoutExpired:
                 process.kill()
             _capture_lock.release()
+            with _stream_state_lock:
+                if _stream_process is process:
+                    _stream_process = None
 
     return StreamingResponse(
         frames(),

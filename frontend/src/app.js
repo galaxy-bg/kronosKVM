@@ -919,6 +919,7 @@ function closeVideoWindow() {
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.releaseAllKeys?.();
   videoWindow.socket?.close();
+  videoWindow.keyboard?.remove();
   videoWindow.element.remove();
   videoWindow = null;
 }
@@ -938,11 +939,18 @@ function openVideoWindow() {
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
-    <div class="video-keyboard" hidden><div class="keyboard-heading"><span>Raw HID · US physical layout</span><button type="button" class="keyboard-release">Release all keys</button></div>${screenKeyboardMarkup()}</div>
+    <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
     <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
+  const keyboard = element.querySelector(".video-keyboard");
+  keyboard.remove();
+  keyboard.style.left = `${Math.max(8, (window.innerWidth - Math.min(900, window.innerWidth - 16)) / 2)}px`;
+  keyboard.style.top = `${Math.max(90, window.innerHeight - 310)}px`;
+  document.querySelector("#terminal-layer").appendChild(keyboard);
+  enableTerminalDrag(keyboard);
+  keyboard.addEventListener("pointerdown", () => focusTerminal(keyboard));
   image.addEventListener("load", () => { status.textContent = "Live stream · 12 FPS"; });
   image.addEventListener("error", () => { status.textContent = "Stream unavailable; reopen to retry"; });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
@@ -1038,10 +1046,11 @@ function openVideoWindow() {
     event.preventDefault();
     sendMouse(event, event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  const keyboard = element.querySelector(".video-keyboard");
   element.querySelector(".keyboard-toggle").addEventListener("click", () => {
     keyboard.hidden = !keyboard.hidden;
+    if (!keyboard.hidden) focusTerminal(keyboard);
   });
+  keyboard.querySelector(".keyboard-hide").addEventListener("click", () => { keyboard.hidden = true; });
   element.querySelector(".keyboard-release").addEventListener("click", releaseAllKeys);
   keyboard.querySelectorAll(".keyboard-key").forEach((keyButton) => {
     keyButton.addEventListener("click", () => {
@@ -1090,7 +1099,7 @@ function openVideoWindow() {
     window.setTimeout(() => sendHid({ type: "keyboard", modifiers: 0, keys: [] }, false), 80);
     lastOperatorActivity = Date.now();
   }, 30000);
-  videoWindow = { element, image, keepAwakeTimer, releaseAllKeys, socket };
+  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, socket };
   image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);
