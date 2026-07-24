@@ -902,7 +902,7 @@ async function loadVideoStatus() {
 
 function closeVideoWindow() {
   if (!videoWindow) return;
-  window.clearInterval(videoWindow.timer);
+  videoWindow.image.src = "";
   videoWindow.socket?.close();
   videoWindow.element.remove();
   videoWindow = null;
@@ -927,15 +927,8 @@ function openVideoWindow() {
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
-  const refreshFrame = () => {
-    const next = new Image();
-    next.onload = () => {
-      image.src = next.src;
-      status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
-    };
-    next.onerror = () => { status.textContent = "Frame unavailable; retrying…"; };
-    next.src = `/api/v1/video/frame.png?t=${Date.now()}`;
-  };
+  image.addEventListener("load", () => { status.textContent = "Live stream · 12 FPS"; });
+  image.addEventListener("error", () => { status.textContent = "Stream unavailable; reopen to retry"; });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/hid/ws`);
   const connection = element.querySelector(".terminal-connection");
@@ -995,8 +988,8 @@ function openVideoWindow() {
     event.preventDefault();
     sendMouse(event, event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  videoWindow = { element, socket, timer: window.setInterval(refreshFrame, 700) };
-  refreshFrame();
+  videoWindow = { element, image, socket };
+  image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);
   element.addEventListener("pointerdown", () => focusTerminal(element));

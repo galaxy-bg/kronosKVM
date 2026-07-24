@@ -9,7 +9,7 @@ import zlib
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 router = APIRouter(prefix="/api/v1/video", tags=["video"])
 
@@ -110,3 +110,78 @@ def video_frame() -> Response:
         )
     finally:
         _capture_lock.release()
+
+
+@router.get("/stream.mjpg")
+def video_stream() -> StreamingResponse:
+    if not VIDEO_DEVICE.exists():
+        raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
+    if not _capture_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Video capture is already active")
+    timing = _timings()
+    if not timing:
+        _capture_lock.release()
+        raise HTTPException(status_code=503, detail="No HDMI signal detected")
+    width, height = timing
+    _run(
+        "v4l2-ctl",
+        "-d",
+        str(VIDEO_DEVICE),
+        "--set-dv-bt-timings=query",
+        timeout=3,
+    )
+    process = subprocess.Popen(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-fflags",
+            "nobuffer",
+            "-flags",
+            "low_delay",
+            "-f",
+            "v4l2",
+            "-input_format",
+            "uyvy422",
+            "-video_size",
+            f"{width}x{height}",
+            "-framerate",
+            "15",
+            "-i",
+            str(VIDEO_DEVICE),
+            "-an",
+            "-vf",
+            "fps=12",
+            "-c:v",
+            "mjpeg",
+            "-q:v",
+            "7",
+            "-f",
+            "mpjpeg",
+            "pipe:1",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+
+    def frames():
+        try:
+            while process.stdout:
+                chunk = process.stdout.read(64 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            _capture_lock.release()
+
+    return StreamingResponse(
+        frames(),
+        media_type="multipart/x-mixed-replace; boundary=ffmpeg",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
