@@ -7,7 +7,10 @@ udc=fe980000.usb
 modprobe libcomposite
 mkdir -p "${gadget}"
 
-if [[ -d "${gadget}/functions/hid.keyboard" && -d "${gadget}/functions/hid.mouse" && -d "${gadget}/functions/hid.mouse_relative" ]]; then
+if [[ -d "${gadget}/functions/hid.keyboard" \
+    && -d "${gadget}/functions/hid.mouse" \
+    && -d "${gadget}/functions/hid.mouse_relative" \
+    && "$(cat "${gadget}/functions/hid.mouse_relative/report_length" 2>/dev/null || true)" == "3" ]]; then
     if [[ -z "$(cat "${gadget}/UDC" 2>/dev/null || true)" ]]; then
         printf '%s' "${udc}" >"${gadget}/UDC"
     fi
@@ -57,8 +60,8 @@ printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00
 mkdir -p "${gadget}/functions/hid.mouse_relative"
 printf '2' >"${gadget}/functions/hid.mouse_relative/protocol"
 printf '1' >"${gadget}/functions/hid.mouse_relative/subclass"
-printf '4' >"${gadget}/functions/hid.mouse_relative/report_length"
-printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x01\x05\x01\x09\x30\x09\x31\x09\x38\x15\x81\x25\x7f\x75\x08\x95\x03\x81\x06\xc0\xc0' >"${gadget}/functions/hid.mouse_relative/report_desc"
+printf '3' >"${gadget}/functions/hid.mouse_relative/report_length"
+printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x01\x05\x01\x09\x30\x09\x31\x15\x81\x25\x7f\x75\x08\x95\x02\x81\x06\xc0\xc0' >"${gadget}/functions/hid.mouse_relative/report_desc"
 
 ln -sfn "${gadget}/functions/hid.keyboard" "${gadget}/configs/c.1/hid.keyboard"
 ln -sfn "${gadget}/functions/hid.mouse" "${gadget}/configs/c.1/hid.mouse"

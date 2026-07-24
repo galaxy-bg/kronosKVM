@@ -118,7 +118,7 @@ def test_hid_gadget_has_absolute_and_bios_mouse_interfaces() -> None:
     setup = Path("scripts/setup-hid-gadget.sh").read_text(encoding="utf-8")
     assert "hid.mouse_relative" in setup
     assert "printf '1' >\"${gadget}/functions/hid.mouse_relative/subclass\"" in setup
-    assert "printf '4' >\"${gadget}/functions/hid.mouse_relative/report_length\"" in setup
+    assert "printf '3' >\"${gadget}/functions/hid.mouse_relative/report_length\"" in setup
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:

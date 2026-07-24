@@ -57,7 +57,7 @@ async def hid_websocket(websocket: WebSocket) -> None:
                     y = max(-127, min(127, int(message.get("y", 0))))
                     _write_report(
                         RELATIVE_MOUSE_DEVICE,
-                        struct.pack("<Bbbb", buttons, x, y, wheel),
+                        struct.pack("<Bbb", buttons, x, y),
                     )
                 else:
                     x = max(0, min(32767, int(message.get("x", 0))))
