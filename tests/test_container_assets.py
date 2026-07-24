@@ -36,6 +36,7 @@ def test_runtime_grants_serial_and_video_device_classes() -> None:
     runner = Path("scripts/start-containers.sh").read_text(encoding="utf-8")
     assert "--device-cgroup-rule 'c 188:* rmw'" in runner
     assert "--device-cgroup-rule 'c 81:* rmw'" in runner
+    assert "--device-cgroup-rule 'c 236:* rmw'" in runner
     assert "--group-add 44" in runner
     assert "--volume /dev:/dev:rw" in runner
     assert "--user 10001:20" in runner
