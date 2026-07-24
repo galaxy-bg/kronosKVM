@@ -875,10 +875,23 @@ const hidKeyCodes = {
   ScrollLock: 71, Pause: 72, Insert: 73, Home: 74, PageUp: 75, Delete: 76, End: 77,
   PageDown: 78, ArrowRight: 79, ArrowLeft: 80, ArrowDown: 81, ArrowUp: 82,
 };
+const hidModifierCodes = {
+  ControlLeft: 1, ShiftLeft: 2, AltLeft: 4, MetaLeft: 8,
+  ControlRight: 16, ShiftRight: 32, AltRight: 64, MetaRight: 128,
+};
+const screenKeyboardRows = [
+  [["Esc", "Escape"], ["F1", "F1"], ["F2", "F2"], ["F3", "F3"], ["F4", "F4"], ["F5", "F5"], ["F6", "F6"], ["F7", "F7"], ["F8", "F8"], ["F9", "F9"], ["F10", "F10"], ["F11", "F11"], ["F12", "F12"], ["Del", "Delete"]],
+  [["`", "Backquote"], ["1", "Digit1"], ["2", "Digit2"], ["3", "Digit3"], ["4", "Digit4"], ["5", "Digit5"], ["6", "Digit6"], ["7", "Digit7"], ["8", "Digit8"], ["9", "Digit9"], ["0", "Digit0"], ["-", "Minus"], ["=", "Equal"], ["Backspace", "Backspace"]],
+  [["Tab", "Tab"], ["Q", "KeyQ"], ["W", "KeyW"], ["E", "KeyE"], ["R", "KeyR"], ["T", "KeyT"], ["Y", "KeyY"], ["U", "KeyU"], ["I", "KeyI"], ["O", "KeyO"], ["P", "KeyP"], ["[", "BracketLeft"], ["]", "BracketRight"], ["\\", "Backslash"]],
+  [["Caps", "CapsLock"], ["A", "KeyA"], ["S", "KeyS"], ["D", "KeyD"], ["F", "KeyF"], ["G", "KeyG"], ["H", "KeyH"], ["J", "KeyJ"], ["K", "KeyK"], ["L", "KeyL"], [";", "Semicolon"], ["'", "Quote"], ["Enter", "Enter"]],
+  [["Shift", "ShiftLeft", "modifier"], ["Z", "KeyZ"], ["X", "KeyX"], ["C", "KeyC"], ["V", "KeyV"], ["B", "KeyB"], ["N", "KeyN"], ["M", "KeyM"], [",", "Comma"], [".", "Period"], ["/", "Slash"], ["↑", "ArrowUp"], ["Shift", "ShiftRight", "modifier"]],
+  [["Ctrl", "ControlLeft", "modifier"], ["Alt", "AltLeft", "modifier"], ["Space", "Space"], ["AltGr", "AltRight", "modifier"], ["Ctrl", "ControlRight", "modifier"], ["←", "ArrowLeft"], ["↓", "ArrowDown"], ["→", "ArrowRight"], ["Ctrl+Alt+Del", "cad", "special"]],
+];
 
-function hidModifiers(event) {
-  return (event.ctrlKey ? 1 : 0) | (event.shiftKey ? 2 : 0) |
-    (event.altKey ? 4 : 0) | (event.metaKey ? 8 : 0);
+function screenKeyboardMarkup() {
+  return screenKeyboardRows.map((row) => `<div class="keyboard-row">${row.map(([label, code, kind = "key"]) =>
+    `<button type="button" class="keyboard-key ${kind}" data-hid-code="${code}">${label}</button>`
+  ).join("")}</div>`).join("");
 }
 
 async function loadVideoStatus() {
@@ -903,6 +916,7 @@ async function loadVideoStatus() {
 function closeVideoWindow() {
   if (!videoWindow) return;
   videoWindow.image.src = "";
+  videoWindow.releaseAllKeys?.();
   videoWindow.socket?.close();
   videoWindow.element.remove();
   videoWindow = null;
@@ -923,7 +937,8 @@ function openVideoWindow() {
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
-    <footer class="terminal-footer"><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
+    <div class="video-keyboard" hidden><div class="keyboard-heading"><span>Raw HID · US physical layout</span><button type="button" class="keyboard-release">Release all keys</button></div>${screenKeyboardMarkup()}</div>
+    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
@@ -943,18 +958,50 @@ function openVideoWindow() {
   const sendHid = (message) => {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
+  const pressedKeys = new Set();
+  let physicalModifiers = 0;
+  let stickyModifiers = 0;
+  const sendKeyboardReport = () => sendHid({
+    type: "keyboard",
+    modifiers: physicalModifiers | stickyModifiers,
+    keys: [...pressedKeys].slice(0, 6),
+  });
+  const releaseAllKeys = () => {
+    pressedKeys.clear();
+    physicalModifiers = 0;
+    stickyModifiers = 0;
+    element.querySelectorAll(".keyboard-key.modifier").forEach((key) => key.classList.remove("active"));
+    sendKeyboardReport();
+  };
   image.addEventListener("keydown", (event) => {
+    const modifier = hidModifierCodes[event.code];
+    if (modifier) {
+      event.preventDefault();
+      physicalModifiers |= modifier;
+      sendKeyboardReport();
+      return;
+    }
     const key = hidKeyCodes[event.code];
     if (!key) return;
     event.preventDefault();
-    sendHid({ type: "keyboard", modifiers: hidModifiers(event), keys: [key] });
+    pressedKeys.add(key);
+    sendKeyboardReport();
   });
   image.addEventListener("keyup", (event) => {
-    if (!hidKeyCodes[event.code]) return;
+    const modifier = hidModifierCodes[event.code];
+    if (modifier) {
+      event.preventDefault();
+      physicalModifiers &= ~modifier;
+      sendKeyboardReport();
+      return;
+    }
+    const key = hidKeyCodes[event.code];
+    if (!key) return;
     event.preventDefault();
-    sendHid({ type: "keyboard", modifiers: 0, keys: [] });
+    pressedKeys.delete(key);
+    sendKeyboardReport();
   });
-  image.addEventListener("blur", () => sendHid({ type: "keyboard", modifiers: 0, keys: [] }));
+  image.addEventListener("blur", releaseAllKeys);
   let buttons = 0;
   let lastMouseSent = 0;
   const sendMouse = (event, wheel = 0) => {
@@ -988,7 +1035,37 @@ function openVideoWindow() {
     event.preventDefault();
     sendMouse(event, event.deltaY > 0 ? 1 : -1);
   }, { passive: false });
-  videoWindow = { element, image, socket };
+  const keyboard = element.querySelector(".video-keyboard");
+  element.querySelector(".keyboard-toggle").addEventListener("click", () => {
+    keyboard.hidden = !keyboard.hidden;
+  });
+  element.querySelector(".keyboard-release").addEventListener("click", releaseAllKeys);
+  keyboard.querySelectorAll(".keyboard-key").forEach((keyButton) => {
+    keyButton.addEventListener("click", () => {
+      const code = keyButton.dataset.hidCode;
+      if (code === "cad") {
+        sendHid({ type: "keyboard", modifiers: 5, keys: [hidKeyCodes.Delete] });
+        window.setTimeout(releaseAllKeys, 90);
+        return;
+      }
+      const modifier = hidModifierCodes[code];
+      if (modifier) {
+        stickyModifiers ^= modifier;
+        keyButton.classList.toggle("active", Boolean(stickyModifiers & modifier));
+        sendKeyboardReport();
+        return;
+      }
+      const usage = hidKeyCodes[code];
+      if (!usage) return;
+      pressedKeys.add(usage);
+      sendKeyboardReport();
+      window.setTimeout(() => {
+        pressedKeys.delete(usage);
+        sendKeyboardReport();
+      }, 75);
+    });
+  });
+  videoWindow = { element, image, releaseAllKeys, socket };
   image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);
