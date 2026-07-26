@@ -921,7 +921,7 @@ function closeVideoWindow() {
   videoWindow.image.src = "";
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.releaseAllKeys?.();
-  videoWindow.socket?.close();
+  videoWindow.closeHid?.();
   videoWindow.keyboard?.remove();
   videoWindow.element.remove();
   videoWindow = null;
@@ -969,20 +969,36 @@ function openVideoWindow() {
   });
   image.addEventListener("error", () => { status.textContent = "Stream unavailable; reopen to retry"; });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${protocol}://${location.host}/api/v1/hid/ws`);
   const connection = element.querySelector(".terminal-connection");
-  socket.addEventListener("open", () => {
-    connection.className = "terminal-connection connected";
-    connection.querySelector("b").textContent = "HID connected";
-  });
-  socket.addEventListener("close", () => {
-    connection.className = "terminal-connection disconnected";
-    connection.querySelector("b").textContent = "HID disconnected";
-  });
+  let socket = null;
+  let hidClosing = false;
+  let hidReconnectTimer = 0;
+  const connectHid = () => {
+    if (hidClosing) return;
+    connection.className = "terminal-connection connecting";
+    connection.querySelector("b").textContent = "Connecting HID";
+    socket = new WebSocket(`${protocol}://${location.host}/api/v1/hid/ws`);
+    socket.addEventListener("open", () => {
+      connection.className = "terminal-connection connected";
+      connection.querySelector("b").textContent = "HID connected";
+    });
+    socket.addEventListener("close", () => {
+      if (hidClosing) return;
+      connection.className = "terminal-connection disconnected";
+      connection.querySelector("b").textContent = "HID reconnecting";
+      hidReconnectTimer = window.setTimeout(connectHid, 1500);
+    });
+  };
+  const closeHid = () => {
+    hidClosing = true;
+    window.clearTimeout(hidReconnectTimer);
+    socket?.close();
+  };
+  connectHid();
   let lastOperatorActivity = Date.now();
   const sendHid = (message, operatorActivity = true) => {
     if (operatorActivity) lastOperatorActivity = Date.now();
-    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
   const pressedKeys = new Set();
   let physicalModifiers = 0;
@@ -1195,7 +1211,7 @@ function openVideoWindow() {
   });
   renderKeepAwake();
   const keepAwakeTimer = window.setInterval(() => {
-    if (!keepAwake || socket.readyState !== WebSocket.OPEN || Date.now() - lastOperatorActivity < 120000) return;
+    if (!keepAwake || socket?.readyState !== WebSocket.OPEN || Date.now() - lastOperatorActivity < 120000) return;
     sendHid({ type: "keyboard", modifiers: 2, keys: [] }, false);
     window.setTimeout(() => sendHid({ type: "keyboard", modifiers: 0, keys: [] }, false), 80);
     lastOperatorActivity = Date.now();
@@ -1318,7 +1334,7 @@ function openVideoWindow() {
     if (!mediaDrawer.hidden) renderVirtualMedia();
   });
   mediaDrawer.querySelector(".media-close").addEventListener("click", () => { mediaDrawer.hidden = true; });
-  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, socket, stopRecording, aspectObserver };
+  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid, stopRecording, aspectObserver };
   image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);

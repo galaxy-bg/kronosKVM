@@ -30,6 +30,7 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
     assert "Environment=KRONOSKVM_VERSION=" not in unit
     assert "ExecStartPre=/usr/bin/install -d -m 0755 -o root -g root /mnt/kronoskvm-storage" in unit
     assert "ExecStart=/opt/kronoskvm/scripts/start-containers.sh" in unit
+    assert "ExecStartPre=/opt/kronoskvm/scripts/setup-hid-gadget.sh" in unit
 
 
 def test_runtime_grants_serial_and_video_device_classes() -> None:
@@ -54,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.21.js" in html
-    assert "/styles-0.3.21.css" in html
-    assert "app-0.3.21.js" in dockerfile
+    assert "/app-0.3.22.js" in html
+    assert "/styles-0.3.22.css" in html
+    assert "app-0.3.22.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -86,6 +87,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'id="storage-panel"' in html
     assert 'id="storage-file-input"' in html
     assert 'getJson("/api/v1/storage")' in app
+    assert "HID reconnecting" in app
     assert '.filter((item) => item.name !== "lo")' in app
     assert 'data-session-action="config"' in html
     assert "function updateSessionCards" in app
