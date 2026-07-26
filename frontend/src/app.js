@@ -946,6 +946,7 @@ function openVideoWindow() {
       <button type="button" data-kvm-action="record">● Record</button>
       <button type="button" data-kvm-action="play">Ⅱ Pause</button>
       <button type="button" data-kvm-action="fullscreen">⛶ Full screen</button>
+      <button type="button" data-kvm-action="view">▣ View: Fit</button>
       <button type="button" data-kvm-action="aspect">◇ Lock ratio</button>
       <button type="button" data-kvm-action="keyboard">⌨ Hot keys</button>
       <button type="button" data-kvm-action="media">▤ Virtual media</button>
@@ -1049,6 +1050,12 @@ function openVideoWindow() {
   let relativeSyncing = false;
   const displayedVideoPoint = (event) => {
     const rect = image.getBoundingClientRect();
+    if (!element.classList.contains("view-fit")) {
+      return {
+        x: Math.round(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * (image.naturalWidth || 1024)),
+        y: Math.round(Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)) * (image.naturalHeight || 768)),
+      };
+    }
     const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
     const width = Math.min(rect.width, rect.height * ratio);
     const height = width / ratio;
@@ -1265,6 +1272,23 @@ function openVideoWindow() {
     if (document.fullscreenElement === element) await document.exitFullscreen();
     else await element.requestFullscreen();
   });
+  const viewModes = ["fit", "stretch", "actual"];
+  const viewLabels = { fit: "Fit", stretch: "Stretch", actual: "1:1" };
+  let viewMode = localStorage.getItem("kronoskvm.video-view");
+  if (!viewModes.includes(viewMode)) viewMode = "fit";
+  const renderViewMode = () => {
+    viewModes.forEach((mode) => element.classList.toggle(`view-${mode}`, mode === viewMode));
+    toolbarButton("view").textContent = `▣ View: ${viewLabels[viewMode]}`;
+    toolbarButton("view").title = viewMode === "fit"
+      ? "Fit the complete target image inside the console"
+      : viewMode === "stretch" ? "Stretch the target image to fill the console" : "Show one target pixel per browser pixel";
+  };
+  toolbarButton("view").addEventListener("click", () => {
+    viewMode = viewModes[(viewModes.indexOf(viewMode) + 1) % viewModes.length];
+    localStorage.setItem("kronoskvm.video-view", viewMode);
+    renderViewMode();
+  });
+  renderViewMode();
   let aspectLocked = false;
   let adjustingAspect = false;
   const applyAspectRatio = () => {

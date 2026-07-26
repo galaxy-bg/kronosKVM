@@ -194,8 +194,12 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .kvm-toolbar button { padding: 7px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #46534e; font-size: .66rem; font-weight: 700; cursor: pointer; }
 .kvm-toolbar button:hover, .kvm-toolbar button.active { border-color: #9edbc5; background: #e8f8f2; color: #087d54; }
 .kvm-toolbar [data-kvm-action="record"].active { border-color: #ef9ba5; background: #fff0f2; color: #c73548; }
-.video-stage { min-height: 0; display: grid; place-items: center; overflow: hidden; background: #030806; }
-.video-frame { width: 100%; height: 100%; display: block; object-fit: contain; background: #030806; }
+.video-stage { min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #030806; }
+.video-frame { width: 100%; height: 100%; min-width: 0; min-height: 0; display: block; object-position: center; background: #030806; }
+.video-window.view-fit .video-frame { object-fit: contain; }
+.video-window.view-stretch .video-frame { object-fit: fill; }
+.video-window.view-actual .video-stage { place-items: start; overflow: auto; }
+.video-window.view-actual .video-frame { width: auto; height: auto; max-width: none; max-height: none; object-fit: none; }
 .video-frame-status { color: #a9bcb4; font-size: .65rem; }
 .video-footer-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
 .kvm-footer { min-height: 56px; }
