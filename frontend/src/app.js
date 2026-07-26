@@ -862,6 +862,7 @@ function closeTerminal(portId) {
 }
 
 let videoWindow = null;
+let stagingStorage = null;
 const hidKeyCodes = {
   KeyA: 4, KeyB: 5, KeyC: 6, KeyD: 7, KeyE: 8, KeyF: 9, KeyG: 10, KeyH: 11,
   KeyI: 12, KeyJ: 13, KeyK: 14, KeyL: 15, KeyM: 16, KeyN: 17, KeyO: 18, KeyP: 19,
@@ -915,6 +916,8 @@ async function loadVideoStatus() {
 
 function closeVideoWindow() {
   if (!videoWindow) return;
+  videoWindow.stopRecording?.(false);
+  videoWindow.aspectObserver?.disconnect();
   videoWindow.image.src = "";
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.releaseAllKeys?.();
@@ -935,12 +938,21 @@ function openVideoWindow() {
   element.style.left = `${Math.max(12, Math.min(110, window.innerWidth - 420))}px`;
   element.style.top = "105px";
   element.innerHTML = `<header class="terminal-titlebar">
-      <div class="terminal-heading"><div><strong>VGA KVM · X630</strong><span>Live HDMI capture</span></div></div>
+      <div class="terminal-heading"><div><strong>KronosKVM Remote Console</strong><span>VGA KVM · X630 HDMI capture</span></div></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
+    <div class="kvm-toolbar">
+      <button type="button" data-kvm-action="snapshot">▣ Snapshot</button>
+      <button type="button" data-kvm-action="record">● Record</button>
+      <button type="button" data-kvm-action="play">Ⅱ Pause</button>
+      <button type="button" data-kvm-action="fullscreen">⛶ Full screen</button>
+      <button type="button" data-kvm-action="aspect">◇ Lock ratio</button>
+      <button type="button" data-kvm-action="media">▤ Virtual media</button>
+    </div>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
+    <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
-    <footer class="terminal-footer"><div class="video-footer-tools"><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="mouse-mode-toggle">Mouse: Absolute</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button><span class="video-frame-status">Loading video…</span></div><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></footer>`;
+    <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keyboard-toggle">⌨ Keyboard</button><button type="button" class="mouse-mode-toggle">Mouse: Absolute</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
@@ -951,7 +963,10 @@ function openVideoWindow() {
   document.querySelector("#terminal-layer").appendChild(keyboard);
   enableTerminalDrag(keyboard);
   keyboard.addEventListener("pointerdown", () => focusTerminal(keyboard));
-  image.addEventListener("load", () => { status.textContent = "Live stream · 12 FPS"; });
+  image.addEventListener("load", () => {
+    status.textContent = "Live stream · 12 FPS";
+    element.querySelector(".video-resolution").textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
+  });
   image.addEventListener("error", () => { status.textContent = "Stream unavailable; reopen to retry"; });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}/api/v1/hid/ws`);
@@ -1151,6 +1166,18 @@ function openVideoWindow() {
       }, 75);
     });
   });
+  element.querySelectorAll(".kvm-modifier").forEach((button) => {
+    button.addEventListener("click", () => {
+      const modifier = Number(button.dataset.modifier);
+      stickyModifiers ^= modifier;
+      button.classList.toggle("active", Boolean(stickyModifiers & modifier));
+      sendKeyboardReport();
+    });
+  });
+  element.querySelector(".kvm-hotkey-cad").addEventListener("click", () => {
+    sendHid({ type: "keyboard", modifiers: 5, keys: [hidKeyCodes.Delete] });
+    window.setTimeout(releaseAllKeys, 90);
+  });
   const keepAwakeButton = element.querySelector(".keep-awake-toggle");
   let keepAwake = localStorage.getItem("kronoskvm.keep-awake") !== "false";
   const renderKeepAwake = () => {
@@ -1173,7 +1200,125 @@ function openVideoWindow() {
     window.setTimeout(() => sendHid({ type: "keyboard", modifiers: 0, keys: [] }, false), 80);
     lastOperatorActivity = Date.now();
   }, 30000);
-  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, socket };
+  const toolbarButton = (action) => element.querySelector(`[data-kvm-action="${action}"]`);
+  const mediaDrawer = element.querySelector(".virtual-media-drawer");
+  const downloadBlob = (blob, name) => {
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  };
+  toolbarButton("snapshot").addEventListener("click", () => {
+    if (!image.naturalWidth) return showToast("Video frame is not ready");
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    canvas.getContext("2d").drawImage(image, 0, 0);
+    canvas.toBlob((blob) => {
+      if (blob) downloadBlob(blob, `kronoskvm-snapshot-${new Date().toISOString().replaceAll(":", "-")}.png`);
+    }, "image/png");
+    showToast("Snapshot captured");
+  });
+  let recording = null;
+  const stopRecording = (download = true) => {
+    if (!recording) return;
+    window.clearInterval(recording.timer);
+    if (recording.recorder.state !== "inactive") recording.recorder.stop();
+    recording.download = download;
+    toolbarButton("record").classList.remove("active");
+    toolbarButton("record").textContent = "● Record";
+  };
+  toolbarButton("record").addEventListener("click", () => {
+    if (recording) {
+      stopRecording();
+      return;
+    }
+    if (!image.naturalWidth || !window.MediaRecorder) return showToast("Browser recording is unavailable");
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d");
+    const timer = window.setInterval(() => {
+      try { context.drawImage(image, 0, 0, canvas.width, canvas.height); } catch (error) { console.debug(error); }
+    }, 84);
+    const options = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? { mimeType: "video/webm;codecs=vp8" }
+      : {};
+    const recorder = new MediaRecorder(canvas.captureStream(12), options);
+    const chunks = [];
+    recording = { recorder, timer, chunks, download: true };
+    recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
+    recorder.addEventListener("stop", () => {
+      const completed = recording;
+      recording = null;
+      if (completed?.download && chunks.length) {
+        downloadBlob(new Blob(chunks, { type: "video/webm" }), `kronoskvm-recording-${new Date().toISOString().replaceAll(":", "-")}.webm`);
+        showToast("Recording saved");
+      }
+    });
+    recorder.start(1000);
+    toolbarButton("record").classList.add("active");
+    toolbarButton("record").textContent = "■ Stop";
+    showToast("Screen recording started");
+  });
+  let playing = true;
+  toolbarButton("play").addEventListener("click", () => {
+    playing = !playing;
+    if (playing) {
+      image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+      toolbarButton("play").textContent = "Ⅱ Pause";
+      status.textContent = "Reconnecting video…";
+    } else {
+      image.src = "";
+      toolbarButton("play").textContent = "▷ Play";
+      status.textContent = "Video paused";
+    }
+  });
+  toolbarButton("fullscreen").addEventListener("click", async () => {
+    if (document.fullscreenElement === element) await document.exitFullscreen();
+    else await element.requestFullscreen();
+  });
+  let aspectLocked = false;
+  let adjustingAspect = false;
+  const applyAspectRatio = () => {
+    if (!aspectLocked || adjustingAspect || element.classList.contains("maximized")) return;
+    adjustingAspect = true;
+    const chromeHeight = element.querySelector(".terminal-titlebar").offsetHeight
+      + element.querySelector(".kvm-toolbar").offsetHeight
+      + element.querySelector(".terminal-footer").offsetHeight;
+    const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
+    element.style.height = `${Math.round(element.offsetWidth / ratio + chromeHeight)}px`;
+    window.requestAnimationFrame(() => { adjustingAspect = false; });
+  };
+  const aspectObserver = new ResizeObserver(applyAspectRatio);
+  aspectObserver.observe(element);
+  toolbarButton("aspect").addEventListener("click", () => {
+    aspectLocked = !aspectLocked;
+    toolbarButton("aspect").classList.toggle("active", aspectLocked);
+    toolbarButton("aspect").textContent = aspectLocked ? "◆ Ratio locked" : "◇ Lock ratio";
+    applyAspectRatio();
+  });
+  const renderVirtualMedia = async () => {
+    const list = mediaDrawer.querySelector(".virtual-media-files");
+    list.textContent = "Loading staged media…";
+    try {
+      stagingStorage = await getJson("/api/v1/storage");
+      const files = stagingStorage.files.filter((file) => /\.(iso|img)$/i.test(file.name));
+      list.innerHTML = files.length ? files.map((file) => `<div class="virtual-media-item"><span><b>${escapeHtml(file.name)}</b><small>${formatBytes(file.size_bytes)}</small></span><button type="button" data-media-name="${escapeHtml(file.name)}">Mount</button></div>`).join("") : "<p>No ISO or IMG files in staging storage.</p>";
+      list.querySelectorAll("[data-media-name]").forEach((button) => button.addEventListener("click", () => {
+        showToast(`${button.dataset.mediaName}: USB mass-storage service setup pending`);
+      }));
+    } catch (error) {
+      list.textContent = "Staging storage is unavailable.";
+    }
+  };
+  toolbarButton("media").addEventListener("click", () => {
+    mediaDrawer.hidden = !mediaDrawer.hidden;
+    if (!mediaDrawer.hidden) renderVirtualMedia();
+  });
+  mediaDrawer.querySelector(".media-close").addEventListener("click", () => { mediaDrawer.hidden = true; });
+  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, socket, stopRecording, aspectObserver };
   image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
   focusTerminal(element);
   enableTerminalDrag(element);

@@ -54,9 +54,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.20.js" in html
-    assert "/styles-0.3.20.css" in html
-    assert "app-0.3.20.js" in dockerfile
+    assert "/app-0.3.21.js" in html
+    assert "/styles-0.3.21.css" in html
+    assert "app-0.3.21.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -113,6 +113,12 @@ def test_web_assets_use_filename_versioning() -> None:
     assert "Mouse: Absolute" in app
     assert 'mode: "relative"' in app
     assert "syncRelativePointer" in app
+    assert 'data-kvm-action="snapshot"' in app
+    assert 'data-kvm-action="record"' in app
+    assert 'data-kvm-action="fullscreen"' in app
+    assert 'data-kvm-action="media"' in app
+    assert "canvas.captureStream(12)" in app
+    assert 'getJson("/api/v1/storage")' in app
 
 
 def test_hid_gadget_has_absolute_and_bios_mouse_interfaces() -> None:
