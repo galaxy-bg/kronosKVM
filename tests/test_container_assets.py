@@ -55,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.25.js" in html
-    assert "/styles-0.3.25.css" in html
-    assert "app-0.3.25.js" in dockerfile
+    assert "/app-0.3.26.js" in html
+    assert "/styles-0.3.26.css" in html
+    assert "app-0.3.26.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -128,6 +128,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'getJson("/api/v1/video/status")' in app
     assert "Resolution changed to" in app
     assert "Video signal restored" in app
+    assert "suppressStreamError" in app
 
 
 def test_hid_gadget_has_absolute_and_bios_mouse_interfaces() -> None:

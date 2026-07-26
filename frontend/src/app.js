@@ -966,12 +966,15 @@ function openVideoWindow() {
   let currentWidth = 0;
   let currentHeight = 0;
   let signalAvailable = true;
+  let suppressStreamError = false;
   const startVideoStream = (message = "Connecting video…", delay = 120) => {
     window.clearTimeout(streamRetryTimer);
     if (!playing) return;
     status.textContent = message;
+    suppressStreamError = true;
     image.src = "";
     streamRetryTimer = window.setTimeout(() => {
+      suppressStreamError = false;
       if (playing) image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
     }, delay);
   };
@@ -988,7 +991,7 @@ function openVideoWindow() {
     element.querySelector(".video-resolution").textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
   });
   image.addEventListener("error", () => {
-    if (playing) startVideoStream("Video signal changed · reconnecting…", 900);
+    if (playing && !suppressStreamError) startVideoStream("Video signal changed · reconnecting…", 900);
   });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const connection = element.querySelector(".terminal-connection");
@@ -1353,6 +1356,7 @@ function openVideoWindow() {
       const videoStatus = await getJson("/api/v1/video/status");
       if (!videoStatus.signal) {
         signalAvailable = false;
+        suppressStreamError = true;
         image.src = "";
         status.textContent = "Waiting for video signal…";
         return;
