@@ -918,6 +918,8 @@ function closeVideoWindow() {
   if (!videoWindow) return;
   videoWindow.stopRecording?.(false);
   videoWindow.aspectObserver?.disconnect();
+  window.clearInterval(videoWindow.resolutionTimer);
+  window.clearTimeout(videoWindow.streamRetryTimer);
   videoWindow.image.src = "";
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.releaseAllKeys?.();
@@ -959,6 +961,20 @@ function openVideoWindow() {
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
   const keyboard = element.querySelector(".video-keyboard");
+  let playing = true;
+  let streamRetryTimer = 0;
+  let currentWidth = 0;
+  let currentHeight = 0;
+  let signalAvailable = true;
+  const startVideoStream = (message = "Connecting video…", delay = 120) => {
+    window.clearTimeout(streamRetryTimer);
+    if (!playing) return;
+    status.textContent = message;
+    image.src = "";
+    streamRetryTimer = window.setTimeout(() => {
+      if (playing) image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+    }, delay);
+  };
   keyboard.remove();
   keyboard.style.left = `${Math.max(8, (window.innerWidth - Math.min(900, window.innerWidth - 16)) / 2)}px`;
   keyboard.style.top = `${Math.max(90, window.innerHeight - 310)}px`;
@@ -967,9 +983,13 @@ function openVideoWindow() {
   keyboard.addEventListener("pointerdown", () => focusTerminal(keyboard));
   image.addEventListener("load", () => {
     status.textContent = "Live stream · 12 FPS";
+    currentWidth = image.naturalWidth;
+    currentHeight = image.naturalHeight;
     element.querySelector(".video-resolution").textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
   });
-  image.addEventListener("error", () => { status.textContent = "Stream unavailable; reopen to retry"; });
+  image.addEventListener("error", () => {
+    if (playing) startVideoStream("Video signal changed · reconnecting…", 900);
+  });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const connection = element.querySelector(".terminal-connection");
   let socket = null;
@@ -1255,14 +1275,13 @@ function openVideoWindow() {
     toolbarButton("record").textContent = "■ Stop";
     showToast("Screen recording started");
   });
-  let playing = true;
   toolbarButton("play").addEventListener("click", () => {
     playing = !playing;
     if (playing) {
-      image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+      startVideoStream("Reconnecting video…");
       toolbarButton("play").textContent = "Ⅱ Pause";
-      status.textContent = "Reconnecting video…";
     } else {
+      window.clearTimeout(streamRetryTimer);
       image.src = "";
       toolbarButton("play").textContent = "▷ Play";
       status.textContent = "Video paused";
@@ -1328,8 +1347,42 @@ function openVideoWindow() {
     if (!mediaDrawer.hidden) renderVirtualMedia();
   });
   mediaDrawer.querySelector(".media-close").addEventListener("click", () => { mediaDrawer.hidden = true; });
-  videoWindow = { element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid, stopRecording, aspectObserver };
-  image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+  const resolutionTimer = window.setInterval(async () => {
+    if (!playing) return;
+    try {
+      const videoStatus = await getJson("/api/v1/video/status");
+      if (!videoStatus.signal) {
+        signalAvailable = false;
+        image.src = "";
+        status.textContent = "Waiting for video signal…";
+        return;
+      }
+      if (!signalAvailable) {
+        signalAvailable = true;
+        currentWidth = videoStatus.width;
+        currentHeight = videoStatus.height;
+        element.querySelector(".video-resolution").textContent = `${currentWidth} × ${currentHeight}`;
+        startVideoStream("Video signal restored · reconnecting…", 250);
+        return;
+      }
+      const changed = currentWidth && currentHeight
+        && (videoStatus.width !== currentWidth || videoStatus.height !== currentHeight);
+      if (changed) {
+        currentWidth = videoStatus.width;
+        currentHeight = videoStatus.height;
+        element.querySelector(".video-resolution").textContent = `${currentWidth} × ${currentHeight}`;
+        startVideoStream(`Resolution changed to ${currentWidth} × ${currentHeight} · reconnecting…`, 250);
+      }
+    } catch (error) {
+      console.debug("Video timing check failed", error);
+    }
+  }, 2000);
+  videoWindow = {
+    element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
+    stopRecording, aspectObserver, resolutionTimer,
+    get streamRetryTimer() { return streamRetryTimer; },
+  };
+  startVideoStream();
   focusTerminal(element);
   enableTerminalDrag(element);
   element.addEventListener("pointerdown", () => focusTerminal(element));
