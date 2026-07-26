@@ -203,8 +203,8 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .video-resolution { color: #a9bcb4; font-size: .63rem; white-space: nowrap; }
 .kvm-modifier, .kvm-hotkey-cad { min-width: 42px; padding: 6px 9px; border: 1px solid #3c5248; border-radius: 999px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
 .kvm-modifier.active { border-color: #40d294; background: #24513e; color: #72e7b8; }
-.keyboard-toggle, .keyboard-release, .mouse-mode-toggle, .keep-awake-toggle { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
-.mouse-mode-toggle.active, .keep-awake-toggle.active { border-color: #31775c; color: #62d7a7; }
+.keyboard-release, .keep-awake-toggle { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
+.keep-awake-toggle.active { border-color: #31775c; color: #62d7a7; }
 .virtual-media-drawer { position: absolute; z-index: 3; top: 91px; right: 0; width: min(340px, 90%); max-height: calc(100% - 150px); padding: 14px; overflow: auto; border: 1px solid #cbdad4; border-right: 0; border-radius: 9px 0 0 9px; background: rgba(255,255,255,.97); color: #1a2420; box-shadow: -12px 16px 35px rgba(0,0,0,.2); }
 .virtual-media-drawer[hidden] { display: none; }
 .virtual-media-drawer > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
