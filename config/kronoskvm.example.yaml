@@ -8,38 +8,41 @@ system:
 network:
   management_interface: null
   service_interface: null
-  management_address: 192.168.31.145
+  management_address: 192.168.31.185
   web_bind_address: 127.0.0.1
   api_port: 8000
   https_port: 443
   mdns_enabled: false
-  wifi_mode: disabled
+  wifi_mode: access_point
+  wifi_ssid: KronosDX-iKVM
+  wifi_address: 192.168.34.100/24
 
 capture:
-  enabled: false
-  status: waiting_for_hardware
+  enabled: true
+  status: ready
   device: /dev/video0
   input_type: hdmi-to-csi
   resolution: 1920x1080
   frame_rate: 30
 
 hid:
-  enabled: false
+  enabled: true
   keyboard: true
   mouse: true
-  absolute_mouse: true
+  absolute_mouse: false
   usb_gadget_path: /sys/kernel/config/usb_gadget/kronoskvm
 
 virtual_media:
-  enabled: false
-  image_directory: /var/lib/kronoskvm/images
+  enabled: true
+  image_directory: /var/lib/kronoskvm/storage
+  capacity_gib: 32
   read_only_default: true
 
 serial:
-  enabled: false
+  enabled: true
   channels:
     - name: console1
-      device: /dev/ttyUSB0
+      device: /dev/serial/by-path/console1
       baud_rate: 9600
       data_bits: 8
       parity: none
@@ -48,7 +51,7 @@ serial:
       tcp_enabled: false
       tcp_port: 2001
     - name: console2
-      device: /dev/ttyUSB1
+      device: /dev/serial/by-path/console2
       baud_rate: 9600
       data_bits: 8
       parity: none

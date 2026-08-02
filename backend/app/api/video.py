@@ -75,7 +75,7 @@ def video_status() -> dict:
 @router.get("/frame.png")
 def video_frame() -> Response:
     if not VIDEO_DEVICE.exists():
-        raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
+        raise HTTPException(status_code=503, detail="HDMI capture device is unavailable")
     if not _capture_lock.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="A video frame is already being captured")
     try:
@@ -119,7 +119,7 @@ def video_frame() -> Response:
 def video_stream() -> StreamingResponse:
     global _stream_process
     if not VIDEO_DEVICE.exists():
-        raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
+        raise HTTPException(status_code=503, detail="HDMI capture device is unavailable")
     with _stream_state_lock:
         previous_process = _stream_process
     if previous_process and previous_process.poll() is None:

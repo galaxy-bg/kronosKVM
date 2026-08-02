@@ -1,4 +1,6 @@
 import asyncio
+import time
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -6,6 +8,7 @@ import serial
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 
 from backend.app.hardware.serial import discover_devices
+from backend.app.logging import audit
 from backend.app.models import (
     SerialInventory,
     SerialLock,
@@ -115,6 +118,11 @@ async def serial_console(
     stop_bits: float = 1,
     flow_control: str = "none",
 ) -> None:
+    session_id = str(uuid.uuid4())
+    started = time.monotonic()
+    received_bytes = 0
+    sent_bytes = 0
+    result = "disconnected"
     device = f"/dev/{device_name}"
     known_devices = {item.device for item in discover_devices()}
     valid_name = Path(device_name).name == device_name and device_name.startswith(
@@ -132,11 +140,13 @@ async def serial_console(
         and flow_control in {"none", "software", "hardware"}
     )
     if not valid_name or device not in known_devices or not valid_settings:
+        audit("serial.session.rejected", session_id=session_id, device=device)
         await websocket.close(code=4404)
         return
 
     lock = serial_locks.acquire(device, "web-console")
     if lock is None:
+        audit("serial.session.busy", session_id=session_id, device=device)
         await websocket.accept()
         await websocket.send_text(
             "\r\n[KronosKVM: serial port is already open in another terminal]\r\n"
@@ -147,6 +157,17 @@ async def serial_console(
     connection = None
     await websocket.accept()
     active_sessions[device] = (websocket, lock.token)
+    audit(
+        "serial.session.started",
+        session_id=session_id,
+        client=websocket.client.host if websocket.client else None,
+        device=device,
+        baud_rate=baud_rate,
+        data_bits=data_bits,
+        parity=parity,
+        stop_bits=stop_bits,
+        flow_control=flow_control,
+    )
     try:
         initial_payload = b""
         if baud_rate == "auto":
@@ -159,6 +180,7 @@ async def serial_console(
                 flow_control,
             )
             if probe is None:
+                result = "baud_detection_failed"
                 await websocket.send_text("\r\n[KronosKVM: baud rate could not be detected]\r\n")
                 await websocket.close(code=4408)
                 return
@@ -177,16 +199,20 @@ async def serial_console(
             timeout=0.1,
             write_timeout=1,
         )
+        result = "connected"
         if initial_payload:
             await websocket.send_bytes(initial_payload)
 
         async def serial_to_web() -> None:
+            nonlocal received_bytes
             while True:
                 payload = await asyncio.to_thread(connection.read, 1024)
                 if payload:
+                    received_bytes += len(payload)
                     await websocket.send_bytes(payload)
 
         async def web_to_serial() -> None:
+            nonlocal sent_bytes
             while True:
                 message = await websocket.receive()
                 if message["type"] == "websocket.disconnect":
@@ -195,6 +221,7 @@ async def serial_console(
                 if payload is None and message.get("text") is not None:
                     payload = message["text"].encode()
                 if payload:
+                    sent_bytes += len(payload)
                     await asyncio.to_thread(connection.write, payload)
 
         tasks = [
@@ -215,3 +242,12 @@ async def serial_console(
         if connection is not None and connection.is_open:
             connection.close()
         serial_locks.release(device, lock.token)
+        audit(
+            "serial.session.ended",
+            session_id=session_id,
+            device=device,
+            result=result,
+            duration_ms=round((time.monotonic() - started) * 1000, 1),
+            bytes_from_device=received_bytes,
+            bytes_to_device=sent_bytes,
+        )

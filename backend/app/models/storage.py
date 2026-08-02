@@ -11,9 +11,13 @@ class StagedFile(BaseModel):
 class StagingStorage(BaseModel):
     status: str
     path: str
+    pool_id: str = "internal"
+    label: str = "Internal SD"
+    storage_type: str = "internal"
     total_bytes: int
     used_bytes: int
     free_bytes: int
+    system_reserve_bytes: int = 0
     file_count: int
     files: list[StagedFile]
 

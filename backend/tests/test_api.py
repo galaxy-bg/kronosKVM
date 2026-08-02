@@ -40,6 +40,26 @@ def test_system_endpoints() -> None:
         assert response.status_code == 200
 
 
+def test_power_action_requires_confirmation_and_stages_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from backend.app.api import routes
+
+    action_path = tmp_path / "power-action"
+    monkeypatch.setattr(routes, "POWER_ACTION_PATH", action_path)
+    denied = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": False},
+    )
+    assert denied.status_code == 400
+    accepted = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": True},
+    )
+    assert accepted.status_code == 202
+    assert action_path.read_text(encoding="ascii") == "reboot\n"
+
+
 def test_physical_port_detection(tmp_path: Path) -> None:
     from backend.app.hardware.ports import physical_ports
 
@@ -107,6 +127,18 @@ def test_staging_storage_rejects_unsafe_names() -> None:
             assert getattr(error, "status_code", None) == 400
         else:
             raise AssertionError(f"Unsafe name accepted: {name}")
+
+
+def test_incomplete_storage_uploads_are_cleaned(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    fragment = tmp_path / ".installer.iso.test-task.uploading"
+    completed = tmp_path / "firmware.bin"
+    fragment.write_bytes(b"partial")
+    completed.write_bytes(b"complete")
+    assert storage_service.cleanup_incomplete_uploads() == [fragment.name]
+    assert not fragment.exists()
+    assert completed.exists()
 
 
 def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch) -> None:

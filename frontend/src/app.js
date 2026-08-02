@@ -62,6 +62,66 @@ async function getJson(path) {
   return response.json();
 }
 
+let latestLogEntries = [];
+
+function logDetails(entry) {
+  const hidden = new Set(["timestamp", "level", "logger", "message", "event"]);
+  return Object.entries(entry)
+    .filter(([key]) => !hidden.has(key))
+    .map(([key, value]) => `${key}=${typeof value === "object" ? JSON.stringify(value) : value}`)
+    .join(" · ") || entry.message || "—";
+}
+
+function logGroup(entry) {
+  if (["ERROR", "CRITICAL", "WARNING"].includes(entry.level)) return "Errors & warnings";
+  if (entry.logger === "kronoskvm.audit") return "Audit events";
+  if (entry.logger === "kronoskvm.api") return "API requests";
+  return "Runtime";
+}
+
+function groupedLogRows(entries) {
+  const groups = new Map();
+  entries.forEach((entry) => {
+    const name = logGroup(entry);
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(entry);
+  });
+  return [...groups.entries()].map(([name, items]) =>
+    `<tr class="log-group-row"><td colspan="4"><strong>${escapeHtml(name)}</strong><span>${items.length}</span></td></tr>`
+    + items.map((entry) => `<tr><td>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</td><td><span class="log-level log-${escapeHtml((entry.level || "info").toLowerCase())}">${escapeHtml(entry.level)}</span></td><td>${escapeHtml(entry.event || entry.logger || entry.message)}</td><td><code>${escapeHtml(logDetails(entry))}</code></td></tr>`).join("")
+  ).join("");
+}
+
+async function loadLogs() {
+  const level = document.querySelector("#logs-level").value;
+  const search = document.querySelector("#logs-search").value.trim();
+  const query = new URLSearchParams({ limit: "300" });
+  if (level) query.set("level", level);
+  if (search) query.set("search", search);
+  try {
+    const payload = await getJson(`/api/v1/logs?${query}`);
+    latestLogEntries = payload.entries;
+    document.querySelector("#logs-entries").innerHTML = payload.entries.length
+      ? groupedLogRows(payload.entries)
+      : '<tr><td colspan="4" class="loading-cell">No matching log entries</td></tr>';
+    document.querySelector("#logs-state").innerHTML = `<i></i> Active · ${payload.count}`;
+  } catch (error) {
+    document.querySelector("#logs-state").textContent = "Unavailable";
+    document.querySelector("#logs-entries").innerHTML = '<tr><td colspan="4" class="loading-cell">Logs could not be loaded</td></tr>';
+  }
+}
+
+async function loadSessionLogs() {
+  try {
+    const payload = await getJson("/api/v1/session-logs");
+    document.querySelector("#session-log-files").innerHTML = payload.entries.length
+      ? payload.entries.map((entry) => `<a class="staged-log-file" href="${escapeHtml(entry.download_url)}" download><span><strong>${escapeHtml(entry.filename)}</strong><small>${escapeHtml(formatBytes(entry.size_bytes))} · temporary</small></span><b>↓ TXT</b></a>`).join("")
+      : '<span class="muted">No staged session logs</span>';
+  } catch (error) {
+    document.querySelector("#session-log-files").innerHTML = '<span class="muted">Session logs unavailable</span>';
+  }
+}
+
 function renderSystem(system) {
   document.querySelector("#system").innerHTML = [
     ["Hostname", system.hostname],
@@ -86,8 +146,9 @@ function renderServices() {
   const services = [
     { name: "Web Interface", detail: "AP management access", status: "online", ready: true },
     { name: "Console Ports", detail: "Console 1 and Console 2 mapped", status: "mapped", ready: true },
-    { name: "KVM OTG", detail: "USB-C SLAVE", status: "setup pending", ready: false },
-    { name: "Video Input", detail: "HDMI-to-CSI hardware", status: "hardware pending", ready: false },
+    { name: "KVM OTG", detail: "USB-C device · requires GPIO power", status: "power setup pending", ready: false },
+    { name: "Video Input", detail: "HDMI capture · /dev/video0", status: "ready", ready: true },
+    { name: "Internal Stage", detail: "32 GiB SD pool · 10 GiB reserve", status: "ready", ready: true },
   ];
   document.querySelector("#services").innerHTML = services.map((item) =>
     `<div class="row"><span><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.detail)}</span></span><span class="state ${item.ready ? "" : "offline"}">${escapeHtml(item.status)}</span></div>`
@@ -98,7 +159,8 @@ const portIcons = {
   console_1: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H5zM3 19h18M8 8h2m2 0h2m2 0h1M8 12h8"/></svg>`,
   console_2: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H5zM3 19h18M8 8h2m2 0h2m2 0h1M8 12h8"/></svg>`,
   service_usb: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v14m0-14-2.5 2.5M12 3l2.5 2.5M12 10h5m0 0-2-2m2 2-2 2M12 14H7m0 0 2-2m-2 2 2 2M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>`,
-  target_lan: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM8 19h8m-4-4v4M8 9h2m2 0h4"/></svg>`,
+  expansion_usb: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H4zM8 19h8m-4-4v4M8 9h2m2 0h4"/></svg>`,
+  video_capture: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h14v12H3zM17 10l4-2v8l-4-2zM7 10h6m-6 4h4"/></svg>`,
   kvm_otg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H4zM8 19h8m-4-4v4M9 9l2 2 4-4"/></svg>`,
 };
 
@@ -134,7 +196,7 @@ function renderPorts(inventory) {
   document.querySelector("#ports").innerHTML = inventory.ports.map((port) => {
     const connected = port.connected;
     const isConsole = port.id === "console_1" || port.id === "console_2";
-    const statusClass = port.status === "setup_pending"
+    const statusClass = ["setup_pending", "waiting_for_gpio_power"].includes(port.status)
       ? "pending-state"
       : connected ? "" : "disconnected-state";
     const detail = port.device_name ||
@@ -343,19 +405,19 @@ const formatBytes = (value) => {
 function renderStorage(storage) {
   const mediaReady = storage.status === "ready";
   const percent = storage.total_bytes ? Math.round((storage.used_bytes / storage.total_bytes) * 100) : 0;
-  document.querySelector("#storage-state").textContent = mediaReady ? "✓ Ready" : "Media missing";
+  document.querySelector("#storage-state").textContent = mediaReady ? `✓ ${storage.label}` : "Storage unavailable";
   document.querySelector("#storage-choose").disabled = !mediaReady;
   document.querySelector("#storage-dropzone").classList.toggle("storage-disabled", !mediaReady);
   if (!mediaReady) {
-    document.querySelector("#storage-capacity").textContent = "No removable media";
-    document.querySelector("#storage-free").textContent = "Connect an initialized USB microSD reader";
+    document.querySelector("#storage-capacity").textContent = "Internal stage unavailable";
+    document.querySelector("#storage-free").textContent = "Check appliance storage service";
     document.querySelector("#storage-capacity-bar").style.width = "0%";
     document.querySelector("#storage-file-count").textContent = "0";
-    document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Removable staging media is not connected.</td></tr>';
+    document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Internal staging storage is unavailable.</td></tr>';
     return;
   }
   document.querySelector("#storage-capacity").textContent = `${formatBytes(storage.used_bytes)} / ${formatBytes(storage.total_bytes)}`;
-  document.querySelector("#storage-free").textContent = `${formatBytes(storage.free_bytes)} free · 1 GB system reserve protected`;
+  document.querySelector("#storage-free").textContent = `${formatBytes(storage.free_bytes)} available · ${formatBytes(storage.system_reserve_bytes)} system reserve protected`;
   document.querySelector("#storage-capacity-bar").style.width = `${percent}%`;
   document.querySelector("#storage-file-count").textContent = storage.file_count;
   const body = document.querySelector("#storage-files");
@@ -395,45 +457,148 @@ async function loadStorage() {
   }
 }
 
-function uploadStorageFile(file) {
-  return new Promise((resolve, reject) => {
-    const status = document.querySelector("#upload-status");
-    const progress = document.querySelector("#upload-progress");
-    const percent = document.querySelector("#upload-percent");
-    status.hidden = false;
-    document.querySelector("#upload-name").textContent = `Uploading ${file.name}`;
-    progress.style.width = "0%";
-    percent.textContent = "0%";
-    const request = new XMLHttpRequest();
-    request.open("PUT", `/api/v1/storage/files/${encodeURIComponent(file.name)}`);
-    request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    request.upload.addEventListener("progress", (event) => {
-      if (!event.lengthComputable) return;
-      const value = Math.round((event.loaded / event.total) * 100);
-      progress.style.width = `${value}%`;
-      percent.textContent = `${value}%`;
+const storageTasks = new Map();
+const storageTaskQueue = [];
+const maxParallelStorageTasks = 2;
+let activeStorageTasks = 0;
+const supportedStorageExtensions = new Set([
+  "iso", "img", "bin", "fw", "rom", "efi", "zip", "tar", "gz", "tgz", "xz",
+  "bz2", "7z", "pkg", "swi", "stk", "qcow2", "ova",
+]);
+
+window.addEventListener("beforeunload", (event) => {
+  if (activeStorageTasks === 0 && storageTaskQueue.every((task) => task.status !== "queued")) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+function newStorageTaskId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (digit) =>
+    (Number(digit) ^ Math.random() * 16 >> Number(digit) / 4).toString(16)
+  );
+}
+
+function renderStorageTasks() {
+  const center = document.querySelector("#task-center");
+  const tasks = [...storageTasks.values()];
+  center.hidden = tasks.length === 0;
+  const active = tasks.filter((task) => ["queued", "running", "cancelling"].includes(task.status)).length;
+  const completed = tasks.filter((task) => task.status === "completed").length;
+  const unsuccessful = tasks.filter((task) => ["failed", "cancelled"].includes(task.status)).length;
+  document.querySelector("#task-summary").textContent = `${active} active · ${completed} successful · ${unsuccessful} unsuccessful`;
+  const statusLabels = {
+    queued: "Waiting",
+    running: "In progress",
+    cancelling: "Cancelling",
+    completed: "Completed · Successful",
+    failed: "Completed · Failed",
+    cancelled: "Cancelled",
+  };
+  document.querySelector("#task-list").innerHTML = tasks.map((task) => {
+    const cancellable = ["queued", "running"].includes(task.status);
+    const result = task.error ? ` · ${task.error}` : task.finishedAt ? ` · ${task.finishedAt.toLocaleTimeString()}` : "";
+    const action = cancellable
+      ? '<button type="button" class="task-cancel">Cancel</button>'
+      : '<button type="button" class="task-dismiss">Dismiss</button>';
+    return `<article class="task-row task-${escapeHtml(task.status)}" data-task-id="${escapeHtml(task.id)}"><div><strong>${escapeHtml(task.file.name)}</strong><small><b>${escapeHtml(statusLabels[task.status] || task.status)}</b> · ${formatBytes(task.loaded)} / ${formatBytes(task.file.size)}${escapeHtml(result)}</small></div>${action}<div class="task-progress"><i style="width:${task.progress}%"></i></div></article>`;
+  }).join("");
+  document.querySelectorAll(".task-cancel").forEach((button) => {
+    button.addEventListener("click", () => cancelStorageTask(button.closest("[data-task-id]").dataset.taskId));
+  });
+  document.querySelectorAll(".task-dismiss").forEach((button) => {
+    button.addEventListener("click", () => {
+      storageTasks.delete(button.closest("[data-task-id]").dataset.taskId);
+      renderStorageTasks();
     });
-    request.addEventListener("load", () => request.status >= 200 && request.status < 300
-      ? resolve() : reject(new Error(`HTTP ${request.status}`)));
-    request.addEventListener("error", () => reject(new Error("Network error")));
-    request.send(file);
   });
 }
 
-async function uploadStorageFiles(files) {
-  for (const file of files) {
-    try {
-      await uploadStorageFile(file);
-      showToast(`${file.name}: upload complete`);
-    } catch (error) {
-      showToast(`${file.name}: upload failed`);
-      console.error("Storage upload failed", error);
-      break;
-    }
+function finishStorageTask(task, status, error = null) {
+  task.status = status;
+  task.error = error;
+  task.finishedAt = new Date();
+  if (status === "completed") {
+    task.progress = 100;
+    task.loaded = task.file.size;
+    showToast(`${task.file.name}: upload complete`);
+  } else if (status !== "cancelled") {
+    showToast(`${task.file.name}: upload failed`);
   }
-  document.querySelector("#upload-status").hidden = true;
+  activeStorageTasks = Math.max(0, activeStorageTasks - 1);
+  renderStorageTasks();
+  loadStorage();
+  pumpStorageTasks();
+}
+
+function runStorageTask(task) {
+  activeStorageTasks += 1;
+  task.status = "running";
+  const request = new XMLHttpRequest();
+  task.request = request;
+  request.open("PUT", `/api/v1/storage/files/${encodeURIComponent(task.file.name)}`);
+  request.setRequestHeader("Content-Type", task.file.type || "application/octet-stream");
+  request.setRequestHeader("X-Kronos-Task-ID", task.id);
+  request.upload.addEventListener("progress", (event) => {
+    task.loaded = event.loaded;
+    task.progress = event.lengthComputable ? Math.round(event.loaded / event.total * 100) : 0;
+    renderStorageTasks();
+  });
+  request.addEventListener("load", () => finishStorageTask(
+    task,
+    request.status >= 200 && request.status < 300 ? "completed" : "failed",
+    request.status >= 200 && request.status < 300 ? null : `HTTP ${request.status}`,
+  ));
+  request.addEventListener("error", () => finishStorageTask(task, "failed", "Network error"));
+  request.addEventListener("abort", () => finishStorageTask(task, "cancelled"));
+  request.send(task.file);
+  renderStorageTasks();
+}
+
+function pumpStorageTasks() {
+  while (activeStorageTasks < maxParallelStorageTasks && storageTaskQueue.length) {
+    const task = storageTaskQueue.shift();
+    if (task.status === "queued") runStorageTask(task);
+  }
+}
+
+function uploadStorageFiles(files) {
+  files.forEach((file) => {
+    const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "";
+    if (!supportedStorageExtensions.has(extension)) {
+      showToast(`${file.name}: unsupported staging file type`);
+      return;
+    }
+    const duplicate = [...storageTasks.values()].some(
+      (task) => task.file.name === file.name && ["queued", "running"].includes(task.status)
+    );
+    if (duplicate) {
+      showToast(`${file.name}: already queued`);
+      return;
+    }
+    const task = {
+      id: newStorageTaskId(), file, status: "queued", progress: 0, loaded: 0, request: null,
+    };
+    storageTasks.set(task.id, task);
+    storageTaskQueue.push(task);
+  });
   document.querySelector("#storage-file-input").value = "";
-  await loadStorage();
+  renderStorageTasks();
+  pumpStorageTasks();
+}
+
+function cancelStorageTask(taskId) {
+  const task = storageTasks.get(taskId);
+  if (!task || !["queued", "running"].includes(task.status)) return;
+  if (task.status === "queued") {
+    task.status = "cancelled";
+    renderStorageTasks();
+    return;
+  }
+  task.status = "cancelling";
+  fetch(`/api/v1/storage/tasks/${encodeURIComponent(taskId)}`, { method: "DELETE" }).catch(() => {});
+  task.request?.abort();
+  renderStorageTasks();
 }
 
 function consoleButtonForPort(portId) {
@@ -571,7 +736,7 @@ function createTerminalWindow(button, profile) {
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <pre class="terminal" tabindex="0" aria-label="${escapeHtml(label)} interactive serial terminal">Connecting…\n</pre>
-    <footer class="terminal-footer"><div class="terminal-log-controls"><button class="log-start" type="button">● Start log</button><button class="log-stop" type="button" disabled>■ Stop log</button><button class="log-download" type="button" disabled>↓ Download TXT</button></div><span class="terminal-connection connecting"><i></i><b>Connecting</b></span></footer>`;
+    <footer class="terminal-footer"><div class="terminal-log-controls"><button class="log-start" type="button">● Start log</button><button class="log-stop" type="button" disabled>■ Stop log</button><span class="log-file-name">No active log</span><button class="log-download" type="button" disabled>↓ Download Active Log</button></div><span class="terminal-connection connecting"><i></i><b>Connecting</b></span></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   focusTerminal(element);
   enableTerminalDrag(element);
@@ -798,7 +963,7 @@ async function redetectAndConnect(button) {
 function setLogButtons(session) {
   session.element.querySelector(".log-start").disabled = session.logging;
   session.element.querySelector(".log-stop").disabled = !session.logging;
-  session.element.querySelector(".log-download").disabled = session.logging || session.logParts.length === 0;
+  session.element.querySelector(".log-download").disabled = session.logging || session.logStaging || !session.stagedLog;
 }
 
 function terminalLogProfile(session) {
@@ -809,10 +974,19 @@ function terminalLogProfile(session) {
   return `Profile: ${profile.baud_rate} baud, ${profile.data_bits}${profile.parity[0].toUpperCase()}${profile.stop_bits}, flow=${profile.flow_control}`;
 }
 
+function pendingTerminalLogName(session, started) {
+  const slug = session.label.toLowerCase().replace(/[^a-z0-9]+/g, "") || "console";
+  const stamp = started.toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
+  return `${slug}-${stamp}.txt`;
+}
+
 function startTerminalLog(session) {
   const started = new Date();
   session.logging = true;
   session.logStartedAt = started;
+  session.stagedLog = null;
+  session.logStaging = false;
+  session.pendingLogName = pendingTerminalLogName(session, started);
   session.logParts = [
     `KronosKVM terminal session log\n`,
     `Terminal: ${session.label}\n`,
@@ -820,6 +994,7 @@ function startTerminalLog(session) {
     `${terminalLogProfile(session)}\n`,
     `${"-".repeat(72)}\n`,
   ];
+  session.element.querySelector(".log-file-name").textContent = session.pendingLogName;
   setLogButtons(session);
   showToast(`${session.label}: logging started`);
 }
@@ -828,20 +1003,47 @@ function stopTerminalLog(session) {
   if (!session.logging) return;
   session.logParts.push(`\n${"-".repeat(72)}\nStopped: ${new Date().toISOString()}\n`);
   session.logging = false;
+  session.logStaging = true;
+  session.element.querySelector(".log-file-name").textContent = `Staging ${session.pendingLogName}…`;
   setLogButtons(session);
-  showToast(`${session.label}: log ready to download`);
+  showToast(`${session.label}: staging temporary log`);
+  stageTerminalLog(session);
+}
+
+async function stageTerminalLog(session) {
+  try {
+    session.stagedLog = await stageSessionLog(
+      session.label, session.logStartedAt, session.logParts.join("")
+    );
+    session.element.querySelector(".log-file-name").textContent = session.stagedLog.filename;
+    showToast(`${session.stagedLog.filename}: ready to download`);
+    loadSessionLogs();
+  } catch (error) {
+    console.error("Session log staging failed", error);
+    session.element.querySelector(".log-file-name").textContent = "Log staging failed";
+    showToast(`${session.label}: session log could not be staged`);
+  } finally {
+    session.logStaging = false;
+    setLogButtons(session);
+  }
+}
+
+async function stageSessionLog(label, startedAt, content) {
+  const response = await fetch("/api/v1/session-logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label, started_at: startedAt?.toISOString(), content }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
 }
 
 function downloadTerminalLog(session) {
-  if (!session.logParts.length || session.logging) return;
-  const safeName = session.label.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") || "console";
-  const timestamp = (session.logStartedAt || new Date()).toISOString().replace(/[:.]/g, "-");
-  const url = URL.createObjectURL(new Blob(session.logParts, { type: "text/plain;charset=utf-8" }));
+  if (session.logging || !session.stagedLog) return;
   const link = document.createElement("a");
-  link.href = url;
-  link.download = `${safeName}-${timestamp}.txt`;
+  link.href = session.stagedLog.download_url;
+  link.download = session.stagedLog.filename;
   link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function closeTerminal(portId) {
@@ -904,18 +1106,19 @@ async function loadVideoStatus() {
     button.disabled = !status.signal;
     card.classList.toggle("pending-session", !status.signal);
     label.textContent = status.signal
-      ? `${status.width}×${status.height} · X630 ready`
-      : status.ready ? "X630 · waiting for HDMI signal" : "X630 · capture unavailable";
+      ? `${status.width}×${status.height} · capture ready`
+      : status.ready ? "Waiting for HDMI signal" : "Video capture unavailable";
   } catch (error) {
     button.disabled = true;
     card.classList.add("pending-session");
-    label.textContent = "X630 · status unavailable";
+    label.textContent = "Video capture status unavailable";
     console.error(error);
   }
 }
 
 function closeVideoWindow() {
   if (!videoWindow) return;
+  const closingSession = videoWindow;
   videoWindow.stopRecording?.(false);
   videoWindow.aspectObserver?.disconnect();
   window.clearInterval(videoWindow.resolutionTimer);
@@ -927,6 +1130,19 @@ function closeVideoWindow() {
   videoWindow.keyboard?.remove();
   videoWindow.element.remove();
   videoWindow = null;
+  const endedAt = new Date();
+  const content = [
+    "KronosKVM KVM session log\n",
+    `Started: ${closingSession.startedAt.toISOString()}\n`,
+    `Stopped: ${endedAt.toISOString()}\n`,
+    `Duration: ${Math.round((endedAt - closingSession.startedAt) / 1000)} seconds\n`,
+    `Last resolution: ${closingSession.image.naturalWidth || 0}x${closingSession.image.naturalHeight || 0}\n`,
+    `Keyboard reports: ${closingSession.keyboardReports}\n`,
+    `Mouse reports: ${closingSession.mouseReports}\n`,
+  ].join("");
+  stageSessionLog("KVM", closingSession.startedAt, content)
+    .then(() => loadSessionLogs())
+    .catch((error) => console.error("KVM session log staging failed", error));
 }
 
 function openVideoWindow() {
@@ -940,7 +1156,7 @@ function openVideoWindow() {
   element.style.left = `${Math.max(12, Math.min(110, window.innerWidth - 420))}px`;
   element.style.top = "105px";
   element.innerHTML = `<header class="terminal-titlebar">
-      <div class="terminal-heading"><div><strong>KronosKVM Remote Console</strong><span>VGA KVM · X630 HDMI capture</span></div></div>
+      <div class="terminal-heading"><div><strong>KronosKVM Remote Console</strong><span>VGA KVM · HDMI capture</span></div></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <div class="kvm-toolbar">
@@ -967,6 +1183,9 @@ function openVideoWindow() {
   let currentHeight = 0;
   let signalAvailable = true;
   let suppressStreamError = false;
+  const kvmStartedAt = new Date();
+  let keyboardReports = 0;
+  let mouseReports = 0;
   const startVideoStream = (message = "Connecting video…", delay = 120) => {
     window.clearTimeout(streamRetryTimer);
     if (!playing) return;
@@ -1023,6 +1242,8 @@ function openVideoWindow() {
   let lastOperatorActivity = Date.now();
   const sendHid = (message, operatorActivity = true) => {
     if (operatorActivity) lastOperatorActivity = Date.now();
+    if (message.type === "keyboard") keyboardReports += 1;
+    if (message.type === "mouse") mouseReports += 1;
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
   const pressedKeys = new Set();
@@ -1384,6 +1605,9 @@ function openVideoWindow() {
   videoWindow = {
     element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
     stopRecording, aspectObserver, resolutionTimer,
+    startedAt: kvmStartedAt,
+    get keyboardReports() { return keyboardReports; },
+    get mouseReports() { return mouseReports; },
     get streamRetryTimer() { return streamRetryTimer; },
   };
   startVideoStream();
@@ -1459,25 +1683,81 @@ if (localStorage.getItem("kronoskvm.sidebar.compact") === "true") {
 document.querySelector("#mobile-menu").addEventListener("click", () => {
   document.querySelector("#sidebar").classList.toggle("mobile-open");
 });
+function showView(view) {
+  const sections = [...document.querySelectorAll("[data-view-section]")];
+  let firstVisible = null;
+  sections.forEach((section) => {
+    const views = section.dataset.viewSection.split(/\s+/);
+    section.hidden = !views.includes(view);
+    if (!section.hidden && !firstVisible) firstVisible = section;
+  });
+  if (firstVisible) firstVisible.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (view === "storage") {
+    setCollapsed(document.querySelector("#storage-panel"), false);
+    loadStorage();
+  }
+  if (view === "logs") {
+    loadLogs();
+    loadSessionLogs();
+  }
+  if (view === "settings") {
+    document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
 document.querySelectorAll(".side-link[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".side-link[data-view]").forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
-    const target = button.dataset.view === "storage"
-      ? document.querySelector("#storage-panel")
-      : button.dataset.view === "devices"
-      ? document.querySelector("#devices-panel")
-      : button.dataset.view === "dashboard" ? document.querySelector("#status-panel") : document.querySelector(".session-strip");
-    if (target.matches("[data-collapse-id]")) {
-      setCollapsed(target, false);
-      localStorage.setItem(`kronoskvm.panel.${target.dataset.collapseId}.collapsed`, "false");
-    }
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    showView(button.dataset.view);
     document.querySelector("#sidebar").classList.remove("mobile-open");
   });
 });
+async function requestAppliancePower(action) {
+  const reboot = action === "reboot";
+  const warning = reboot
+    ? "Restart the appliance now? Active KVM, console, upload and log sessions will be interrupted."
+    : "Power off the appliance now? Active sessions will stop and GPIO power must be physically cycled to start it again.";
+  if (!window.confirm(warning)) return;
+  const button = document.querySelector(reboot ? "#appliance-reboot" : "#appliance-poweroff");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/v1/system/power", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, confirmed: true }),
+    });
+    if (!response.ok) throw new Error(`Power request failed (${response.status})`);
+    showToast(reboot ? "Appliance reboot accepted" : "Appliance power off accepted");
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message || "Power control failed");
+  }
+}
+document.querySelector("#appliance-reboot").addEventListener("click", () => requestAppliancePower("reboot"));
+document.querySelector("#appliance-poweroff").addEventListener("click", () => requestAppliancePower("poweroff"));
+document.querySelector("#logs-refresh").addEventListener("click", loadLogs);
+document.querySelector("#session-logs-refresh").addEventListener("click", loadSessionLogs);
+document.querySelector("#logs-level").addEventListener("change", loadLogs);
+document.querySelector("#logs-search").addEventListener("input", () => {
+  clearTimeout(window.kronosLogSearchTimer);
+  window.kronosLogSearchTimer = setTimeout(loadLogs, 250);
+});
+document.querySelector("#logs-download").addEventListener("click", () => {
+  const body = latestLogEntries.map((entry) => JSON.stringify(entry)).join("\n") + "\n";
+  const url = URL.createObjectURL(new Blob([body], { type: "application/x-ndjson" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `kronoskvm-logs-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+});
 const storageInput = document.querySelector("#storage-file-input");
 const storageDropzone = document.querySelector("#storage-dropzone");
+document.querySelector("#task-center-toggle").addEventListener("click", () => {
+  const center = document.querySelector("#task-center");
+  center.classList.toggle("minimized");
+  document.querySelector("#task-center-toggle").textContent = center.classList.contains("minimized") ? "+" : "−";
+});
 document.querySelector("#storage-choose").addEventListener("click", () => storageInput.click());
 storageInput.addEventListener("change", () => uploadStorageFiles([...storageInput.files]));
 storageDropzone.addEventListener("keydown", (event) => {

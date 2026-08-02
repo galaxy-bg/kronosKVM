@@ -1,5 +1,26 @@
 # Implementation Log
 
+> Historical log: early entries describe the retired CM4 prototype. The active
+> Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
+
+## Active appliance migration — August 2026
+
+- Migrated the prototype to the four-host-port appliance platform with a
+  dedicated USB-C DWC2 device controller.
+- Assigned the two black USB 2.0 ports to Console 1 and Console 2, and the two
+  blue USB 3.0 ports to Service USB and External Storage.
+- Enabled HDMI-to-CSI capture on `/dev/video0` and validated browser video.
+- Replaced the unstable three-interface HID gadget with a boot keyboard and
+  BIOS-compatible relative mouse.
+- Added the open development AP `KronosDX-iKVM` at `192.168.34.100`, while
+  retaining Ethernet as the primary upstream and management path.
+- Added a 32 GiB internal staging allocation, concurrent background uploads,
+  cancellation, progress reporting and incomplete-fragment cleanup.
+- Added structured application logs, temporary console/KVM session logs and
+  safe host-mediated reboot/power-off controls.
+- Kept hardware model names out of the operator UI; service documentation owns
+  board- and bridge-specific details.
+
 ## 2026-07-16
 
 - Created the public GitHub repository and initial prototype.

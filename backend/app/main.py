@@ -7,12 +7,15 @@ from fastapi.responses import JSONResponse
 
 from backend.app.api.connections import router as connections_router
 from backend.app.api.hid import router as hid_router
+from backend.app.api.logs import router as logs_router
 from backend.app.api.routes import router
 from backend.app.api.serial import router as serial_router
+from backend.app.api.session_logs import router as session_logs_router
 from backend.app.api.ssh import router as ssh_router
 from backend.app.api.storage import router as storage_router
 from backend.app.api.video import router as video_router
-from backend.app.logging import configure_logging
+from backend.app.logging import audit, configure_logging
+from backend.app.services.storage import cleanup_incomplete_uploads
 
 configure_logging()
 logger = logging.getLogger("kronoskvm.api")
@@ -24,6 +27,12 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Local control-plane API for the KronosKVM prototype.",
     )
+
+    @application.on_event("startup")
+    async def cleanup_storage_fragments() -> None:
+        removed = cleanup_incomplete_uploads()
+        if removed:
+            audit("storage.fragments.cleaned", count=len(removed), fragments=removed)
 
     @application.middleware("http")
     async def request_context(request: Request, call_next):
@@ -51,12 +60,24 @@ def create_app() -> FastAPI:
             elapsed_ms,
             extra={"request_id": request_id},
         )
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            audit(
+                "http.mutation",
+                request_id=request_id,
+                method=request.method,
+                path=request.url.path,
+                status=response.status_code,
+                client=request.client.host if request.client else None,
+                duration_ms=elapsed_ms,
+            )
         return response
 
     application.include_router(router)
     application.include_router(connections_router)
     application.include_router(serial_router)
+    application.include_router(session_logs_router)
     application.include_router(hid_router)
+    application.include_router(logs_router)
     application.include_router(ssh_router)
     application.include_router(storage_router)
     application.include_router(video_router)

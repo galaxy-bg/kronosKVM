@@ -1,43 +1,21 @@
 # Physical Port Map
 
-The chassis port tested by the operator as ETH0 is confirmed as Linux `eth0`.
-The initial inventory also discovered a USB RTL8152 `eth1`, whose chassis label
-remains unverified.
+The active prototype uses four independent USB-A host ports plus the separate
+USB-C DWC2 controller in device mode.
 
-| Chassis label | Proposed function | Verification |
+| Physical port | Role | Linux topology |
 |---|---|---|
-| ETH0 | Management/customer LAN | Confirmed as Linux `eth0` on 2026-07-16 |
-| ETH1 | Target/service LAN | Confirmed as USB path `1-1.5`, RTL8152 |
-| USB1 / Console 1 | Serial adapter 1 | Confirmed as USB path `1-1.1` |
-| USB2 / Console 2 | Serial adapter 2 | Confirmed as USB path `1-1.2` |
-| USB3 / Service USB | Expansion/maintenance | Confirmed as USB path `1-1.3` |
-| USB-C SLAVE / KVM OTG | HID and virtual media | Physical mux behavior confirmed; UDC enablement pending |
-| CAM0 | Primary capture | Waiting for HDMI-to-CSI module |
-| CAM1 | Future capture | Waiting for hardware |
-| DISP | Local display | Inspect DSI/device tree |
+| Black USB-A 2.0 #1 | Console 1 | `1-1.3` |
+| Black USB-A 2.0 #2 | Console 2 | `1-1.4` |
+| Blue USB-A 3.0 #1 | Service USB / optional USB Ethernet | `1-1.1` at USB 2 speed, `2-1` at SuperSpeed |
+| Blue USB-A 3.0 #2 | External Storage | `1-1.2` at USB 2 speed, `2-2` at SuperSpeed |
+| USB-C | KVM OTG | UDC `fe980000.usb` |
+| CSI-2 | X630 video | `/dev/video0` |
+| RJ45 | Customer/development Ethernet | `eth0` |
 
-Interface names must not be changed until physical mapping is complete.
+A USB 2 device connected to a blue USB 3 port appears on its USB 2 companion
+path. That does not make the physical socket a USB 2-only port.
 
-During verification, `eth0` received `192.168.31.144/24` by DHCP and became the
-preferred default route. Independent SSH access over Ethernet was successful.
-
-## USB topology
-
-The three chassis USB host ports and ETH1 are connected through the internal
-7-port USB 2.0 hub:
-
-| Product name | Chassis label | Stable physical USB path |
-|---|---|---|
-| Console 1 | USB1 | `1-1.1` |
-| Console 2 | USB2 | `1-1.2` |
-| Service USB | USB3 | `1-1.3` |
-| Target/service LAN | ETH1 | `1-1.5` |
-
-The paths were verified by moving the same known HID dongle between USB1,
-USB2 and USB3.
-
-Connecting the USB-C `SLAVE` port removes the internal hub and USB ETH1 from
-the running host topology. Disconnecting it restores them. This indicates a
-carrier-level host/device mux and means simultaneous KVM OTG plus USB1-3/ETH1
-operation must not be assumed. The current boot configuration still uses
-`otg_mode=1`; the DWC2 peripheral overlay and UDC remain pending.
+The console mappings were verified by moving the PL2303 adapter between the
+black sockets. Console identity should prefer `/dev/serial/by-id` when a serial
+number is present; topology is the physical-role fallback.

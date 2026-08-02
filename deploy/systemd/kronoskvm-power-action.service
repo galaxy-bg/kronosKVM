@@ -1,0 +1,6 @@
+[Unit]
+Description=Execute an approved KronosKVM appliance power action
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kronoskvm/scripts/handle-power-action.sh
