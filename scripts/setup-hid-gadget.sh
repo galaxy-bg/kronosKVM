@@ -16,6 +16,7 @@ mkdir -p "${gadget}"
 
 if [[ -d "${gadget}/functions/hid.keyboard" \
     && -d "${gadget}/functions/hid.mouse" \
+    && -d "${gadget}/functions/mass_storage.usb0" \
     && ! -d "${gadget}/functions/hid.mouse_relative" \
     && "$(cat "${gadget}/functions/hid.mouse/report_length" 2>/dev/null || true)" == "3" ]]; then
     if [[ -z "$(cat "${gadget}/UDC" 2>/dev/null || true)" ]]; then
@@ -33,10 +34,12 @@ if [[ -d "${gadget}" ]]; then
     printf '' >"${gadget}/UDC" 2>/dev/null || true
     rm -f "${gadget}/configs/c.1/hid.keyboard" \
         "${gadget}/configs/c.1/hid.mouse" \
+        "${gadget}/configs/c.1/mass_storage.usb0" \
         "${gadget}/configs/c.1/hid.mouse_relative"
     rmdir "${gadget}/functions/hid.keyboard" \
         "${gadget}/functions/hid.mouse" \
         "${gadget}/functions/hid.mouse_relative" 2>/dev/null || true
+    rmdir "${gadget}/functions/mass_storage.usb0" 2>/dev/null || true
 fi
 
 printf '0x1d6b' >"${gadget}/idVendor"
@@ -47,7 +50,7 @@ printf '0x0200' >"${gadget}/bcdUSB"
 mkdir -p "${gadget}/strings/0x409"
 printf 'KRONOSKVM001' >"${gadget}/strings/0x409/serialnumber"
 printf 'KronosDX' >"${gadget}/strings/0x409/manufacturer"
-printf 'KronosKVM Keyboard and Mouse' >"${gadget}/strings/0x409/product"
+printf 'KronosKVM Console and Virtual Media' >"${gadget}/strings/0x409/product"
 
 mkdir -p "${gadget}/configs/c.1/strings/0x409"
 printf 'HID control' >"${gadget}/configs/c.1/strings/0x409/configuration"
@@ -67,6 +70,16 @@ printf '\x05\x01\x09\x02\xa1\x01\x09\x01\xa1\x00\x05\x09\x19\x01\x29\x03\x15\x00
 
 ln -sfn "${gadget}/functions/hid.keyboard" "${gadget}/configs/c.1/hid.keyboard"
 ln -sfn "${gadget}/functions/hid.mouse" "${gadget}/configs/c.1/hid.mouse"
+
+# Keep the read-only mass-storage function present with an empty LUN. Media can
+# then be inserted/ejected without rebuilding the composite gadget or dropping
+# the active keyboard and mouse interfaces.
+mkdir -p "${gadget}/functions/mass_storage.usb0"
+printf '1' >"${gadget}/functions/mass_storage.usb0/stall"
+printf '1' >"${gadget}/functions/mass_storage.usb0/lun.0/removable"
+printf '1' >"${gadget}/functions/mass_storage.usb0/lun.0/ro"
+printf '1' >"${gadget}/functions/mass_storage.usb0/lun.0/nofua"
+ln -sfn "${gadget}/functions/mass_storage.usb0" "${gadget}/configs/c.1/mass_storage.usb0"
 
 printf '%s' "${udc}" >"${gadget}/UDC"
 chmod 0660 /dev/hidg0 /dev/hidg1

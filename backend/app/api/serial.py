@@ -2,7 +2,7 @@ import asyncio
 import time
 import uuid
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import serial
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -16,6 +16,7 @@ from backend.app.models import (
     SerialUnlockRequest,
 )
 from backend.app.services.serial import load_profiles, serial_locks
+from backend.app.services.tasks import finish_task, start_task
 
 router = APIRouter(prefix="/api/v1/serial", tags=["serial"])
 
@@ -34,8 +35,8 @@ def _probe_baud_rate(
     parity: str,
     stop_bits: float,
     flow_control: str,
-) -> Optional[Tuple[int, bytes]]:
-    best: Optional[Tuple[float, int, bytes]] = None
+) -> Optional[tuple[int, bytes]]:
+    best: Optional[tuple[float, int, bytes]] = None
     for baud_rate in AUTO_BAUD_RATES:
         try:
             with serial.Serial(
@@ -157,6 +158,13 @@ async def serial_console(
     connection = None
     await websocket.accept()
     active_sessions[device] = (websocket, lock.token)
+    start_task(
+        "session.serial",
+        f"Serial console session · {Path(device).name}",
+        task_id=session_id,
+        detail=device,
+        source="session",
+    )
     audit(
         "serial.session.started",
         session_id=session_id,
@@ -236,6 +244,12 @@ async def serial_console(
     except (OSError, serial.SerialException, WebSocketDisconnect):
         pass
     finally:
+        session_successful = result not in {"baud_detection_failed"}
+        finish_task(
+            session_id,
+            session_successful,
+            None if session_successful else result,
+        )
         current = active_sessions.get(device)
         if current is not None and current[0] is websocket:
             active_sessions.pop(device, None)

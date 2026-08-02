@@ -20,7 +20,7 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     )
     assert "/mnt/kronoskvm-storage:/storage" in api["volumes"]
     assert api["environment"]["KRONOSKVM_STORAGE_PATH"] == "/storage"
-    assert api["environment"]["KRONOSKVM_STORAGE_REQUIRE_MARKER"] == "1"
+    assert api["environment"]["KRONOSKVM_STORAGE_REQUIRE_MARKER"] == "0"
 
 
 def test_boot_service_does_not_pin_a_stale_image_version() -> None:
@@ -28,7 +28,7 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
         encoding="utf-8"
     )
     assert "Environment=KRONOSKVM_VERSION=" not in unit
-    assert "ExecStartPre=/usr/bin/install -d -m 0755 -o root -g root /mnt/kronoskvm-storage" in unit
+    assert "ExecStartPre=/usr/bin/install -d -m 0750 -o 10001 -g 20 /mnt/kronoskvm-storage" in unit
     assert "ExecStart=/opt/kronoskvm/scripts/start-containers.sh" in unit
     assert "ExecStartPre=/opt/kronoskvm/scripts/setup-hid-gadget.sh" in unit
 
@@ -55,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.26.js" in html
-    assert "/styles-0.3.26.css" in html
-    assert "app-0.3.26.js" in dockerfile
+    assert "/app-0.3.36.js" in html
+    assert "/styles-0.3.36.css" in html
+    assert "app-0.3.36.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -77,7 +77,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-collapse-id="physical-ports-v2"' in html
     assert 'data-collapse-id="appliance-status-v2"' in html
     assert html.count('data-collapse-group="hardware-details"') == 2
-    assert html.count('data-default-collapsed="true"') == 3
+    assert html.count('data-default-collapsed="true"') == 5
     assert 'class="header-brand"' in html
     assert "header-brand-mark" not in html
     assert "Remote Console Toolkit" in html
@@ -137,6 +137,28 @@ def test_hid_gadget_uses_pi4_stable_keyboard_and_boot_mouse_interfaces() -> None
     assert "printf '1' >\"${gadget}/functions/hid.mouse/subclass\"" in setup
     assert "printf '3' >\"${gadget}/functions/hid.mouse/report_length\"" in setup
     assert 'ln -sfn "${gadget}/functions/hid.mouse_relative"' not in setup
+    assert "functions/mass_storage.usb0" in setup
+    assert "lun.0/removable" in setup
+    assert "lun.0/ro" in setup
+
+
+def test_virtual_media_host_helper_is_installed() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-virtual-media-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-virtual-media-action.path" in installer
+    assert "handle-virtual-media-action.sh" in installer
+    assert "mass_storage.usb0/lun.0" in helper
+    assert "realpath" in helper
+
+
+def test_network_host_helper_is_constrained() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-network-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-network-action.path" in installer
+    assert '"${interface}" == "wlan0"' in helper
+    assert "nmcli connection modify" in helper
+    assert "ipv4.method auto" in helper
+    assert "ipv4.method manual" in helper
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:

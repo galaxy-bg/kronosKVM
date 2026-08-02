@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import HTTPException, Request, status
 
 from backend.app.models.storage import FileOperation, StagedFile, StagingStorage
+from backend.app.services.tasks import update_task as update_global_task
 
 STORAGE_PATH = Path(os.environ.get("KRONOSKVM_STORAGE_PATH", "/var/lib/kronoskvm/storage"))
 MAX_UPLOAD_BYTES = int(os.environ.get("KRONOSKVM_MAX_UPLOAD_BYTES", str(16 * 1024**3)))
@@ -51,6 +52,15 @@ def _update_task(task_id: str, **values: object) -> None:
     with UPLOAD_TASKS_LOCK:
         if task_id in UPLOAD_TASKS:
             UPLOAD_TASKS[task_id].update(values)
+    global_values = dict(values)
+    status_value = global_values.get("status")
+    if status_value == "completed":
+        global_values["status"] = "successful"
+    elif status_value == "cancelled":
+        global_values["status"] = "cancelled"
+    global_values.pop("bytes_done", None)
+    global_values.pop("updated_at", None)
+    update_global_task(task_id, **global_values)
 
 
 def _task_cancelled(task_id: str) -> bool:
@@ -81,6 +91,7 @@ def _safe_name(filename: str) -> str:
         or "\\" in name
         or len(name.encode("utf-8")) > 180
         or name.startswith(".")
+        or any(ord(character) < 32 for character in name)
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
     return name
@@ -316,6 +327,11 @@ async def store_upload(
 
 def delete_staged_file(filename: str) -> FileOperation:
     path = staged_path(filename)
+    from backend.app.services.virtual_media import virtual_media_status
+
+    media = virtual_media_status()
+    if media.status in {"attaching", "attached"} and media.filename == path.name:
+        raise HTTPException(status_code=409, detail="Eject virtual media before deleting it")
     size = path.stat().st_size
     try:
         path.unlink()

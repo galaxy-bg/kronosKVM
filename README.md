@@ -45,8 +45,8 @@ prototype was last verified at `192.168.31.185`.
 - Safe UI-triggered appliance reboot and shutdown through an allow-listed host helper
 - Management UI reachable through Ethernet and the permanent Wi-Fi AP
 
-Virtual-media file staging is active. Presenting an ISO or image to the target
-as a USB mass-storage gadget remains a later milestone.
+Staged ISO and IMG files can be presented to the target as read-only USB
+virtual media and ejected without rebuilding the keyboard/mouse gadget.
 
 ## Physical port assignment
 
@@ -172,7 +172,6 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 ## Current limitations
 
 - RTC/power-control board is not installed.
-- USB virtual-media attachment is not implemented; staging is available.
 - HTTPS and user authentication are not implemented.
 - Power-off cannot restart the GPIO-powered prototype without cycling power.
 - Final USB VBUS isolation and enclosure wiring remain hardware milestones.

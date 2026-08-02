@@ -30,6 +30,13 @@ arbitrary shell endpoint.
 - `DELETE /api/v1/storage/files/{filename}` — delete a staged file
 - `GET /api/v1/storage/tasks` — background task state
 - `DELETE /api/v1/storage/tasks/{task_id}` — request cancellation
+- `GET /api/v1/storage/virtual-media` — attached/ejected media state
+- `POST /api/v1/storage/virtual-media` — attach a staged ISO/IMG read-only
+- `DELETE /api/v1/storage/virtual-media` — eject the active virtual medium
+- `GET /api/v1/tasks` — temporary unified application/session task history
+- `DELETE /api/v1/tasks/completed` — clear completed task rows
+- `GET /api/v1/network/settings` — configurable wired-interface inventory
+- `POST /api/v1/network/settings` — stage a confirmed DHCP/static IPv4 change
 - `GET /api/v1/logs` — grouped structured application/audit events
 - `GET /api/v1/session-logs` — temporary downloadable session files
 - `GET /api/v1/connections` — list saved network connection profiles
@@ -42,6 +49,11 @@ arbitrary shell endpoint.
 Every response includes an `x-request-id` header. A caller-provided
 `x-request-id` is preserved. Application request logs are JSON formatted in the
 system journal.
+
+Every mutating HTTP response also includes `x-kronos-task-id`. Task lifecycle
+events are structured application-log records. Uploads reuse this identifier
+for progress, while SSH, serial and HID WebSocket tasks remain active until the
+session ends.
 
 Power requests are written as an exact action marker in `/state`. A root-owned
 systemd path/service pair accepts only `reboot` and `poweroff`; the API container

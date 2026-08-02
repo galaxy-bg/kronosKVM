@@ -16,6 +16,11 @@ The staging API reserves 10 GiB for the operating system and caps managed files
 at 32 GiB. A future external USB drive may extend the pool through the assigned
 blue USB 3.0 storage port.
 
-Presenting a staged ISO/IMG to the target as USB mass storage is not implemented
-yet. The eventual gadget function must default to read-only and provide safe
-attach/detach behavior without destabilizing keyboard and mouse endpoints.
+ISO and IMG files can be attached from Storage or the KVM Virtual Media drawer.
+The host helper validates that the file remains inside managed staging storage,
+then inserts it into the permanently configured mass-storage LUN:
+
+- ISO images are exposed as a read-only removable CD-ROM.
+- IMG files are exposed as a read-only removable disk.
+- Eject clears the LUN without rebuilding the keyboard/mouse gadget.
+- Mounted media cannot be deleted until it is ejected.

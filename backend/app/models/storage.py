@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -26,3 +28,14 @@ class FileOperation(BaseModel):
     status: str
     name: str
     size_bytes: int = 0
+
+
+class VirtualMediaRequest(BaseModel):
+    filename: str
+
+
+class VirtualMediaStatus(BaseModel):
+    status: str = "ejected"
+    filename: Optional[str] = None
+    media_type: Optional[str] = None
+    message: Optional[str] = None

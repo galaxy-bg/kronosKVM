@@ -13,6 +13,7 @@ small ConfigFS composite gadget designed for the Pi 4 DWC2 controller:
 
 - `/dev/hidg0`: 8-byte boot keyboard
 - `/dev/hidg1`: 3-byte BIOS-compatible relative boot mouse
+- `mass_storage.usb0`: one removable, read-only virtual-media LUN
 
 An earlier three-interface keyboard/absolute-mouse/relative-mouse profile
 caused DWC2 endpoint shutdowns during testing. The two-interface profile avoids
@@ -24,8 +25,8 @@ UDC state meanings used during diagnosis:
 - `configured`: the target host enumerated and configured the gadget
 
 The four USB-A host ports remain independent while USB-C operates in device
-mode. Virtual-media staging is active, but USB mass-storage attachment is not
-yet part of the gadget.
+mode. The mass-storage function stays configured with an empty LUN so ISO/IMG
+media can be inserted or ejected without rebuilding the composite gadget.
 
 ## Power warning
 

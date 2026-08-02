@@ -21,6 +21,13 @@ Passwords, keyboard keys and terminal payloads are not written to the audit
 log. An operator can explicitly capture a terminal transcript with the terminal
 window's **Start log** action and download it locally.
 
+## Task events
+
+Every API mutation creates a temporary task and emits `task.started` and
+`task.status.changed` audit events. SSH, serial-console and KVM HID sessions
+use the same registry for their active lifetime. The Tasks UI is RAM-backed and
+resets with the API; structured task events follow normal rotating-log retention.
+
 ## Useful commands
 
 ```bash

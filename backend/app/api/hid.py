@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from backend.app.logging import audit
+from backend.app.services.tasks import finish_task, start_task
 
 router = APIRouter(prefix="/api/v1/hid", tags=["hid"])
 
@@ -55,6 +56,12 @@ async def hid_websocket(websocket: WebSocket) -> None:
     keyboard_reports = 0
     mouse_reports = 0
     await websocket.accept()
+    start_task(
+        "session.hid",
+        "KVM keyboard and mouse session",
+        task_id=session_id,
+        source="session",
+    )
     audit(
         "hid.session.started",
         session_id=session_id,
@@ -72,7 +79,6 @@ async def hid_websocket(websocket: WebSocket) -> None:
             elif message.get("type") == "mouse":
                 mouse_reports += 1
                 buttons = max(0, min(7, int(message.get("buttons", 0))))
-                wheel = max(-127, min(127, int(message.get("wheel", 0))))
                 x = max(-127, min(127, int(message.get("x", 0))))
                 y = max(-127, min(127, int(message.get("y", 0))))
                 _write_report(MOUSE_DEVICE, struct.pack("<Bbb", buttons, x, y))
@@ -84,6 +90,7 @@ async def hid_websocket(websocket: WebSocket) -> None:
     ):
         pass
     finally:
+        finish_task(session_id, True)
         audit(
             "hid.session.ended",
             session_id=session_id,

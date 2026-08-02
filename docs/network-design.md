@@ -23,6 +23,12 @@ Use Ethernet for OS updates, package downloads, Git operations and container
 image pulls. Keep the management AP available as the local recovery path. Never
 change Ethernet and AP configuration in the same unverified transaction.
 
+Settings can apply DHCP or validated static IPv4, gateway and DNS values to
+physical Ethernet and future USB-Ethernet interfaces through a constrained
+NetworkManager host helper. `wlan0` and the management AP are protected from
+this API. An Ethernet change may disconnect the active browser session; use the
+AP at `192.168.34.100` as the recovery path.
+
 An optional USB Ethernet adapter may later use the blue Service USB 3.0 port;
 it must not replace the native management path until its interface role and
 firewall policy are explicitly configured.

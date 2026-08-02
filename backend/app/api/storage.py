@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import FileResponse
 
-from backend.app.models.storage import FileOperation, StagingStorage
+from backend.app.models.storage import (
+    FileOperation,
+    StagingStorage,
+    VirtualMediaRequest,
+    VirtualMediaStatus,
+)
 from backend.app.services.storage import (
     cancel_upload_task,
     delete_staged_file,
@@ -9,6 +14,11 @@ from backend.app.services.storage import (
     staging_info,
     store_upload,
     upload_tasks,
+)
+from backend.app.services.virtual_media import (
+    attach_virtual_media,
+    eject_virtual_media,
+    virtual_media_status,
 )
 
 router = APIRouter(prefix="/api/v1/storage", tags=["storage"])
@@ -36,6 +46,21 @@ def list_upload_tasks() -> dict:
 @router.delete("/tasks/{task_id}")
 def cancel_task(task_id: str) -> dict:
     return cancel_upload_task(task_id)
+
+
+@router.get("/virtual-media", response_model=VirtualMediaStatus)
+def get_virtual_media() -> VirtualMediaStatus:
+    return virtual_media_status()
+
+
+@router.post("/virtual-media", response_model=VirtualMediaStatus, status_code=202)
+def mount_virtual_media(request: VirtualMediaRequest) -> VirtualMediaStatus:
+    return attach_virtual_media(request.filename)
+
+
+@router.delete("/virtual-media", response_model=VirtualMediaStatus, status_code=202)
+def unmount_virtual_media() -> VirtualMediaStatus:
+    return eject_virtual_media()
 
 
 @router.get("/files/{filename}")

@@ -8,6 +8,7 @@ from backend.app.hardware.video import capture_devices
 from backend.app.main import create_app
 from backend.app.services import connections as connection_service
 from backend.app.services import storage as storage_service
+from backend.app.services import virtual_media as virtual_media_service
 
 client = TestClient(create_app())
 
@@ -18,6 +19,62 @@ def test_health() -> None:
     assert response.json()["status"] == "ok"
     assert response.json()["version"] == "0.1.0"
     assert response.headers["x-request-id"] == "test-request"
+
+
+def test_mutations_create_logged_tasks() -> None:
+    from backend.app.services import tasks as task_service
+
+    task_service.TASKS.clear()
+    response = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": False},
+    )
+    assert response.status_code == 400
+    task_id = response.headers["x-kronos-task-id"]
+    task = next(
+        item
+        for item in client.get("/api/v1/tasks").json()["tasks"]
+        if item["id"] == task_id
+    )
+    assert task["status"] == "failed"
+    assert task["error"] == "HTTP 400"
+
+
+def test_network_settings_lists_ethernet_and_stages_static_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from backend.app.api import network_settings
+
+    net_root = tmp_path / "net"
+    state = tmp_path / "state"
+    eth0 = net_root / "eth0"
+    eth0.mkdir(parents=True)
+    (eth0 / "device").mkdir()
+    state.mkdir()
+    monkeypatch.setattr(network_settings, "NET_ROOT", net_root)
+    monkeypatch.setattr(network_settings, "STATE_PATH", state)
+    monkeypatch.setattr(network_settings, "REQUEST_PATH", state / "network-action")
+
+    listing = client.get("/api/v1/network/settings")
+    assert listing.status_code == 200
+    assert listing.json()["interfaces"][0]["interface"] == "eth0"
+
+    response = client.post(
+        "/api/v1/network/settings",
+        json={
+            "interface": "eth0",
+            "mode": "static",
+            "address": "192.168.50.10/24",
+            "gateway": "192.168.50.1",
+            "dns": ["1.1.1.1", "8.8.8.8"],
+            "confirmed": True,
+        },
+    )
+    assert response.status_code == 202
+    request = network_settings.REQUEST_PATH.read_text(encoding="ascii")
+    assert "interface=eth0" in request
+    assert "address=192.168.50.10/24" in request
+    assert "dns=1.1.1.1,8.8.8.8" in request
 
 
 def test_optional_hardware_does_not_block_startup() -> None:
@@ -69,7 +126,7 @@ def test_physical_port_detection(tmp_path: Path) -> None:
     usb_root.mkdir()
     tty_root.mkdir()
     udc_root.mkdir()
-    device = usb_root / "1-1.1"
+    device = usb_root / "1-1.3"
     device.mkdir()
     (device / "product").write_text("USB Serial Adapter", encoding="utf-8")
     inventory = physical_ports(usb_root, tty_root, udc_root)
@@ -148,6 +205,40 @@ def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch)
     assert response.status_code == 200
     assert response.json()["status"] == "media_missing"
     assert client.put("/api/v1/storage/files/test.iso", content=b"data").status_code == 503
+
+
+def test_virtual_media_attach_and_eject_requests(tmp_path: Path, monkeypatch) -> None:
+    staging = tmp_path / "storage"
+    state = tmp_path / "state"
+    staging.mkdir()
+    state.mkdir()
+    (staging / "linux.iso").write_bytes(b"iso")
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", staging)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    monkeypatch.setattr(virtual_media_service, "STATE_PATH", state)
+    monkeypatch.setattr(virtual_media_service, "REQUEST_PATH", state / "virtual-media-action")
+    monkeypatch.setattr(virtual_media_service, "STATUS_PATH", state / "virtual-media-status")
+
+    attached = client.post("/api/v1/storage/virtual-media", json={"filename": "linux.iso"})
+    assert attached.status_code == 202
+    assert attached.json()["status"] == "attaching"
+    assert virtual_media_service.REQUEST_PATH.read_text(encoding="utf-8") == "attach\nlinux.iso\n"
+
+    ejected = client.delete("/api/v1/storage/virtual-media")
+    assert ejected.status_code == 202
+    assert ejected.json()["status"] == "ejecting"
+    assert virtual_media_service.REQUEST_PATH.read_text(encoding="utf-8") == "eject\n\n"
+
+
+def test_virtual_media_rejects_non_image(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    (tmp_path / "firmware.bin").write_bytes(b"firmware")
+    response = client.post(
+        "/api/v1/storage/virtual-media",
+        json={"filename": "firmware.bin"},
+    )
+    assert response.status_code == 400
 
 
 def test_connection_profile_lifecycle(tmp_path: Path, monkeypatch) -> None:

@@ -7,6 +7,7 @@ import asyncssh
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from backend.app.logging import audit
+from backend.app.services.tasks import finish_task, start_task
 
 router = APIRouter(prefix="/api/v1/ssh", tags=["ssh"])
 
@@ -35,6 +36,13 @@ async def ssh_console(websocket: WebSocket) -> None:
             await websocket.close(code=1008)
             result = "invalid_request"
             return
+        start_task(
+            "session.ssh",
+            f"SSH session · {host}:{port}",
+            task_id=session_id,
+            detail=f"{username}@{host}:{port}",
+            source="session",
+        )
         audit(
             "ssh.session.connecting",
             session_id=session_id,
@@ -49,7 +57,13 @@ async def ssh_console(websocket: WebSocket) -> None:
         )
         process = await connection.create_process(term_type="xterm-256color", term_size=(120, 34))
         result = "connected"
-        audit("ssh.session.started", session_id=session_id, target=host, port=port, username=username)
+        audit(
+            "ssh.session.started",
+            session_id=session_id,
+            target=host,
+            port=port,
+            username=username,
+        )
         await websocket.send_text("\r\n[KronosKVM: SSH connected]\r\n")
 
         async def ssh_to_web() -> None:
@@ -93,6 +107,8 @@ async def ssh_console(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        if host and username:
+            finish_task(session_id, result != "failed", result)
         if process is not None:
             process.stdin.close()
         if connection is not None:

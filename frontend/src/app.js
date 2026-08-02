@@ -402,6 +402,41 @@ const formatBytes = (value) => {
   return `${(bytes / (1024 ** exponent)).toFixed(exponent > 2 ? 1 : 0)} ${units[exponent - 1]}`;
 };
 
+let virtualMediaStatus = { status: "ejected", filename: null };
+
+async function loadVirtualMediaStatus() {
+  try {
+    virtualMediaStatus = await getJson("/api/v1/storage/virtual-media");
+  } catch (error) {
+    virtualMediaStatus = { status: "unavailable", filename: null, message: "Status unavailable" };
+  }
+  return virtualMediaStatus;
+}
+
+async function setVirtualMedia(filename = null) {
+  const attaching = Boolean(filename);
+  const response = await fetch("/api/v1/storage/virtual-media", {
+    method: attaching ? "POST" : "DELETE",
+    headers: attaching ? { "Content-Type": "application/json" } : {},
+    body: attaching ? JSON.stringify({ filename }) : null,
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}));
+    throw new Error(result.detail || `HTTP ${response.status}`);
+  }
+  virtualMediaStatus = await response.json();
+  showToast(attaching ? `${filename}: attaching read-only media…` : "Ejecting virtual media…");
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+    await loadVirtualMediaStatus();
+    if (!["attaching", "ejecting"].includes(virtualMediaStatus.status)) break;
+  }
+  if (virtualMediaStatus.status === "attached") showToast(`${virtualMediaStatus.filename}: mounted read-only`);
+  else if (virtualMediaStatus.status === "ejected") showToast("Virtual media ejected");
+  else throw new Error(virtualMediaStatus.message || "Virtual media operation failed");
+  await loadStorage();
+}
+
 function renderStorage(storage) {
   const mediaReady = storage.status === "ready";
   const percent = storage.total_bytes ? Math.round((storage.used_bytes / storage.total_bytes) * 100) : 0;
@@ -412,14 +447,22 @@ function renderStorage(storage) {
     document.querySelector("#storage-capacity").textContent = "Internal stage unavailable";
     document.querySelector("#storage-free").textContent = "Check appliance storage service";
     document.querySelector("#storage-capacity-bar").style.width = "0%";
-    document.querySelector("#storage-file-count").textContent = "0";
+    const fileCount = document.querySelector("#storage-file-count");
+    if (fileCount) fileCount.textContent = "0";
     document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Internal staging storage is unavailable.</td></tr>';
     return;
   }
   document.querySelector("#storage-capacity").textContent = `${formatBytes(storage.used_bytes)} / ${formatBytes(storage.total_bytes)}`;
   document.querySelector("#storage-free").textContent = `${formatBytes(storage.free_bytes)} available · ${formatBytes(storage.system_reserve_bytes)} system reserve protected`;
   document.querySelector("#storage-capacity-bar").style.width = `${percent}%`;
-  document.querySelector("#storage-file-count").textContent = storage.file_count;
+  const fileCount = document.querySelector("#storage-file-count");
+  if (fileCount) fileCount.textContent = storage.file_count;
+  const mediaSummary = document.querySelector("#virtual-media-summary");
+  if (mediaSummary) {
+    mediaSummary.textContent = virtualMediaStatus.status === "attached"
+      ? `${virtualMediaStatus.filename} · read-only`
+      : virtualMediaStatus.status === "ejected" ? "No media mounted" : (virtualMediaStatus.message || virtualMediaStatus.status);
+  }
   const body = document.querySelector("#storage-files");
   if (!storage.files.length) {
     body.innerHTML = '<tr><td colspan="5" class="loading-cell">No staged files. Upload an ISO or firmware package to begin.</td></tr>';
@@ -427,7 +470,12 @@ function renderStorage(storage) {
   }
   body.innerHTML = storage.files.map((file) => {
     const extension = file.name.includes(".") ? file.name.split(".").pop().slice(0, 4).toUpperCase() : "FILE";
-    return `<tr><td><div class="file-name"><i>${escapeHtml(extension)}</i><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span></div></td><td>${escapeHtml(file.media_type)}</td><td>${formatBytes(file.size_bytes)}</td><td>${new Date(file.modified_at).toLocaleString()}</td><td><div class="file-actions"><a href="/api/v1/storage/files/${encodeURIComponent(file.name)}" download>↓ Download</a><button class="delete-file" type="button" data-filename="${escapeHtml(file.name)}">Delete</button></div></td></tr>`;
+    const mountable = /\.(iso|img)$/i.test(file.name);
+    const mounted = virtualMediaStatus.status === "attached" && virtualMediaStatus.filename === file.name;
+    const mediaAction = mounted
+      ? `<button class="eject-media" type="button">Eject</button>`
+      : mountable ? `<button class="mount-media" type="button" data-filename="${escapeHtml(file.name)}">Mount</button>` : "";
+    return `<tr><td><div class="file-name"><i>${escapeHtml(extension)}</i><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}${mounted ? " · Mounted" : ""}</span></div></td><td>${escapeHtml(file.media_type)}</td><td>${formatBytes(file.size_bytes)}</td><td>${new Date(file.modified_at).toLocaleString()}</td><td><div class="file-actions">${mediaAction}<a href="/api/v1/storage/files/${encodeURIComponent(file.name)}" download>Download</a><button class="delete-file" type="button" data-filename="${escapeHtml(file.name)}" ${mounted ? "disabled" : ""}>Delete</button></div></td></tr>`;
   }).join("");
   document.querySelectorAll(".delete-file").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -445,10 +493,21 @@ function renderStorage(storage) {
       }
     });
   });
+  document.querySelectorAll(".mount-media").forEach((button) => button.addEventListener("click", async () => {
+    button.disabled = true;
+    try { await setVirtualMedia(button.dataset.filename); }
+    catch (error) { showToast(`${button.dataset.filename}: ${error.message}`); button.disabled = false; }
+  }));
+  document.querySelectorAll(".eject-media").forEach((button) => button.addEventListener("click", async () => {
+    button.disabled = true;
+    try { await setVirtualMedia(); }
+    catch (error) { showToast(`Eject failed: ${error.message}`); button.disabled = false; }
+  }));
 }
 
 async function loadStorage() {
   try {
+    await loadVirtualMediaStatus();
     renderStorage(await getJson("/api/v1/storage"));
   } catch (error) {
     document.querySelector("#storage-state").textContent = "Unavailable";
@@ -1556,11 +1615,22 @@ function openVideoWindow() {
     const list = mediaDrawer.querySelector(".virtual-media-files");
     list.textContent = "Loading staged media…";
     try {
+      await loadVirtualMediaStatus();
       stagingStorage = await getJson("/api/v1/storage");
       const files = stagingStorage.files.filter((file) => /\.(iso|img)$/i.test(file.name));
-      list.innerHTML = files.length ? files.map((file) => `<div class="virtual-media-item"><span><b>${escapeHtml(file.name)}</b><small>${formatBytes(file.size_bytes)}</small></span><button type="button" data-media-name="${escapeHtml(file.name)}">Mount</button></div>`).join("") : "<p>No ISO or IMG files in staging storage.</p>";
-      list.querySelectorAll("[data-media-name]").forEach((button) => button.addEventListener("click", () => {
-        showToast(`${button.dataset.mediaName}: USB mass-storage service setup pending`);
+      list.innerHTML = files.length ? files.map((file) => {
+        const mounted = virtualMediaStatus.status === "attached" && virtualMediaStatus.filename === file.name;
+        return `<div class="virtual-media-item"><span><b>${escapeHtml(file.name)}</b><small>${formatBytes(file.size_bytes)}${mounted ? " · Mounted read-only" : ""}</small></span><button type="button" ${mounted ? "data-media-eject" : `data-media-name="${escapeHtml(file.name)}"`}>${mounted ? "Eject" : "Mount"}</button></div>`;
+      }).join("") : "<p>No ISO or IMG files in staging storage.</p>";
+      list.querySelectorAll("[data-media-name]").forEach((button) => button.addEventListener("click", async () => {
+        button.disabled = true;
+        try { await setVirtualMedia(button.dataset.mediaName); await renderVirtualMedia(); }
+        catch (error) { showToast(`${button.dataset.mediaName}: ${error.message}`); button.disabled = false; }
+      }));
+      list.querySelectorAll("[data-media-eject]").forEach((button) => button.addEventListener("click", async () => {
+        button.disabled = true;
+        try { await setVirtualMedia(); await renderVirtualMedia(); }
+        catch (error) { showToast(`Eject failed: ${error.message}`); button.disabled = false; }
       }));
     } catch (error) {
       list.textContent = "Staging storage is unavailable.";
@@ -1619,12 +1689,118 @@ function openVideoWindow() {
   element.querySelector(".terminal-maximize").addEventListener("click", () => element.classList.toggle("maximized"));
 }
 
+function taskDisplayName(task) {
+  const path = task.detail || "";
+  if (path.includes("/storage/virtual-media")) return task.title.startsWith("DELETE") ? "Eject virtual media" : "Mount virtual media";
+  if (path.includes("/storage/files/")) return task.title.startsWith("DELETE") ? "Delete staged file" : "Upload staged file";
+  if (path.includes("/system/power")) return "Appliance power action";
+  if (path.includes("/connections")) return "Update connection profile";
+  if (path.includes("/session-logs")) return "Stage session log";
+  if (path.includes("/serial/")) return "Serial console operation";
+  return task.title;
+}
+
+function renderTasks(tasks) {
+  const active = tasks.filter((task) => task.status === "running").length;
+  const successful = tasks.filter((task) => task.status === "successful").length;
+  const failed = tasks.filter((task) => ["failed", "cancelled"].includes(task.status)).length;
+  document.querySelector("#tasks-summary").textContent = `${active} active · ${successful} successful · ${failed} failed/cancelled · ${tasks.length} total`;
+  const body = document.querySelector("#tasks-entries");
+  if (!tasks.length) {
+    body.innerHTML = '<tr><td colspan="6" class="loading-cell">No task activity in this appliance session.</td></tr>';
+    return;
+  }
+  body.innerHTML = tasks.map((task) => {
+    const result = task.error || (task.status === "successful" ? "Completed" : task.status === "running" ? "In progress" : "—");
+    return `<tr><td class="task-title-cell"><strong>${escapeHtml(taskDisplayName(task))}</strong><small title="${escapeHtml(task.id)}">${escapeHtml(task.detail || task.id)}</small></td><td>${escapeHtml(task.source)}</td><td><span class="task-status-pill ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span></td><td><div class="task-table-progress"><i style="width:${Math.max(0, Math.min(100, Number(task.progress) || 0))}%"></i></div></td><td>${new Date(task.created_at).toLocaleString()}</td><td>${escapeHtml(result)}</td></tr>`;
+  }).join("");
+}
+
+async function loadTasks() {
+  try {
+    const response = await getJson("/api/v1/tasks");
+    renderTasks(response.tasks);
+    document.querySelector("#tasks-state").innerHTML = "<i></i> Monitoring";
+  } catch (error) {
+    document.querySelector("#tasks-state").textContent = "Unavailable";
+    document.querySelector("#tasks-entries").innerHTML = '<tr><td colspan="6" class="loading-cell">Task service unavailable.</td></tr>';
+  }
+}
+
+function bindNetworkSettingsForms() {
+  document.querySelectorAll(".network-interface-form").forEach((form) => {
+    const mode = form.querySelector('[name="mode"]');
+    const staticFields = form.querySelector(".network-static-fields");
+    const updateMode = () => {
+      const isStatic = mode.value === "static";
+      staticFields.classList.toggle("disabled-fields", !isStatic);
+      staticFields.querySelectorAll("input").forEach((input) => { input.disabled = !isStatic; });
+    };
+    mode.addEventListener("change", updateMode);
+    updateMode();
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const interfaceName = form.dataset.interface;
+      const selectedMode = mode.value;
+      const warning = selectedMode === "dhcp"
+        ? `Apply DHCP to ${interfaceName}? Its current address may change.`
+        : `Apply static IPv4 to ${interfaceName}? Your current Ethernet session may disconnect. The management AP at 192.168.34.100 will remain available.`;
+      if (!window.confirm(warning)) return;
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      const payload = {
+        interface: interfaceName,
+        mode: selectedMode,
+        address: form.querySelector('[name="address"]').value.trim() || null,
+        gateway: form.querySelector('[name="gateway"]').value.trim() || null,
+        dns: form.querySelector('[name="dns"]').value.split(",").map((item) => item.trim()).filter(Boolean),
+        confirmed: true,
+      };
+      try {
+        const response = await fetch("/api/v1/network/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+        showToast(`${interfaceName}: network configuration accepted`);
+        window.setTimeout(loadNetworkSettings, 2500);
+      } catch (error) {
+        button.disabled = false;
+        showToast(`${interfaceName}: ${error.message}`);
+      }
+    });
+  });
+}
+
+async function loadNetworkSettings() {
+  const container = document.querySelector("#network-settings");
+  try {
+    const response = await getJson("/api/v1/network/settings");
+    if (!response.interfaces.length) {
+      container.innerHTML = '<span class="muted">No configurable Ethernet interface detected.</span>';
+      return;
+    }
+    container.innerHTML = response.interfaces.map((item) => `
+      <form class="network-interface-form" data-interface="${escapeHtml(item.interface)}">
+        <div class="network-interface-heading"><div><strong>${escapeHtml(item.interface)}</strong><small>${escapeHtml(item.mac_address || "No MAC")} · ${escapeHtml(item.state)} · ${escapeHtml(item.current_addresses.join(", ") || "No address")}</small></div><span class="task-status-pill ${item.apply_status === "failed" ? "failed" : "successful"}">${escapeHtml(item.apply_status)}</span></div>
+        <div class="network-form-grid"><label>IPv4 mode<select name="mode"><option value="dhcp" ${item.mode === "dhcp" ? "selected" : ""}>DHCP</option><option value="static" ${item.mode === "static" ? "selected" : ""}>Static</option></select></label><div class="network-static-fields"><label>Address / prefix<input name="address" value="${escapeHtml(item.address || "")}" placeholder="192.168.1.50/24" inputmode="decimal"></label><label>Gateway<input name="gateway" value="${escapeHtml(item.gateway || "")}" placeholder="192.168.1.1" inputmode="decimal"></label><label>DNS servers<input name="dns" value="${escapeHtml(item.dns.join(", "))}" placeholder="1.1.1.1, 8.8.8.8"></label></div></div>
+        <div class="network-form-footer"><small>${escapeHtml(item.message || "Changes are applied through NetworkManager")}</small><button type="submit">Apply</button></div>
+      </form>`).join("");
+    bindNetworkSettingsForms();
+  } catch (error) {
+    container.innerHTML = '<span class="muted">Network settings are unavailable.</span>';
+  }
+}
+
 async function load() {
   const health = document.querySelector("#health");
   loadPorts();
   loadStorage();
   loadConnections();
   loadVideoStatus();
+  loadTasks();
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
@@ -1700,7 +1876,9 @@ function showView(view) {
     loadLogs();
     loadSessionLogs();
   }
+  if (view === "tasks") loadTasks();
   if (view === "settings") {
+    loadNetworkSettings();
     document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
@@ -1737,6 +1915,14 @@ document.querySelector("#appliance-reboot").addEventListener("click", () => requ
 document.querySelector("#appliance-poweroff").addEventListener("click", () => requestAppliancePower("poweroff"));
 document.querySelector("#logs-refresh").addEventListener("click", loadLogs);
 document.querySelector("#session-logs-refresh").addEventListener("click", loadSessionLogs);
+document.querySelector("#tasks-refresh").addEventListener("click", loadTasks);
+document.querySelector("#network-settings-refresh").addEventListener("click", loadNetworkSettings);
+document.querySelector("#tasks-clear").addEventListener("click", async () => {
+  const response = await fetch("/api/v1/tasks/completed", { method: "DELETE" });
+  if (!response.ok) return showToast("Unable to clear completed tasks");
+  await loadTasks();
+  showToast("Completed tasks cleared");
+});
 document.querySelector("#logs-level").addEventListener("change", loadLogs);
 document.querySelector("#logs-search").addEventListener("input", () => {
   clearTimeout(window.kronosLogSearchTimer);
@@ -1872,3 +2058,4 @@ document.addEventListener("click", (event) => {
   });
 });
 load();
+window.setInterval(loadTasks, 3000);
