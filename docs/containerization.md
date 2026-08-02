@@ -5,8 +5,8 @@ KronosKVM uses a hybrid container architecture.
 ## Containerized application plane
 
 - FastAPI coordination and health API
-- Future web UI and authentication
-- Future monitoring and non-privileged session services
+- Nginx web UI and reverse proxy
+- KVM HID, video, serial, SSH, logs, connection profiles and staging services
 
 The API image is ARM64 compatible and uses:
 
@@ -17,10 +17,10 @@ The API image is ARM64 compatible and uses:
 - `no-new-privileges`;
 - localhost-only port 8000 through host networking;
 - no Docker socket;
-- no broad `/dev` mount;
+- `/dev` visible for hot-plug discovery, with cgroup access restricted to the
+  serial, capture and HID character-device majors used by the appliance;
 - no mandatory device node that can prevent boot when optional hardware is absent;
-- a single writable bind mount at `/mnt/kronoskvm-storage`, accepted only when
-  initialized removable media supplies the `.kronoskvm-storage` marker;
+- writable mounts for the internal staging pool, state and structured logs;
 - read-only `/sys` and `/etc/kronoskvm` mounts.
 
 ## Host hardware plane
@@ -28,7 +28,7 @@ The API image is ARM64 compatible and uses:
 These remain host-managed:
 
 - hostapd, dnsmasq and customer/AP networking;
-- USB gadget/ConfigFS and virtual media;
+- USB gadget/ConfigFS initialization;
 - GPIO/ATX control;
 - boot and device-tree configuration;
 - privileged hardware helpers.
@@ -70,13 +70,13 @@ root filesystem and no Docker socket.
 
 ## Deployed baseline
 
-The ARM64 API container is deployed on the CM4 and managed by
+The ARM64 API container is deployed on the Pi 4 and managed by
 `kronoskvm-containers.service`. The native API unit is installed but disabled
 for rollback. The deployment has been verified across a reboot with:
 
 - the API healthy on `127.0.0.1:8000`;
 - the container running as UID/GID `10001`;
-- read-only CM4 device-tree and system visibility;
+- read-only device-tree and system visibility;
 - no `docker0` bridge or Docker NAT rules;
 - IPv4 forwarding remaining disabled;
 - hostapd and dnsmasq remaining active independently.

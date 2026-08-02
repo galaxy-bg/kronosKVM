@@ -25,10 +25,19 @@ services:
       - /etc/kronoskvm:/etc/kronoskvm:ro
       - /mnt/kronoskvm-storage:/storage
       - /var/lib/kronoskvm/state:/state
+      - /var/log/kronoskvm:/logs
     environment:
       KRONOSKVM_STORAGE_PATH: /storage
-      KRONOSKVM_STORAGE_REQUIRE_MARKER: "1"
+      KRONOSKVM_STORAGE_REQUIRE_MARKER: "0"
+      KRONOSKVM_STORAGE_CAPACITY_BYTES: "34359738368"
+      KRONOSKVM_STORAGE_RESERVE_BYTES: "10737418240"
+      KRONOSKVM_STORAGE_POOL_ID: internal
+      KRONOSKVM_STORAGE_LABEL: "Internal SD · 32G"
+      KRONOSKVM_STORAGE_TYPE: internal
       KRONOSKVM_STATE_PATH: /state
+      KRONOSKVM_LOG_PATH: /logs/application.jsonl
+      KRONOSKVM_LOG_MAX_BYTES: "10485760"
+      KRONOSKVM_LOG_BACKUP_COUNT: "5"
     healthcheck:
       test:
         - CMD

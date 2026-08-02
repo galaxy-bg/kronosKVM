@@ -49,10 +49,13 @@ run install -m 0755 \
     /usr/local/bin/kronoskvm
 run chmod 0755 \
     "${PROJECT_DIR}/scripts/start-containers.sh" \
-    "${PROJECT_DIR}/scripts/stop-containers.sh"
+    "${PROJECT_DIR}/scripts/stop-containers.sh" \
+    "${PROJECT_DIR}/scripts/handle-power-action.sh" \
+    "${PROJECT_DIR}/scripts/handle-virtual-media-action.sh"
+run chmod 0755 "${PROJECT_DIR}/scripts/handle-network-action.sh"
 
 run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
-run install -d -m 0755 -o root -g root /mnt/kronoskvm-storage
+run install -d -m 0750 -o 10001 -g 20 /mnt/kronoskvm-storage
 run install -d -m 0750 -o 10001 -g 20 /var/lib/kronoskvm/state
 run install -d -m 0755 -o root -g root /etc/docker
 run install -m 0644 \
@@ -66,7 +69,8 @@ else
         "${PROJECT_DIR}/backend" \
         "${PROJECT_DIR}/config" \
         "${PROJECT_DIR}/frontend" \
-        "${PROJECT_DIR}/deploy/nginx" \
+        "${PROJECT_DIR}/deploy" \
+        "${PROJECT_DIR}/scripts" \
         "${PROJECT_DIR}/Dockerfile" \
         "${PROJECT_DIR}/Dockerfile.web" \
         "${PROJECT_DIR}/compose.yaml" \
@@ -79,6 +83,14 @@ fi
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-containers.service" \
     /etc/systemd/system/kronoskvm-containers.service
+run install -m 0644 \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-power-action.path" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-power-action.service" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-virtual-media-action.path" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-virtual-media-action.service" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-network-action.path" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-network-action.service" \
+    /etc/systemd/system/
 
 if ! "${DRY_RUN}"; then
     systemctl enable docker.service
@@ -90,6 +102,9 @@ if ! "${DRY_RUN}"; then
         docker-compose -f compose.yaml build
     )
     systemctl enable kronoskvm-containers.service
+    systemctl enable --now kronoskvm-power-action.path
+    systemctl enable --now kronoskvm-virtual-media-action.path
+    systemctl enable --now kronoskvm-network-action.path
     systemctl restart kronoskvm-containers.service
 fi
 

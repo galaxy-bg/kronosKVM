@@ -1,3 +1,4 @@
 # USB Gadget
 
-Waiting for verified UDC and SLAVE-port mapping.
+Active prototype: USB-C DWC2 peripheral mode with UDC `fe980000.usb`.
+The Pi 4 stable profile exposes one boot keyboard and one relative boot mouse.

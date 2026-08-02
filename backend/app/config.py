@@ -16,7 +16,7 @@ class SystemConfig(BaseModel):
 class NetworkConfig(BaseModel):
     management_interface: Optional[str] = None
     service_interface: Optional[str] = None
-    management_address: str = "192.168.31.145"
+    management_address: str = "192.168.31.185"
     web_bind_address: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
 

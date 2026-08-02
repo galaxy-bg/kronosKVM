@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KronosKVM</title>
   <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.26.css">
+  <link rel="stylesheet" href="/styles-0.3.36.css">
 </head>
 <body>
   <div class="app-shell">
@@ -15,15 +15,15 @@
         <img class="brand-logo" src="/kronoskvm-logo.png" alt="KronosKVM">
       </a>
       <nav class="side-nav" aria-label="Main navigation">
-        <button class="side-link" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
-        <button class="side-link active" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
-        <button class="side-link" type="button" data-view="devices"><span class="nav-icon">▣</span><span>Devices</span></button>
+        <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+        <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
-        <button class="side-link future" type="button" disabled><span class="nav-icon">☷</span><span>Logs</span></button>
-        <button class="side-link future" type="button" disabled><span class="nav-icon">⚙</span><span>Settings</span></button>
+        <button class="side-link" type="button" data-view="tasks"><span class="nav-icon">✓</span><span>Tasks</span></button>
+        <button class="side-link" type="button" data-view="logs"><span class="nav-icon">☷</span><span>Logs</span></button>
+        <button class="side-link" type="button" data-view="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
       </nav>
       <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar"><span>‹</span><b>Collapse</b></button>
-      <div class="sidebar-version">v0.3.26</div>
+      <div class="sidebar-version">v0.3.36</div>
     </aside>
 
     <div class="app-content">
@@ -44,43 +44,77 @@
       </header>
 
       <main>
-        <section class="session-strip collapsible" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
+        <section class="session-strip collapsible" data-view-section="dashboard sessions" data-collapse-id="active-sessions" aria-labelledby="active-sessions-title">
           <div class="section-title collapse-heading"><div><h2 id="active-sessions-title">Manage sessions</h2><p>Primary connections, configuration and console access</p></div><div class="heading-actions"><button id="refresh" class="session-refresh" type="button" aria-label="Refresh sessions">↻</button><button id="new-session" class="primary-action" type="button">＋ New Connection</button><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Manage sessions">⌃</button></div></div>
           <div id="session-cards" class="session-cards collapsible-content">
-            <article id="video-session-card" class="session-card pending-session"><button id="open-video" type="button" disabled><span class="session-dot"></span><span><b>VGA KVM</b><small id="video-session-status">Checking X630…</small></span></button><span class="session-kebab disabled">⋯</span></article>
+            <article id="video-session-card" class="session-card pending-session"><button id="open-video" type="button" disabled><span class="session-dot"></span><span><b>VGA KVM</b><small id="video-session-status">Checking video input…</small></span></button><span class="session-kebab disabled">⋯</span></article>
             <article class="session-card" data-session-port="console_1"><button type="button" data-open-port="console_1"><span class="session-dot"></span><span><b>Console 1 · USB</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 1 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
             <article class="session-card" data-session-port="console_2"><button type="button" data-open-port="console_2"><span class="session-dot"></span><span><b>Console 2 · USB</b><small>Checking adapter…</small></span></button><details class="action-menu session-action-menu"><summary aria-label="Console 2 actions">⋯</summary><div class="action-menu-list"><button type="button" data-session-action="config">⚙ Config</button><button type="button" data-session-action="status">◎ Status</button><button type="button" data-session-action="console">⌘ Open console</button><button type="button" data-session-action="disconnect">⊘ Disconnect</button><button type="button" data-session-action="reset">↻ Re-detect &amp; connect</button></div></details></article>
             <div id="network-connections" class="network-connections"></div>
           </div>
         </section>
 
-        <section id="storage-panel" class="panel storage-panel collapsible" data-collapse-id="staging-storage" data-default-collapsed="true">
-          <div class="panel-heading collapse-heading"><div><h2>Staging storage</h2><p>ISO images, firmware and deployment files on removable media</p></div><div class="heading-actions"><span id="storage-state" class="verified-label">Checking…</span><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Staging storage">⌃</button></div></div>
+        <section id="storage-panel" class="panel storage-panel collapsible" data-view-section="storage" data-collapse-id="staging-storage" data-default-collapsed="true" hidden>
+          <div class="panel-heading collapse-heading"><div><h2>Staging storage</h2><p>Internal 32G pool for ISO images, firmware and deployment files</p></div><div class="heading-actions"><span id="storage-state" class="verified-label">Checking…</span><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Staging storage">⌃</button></div></div>
           <div class="collapsible-content storage-content">
-            <div class="storage-summary"><div><span>Capacity</span><strong id="storage-capacity">Loading…</strong><div class="capacity-track"><i id="storage-capacity-bar"></i></div><small id="storage-free"></small></div><div><span>Files</span><strong id="storage-file-count">—</strong><small>Available for future virtual media mounting</small></div></div>
-            <div id="storage-dropzone" class="storage-dropzone" tabindex="0"><input id="storage-file-input" type="file" multiple hidden><span class="upload-icon">⇧</span><div><strong>Upload files</strong><p>Connect initialized removable storage, then drop ISO, firmware or installation files here.</p></div><button id="storage-choose" type="button">Choose files</button></div>
+            <div class="storage-summary"><div><span>Capacity</span><strong id="storage-capacity">Loading…</strong><div class="capacity-track"><i id="storage-capacity-bar"></i></div><small id="storage-free"></small></div><div><span>Virtual media</span><strong id="virtual-media-summary">Checking…</strong><small>ISO and IMG files are presented read-only over KVM OTG</small></div></div>
+            <div id="storage-dropzone" class="storage-dropzone" tabindex="0"><input id="storage-file-input" type="file" accept=".iso,.img,.bin,.fw,.rom,.efi,.zip,.tar,.gz,.tgz,.xz,.bz2,.7z,.pkg,.swi,.stk,.qcow2,.ova" multiple hidden><span class="upload-icon">⇧</span><div><strong>Upload files</strong><p>Drop ISO, disk image, firmware or installation packages into the internal staging pool.</p></div><button id="storage-choose" type="button">Choose files</button></div>
             <div id="upload-status" class="upload-status" hidden><div><span id="upload-name">Uploading…</span><b id="upload-percent">0%</b></div><div class="capacity-track"><i id="upload-progress"></i></div></div>
             <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>Name</th><th>Type</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead><tbody id="storage-files"><tr><td colspan="5" class="loading-cell">Loading staging files…</td></tr></tbody></table></div>
           </div>
         </section>
 
-        <section id="devices-panel" class="panel ports-panel collapsible" data-collapse-id="physical-ports-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
-          <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified chassis assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
+        <section id="devices-panel" class="panel ports-panel collapsible" data-view-section="dashboard" data-collapse-id="physical-ports-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
+          <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified port assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
           <div class="collapsible-content"><div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
-          <div class="port-warning"><strong>Hardware mux:</strong> selecting KVM OTG disconnects Console 1, Console 2, Service USB and ETH1 from the CM4 host USB topology.</div></div>
+          <div class="port-warning"><strong>Independent USB topology:</strong> USB-A host ports remain available while the separate USB-C controller operates in KVM OTG device mode.</div></div>
         </section>
 
-        <section id="status-panel" class="panel status-panel collapsible" data-collapse-id="appliance-status-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
+        <section id="status-panel" class="panel status-panel collapsible" data-view-section="dashboard" data-collapse-id="appliance-status-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
           <div class="panel-heading collapse-heading"><div><h2>Appliance status</h2><p>Live system and connectivity information</p></div><div class="heading-actions"><span class="live-label"><i></i> Monitoring</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Appliance status">⌃</button></div></div>
           <div class="detail-grid collapsible-content"><section class="detail-section"><h3>System</h3><dl id="system"><div><dt>Hostname</dt><dd>Loading…</dd></div></dl></section><section class="detail-section"><h3>Network</h3><div id="network" class="stack">Loading…</div></section><section class="detail-section"><h3>KVM Services</h3><div id="services" class="stack">Loading…</div></section></div>
         </section>
+
+        <section id="tasks-panel" class="panel tasks-panel" data-view-section="tasks" hidden>
+          <div class="panel-heading"><div><h2>Tasks</h2><p>Application jobs, session activity and operation results</p></div><div class="heading-actions"><span id="tasks-state" class="live-label"><i></i> Monitoring</span><button id="tasks-refresh" class="session-refresh" type="button" aria-label="Refresh tasks">↻</button><button id="tasks-clear" type="button">Clear completed</button></div></div>
+          <div class="tasks-summary"><strong id="tasks-summary">Loading tasks…</strong><small>Task history is temporary; structured status events remain in Application Logs.</small></div>
+          <div class="tasks-table-wrap"><table class="tasks-table"><thead><tr><th>Task</th><th>Source</th><th>Status</th><th>Progress</th><th>Started</th><th>Result</th></tr></thead><tbody id="tasks-entries"><tr><td colspan="6" class="loading-cell">Loading tasks…</td></tr></tbody></table></div>
+        </section>
+
+        <section id="settings-panel" class="panel settings-panel" data-view-section="settings" hidden>
+          <div class="panel-heading"><div><h2>Global appliance settings</h2><p>System-wide lifecycle and management controls</p></div><span class="verified-label">Appliance</span></div>
+          <div class="settings-group-heading"><div><strong>Network settings</strong><p>Configure DHCP or static IPv4 on Ethernet interfaces. The management AP remains protected.</p></div><button id="network-settings-refresh" class="session-refresh" type="button" aria-label="Refresh network settings">↻</button></div>
+          <div id="network-settings" class="network-settings"><span class="muted">Loading network interfaces…</span></div>
+          <div class="settings-group-heading"><div><strong>Power controls</strong><p>Restart or safely shut down the appliance.</p></div></div>
+          <div class="appliance-controls">
+            <article><div><strong>Restart appliance</strong><p>Safely restarts the operating system and all KronosKVM services.</p></div><button id="appliance-reboot" type="button">↻ Reboot</button></article>
+            <article class="danger-control"><div><strong>Power off appliance</strong><p>Safely shuts down the operating system. GPIO power must be cycled to start again.</p></div><button id="appliance-poweroff" type="button">⏻ Power off</button></article>
+          </div>
+        </section>
+
+        <section id="logs-panel" class="panel logs-panel collapsible" data-view-section="logs" data-collapse-id="application-logs" data-default-collapsed="true" hidden>
+          <div class="panel-heading collapse-heading"><div><h2>Application logs</h2><p>Grouped API, audit, error and runtime events</p></div><div class="heading-actions"><span id="logs-state" class="live-label"><i></i> Active</span><button id="logs-refresh" class="session-refresh" type="button" aria-label="Refresh logs">↻</button><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Application logs">⌃</button></div></div>
+          <div class="collapsible-content logs-content">
+            <div class="logs-toolbar"><label>Level<select id="logs-level"><option value="">All</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select></label><label class="logs-search">Search<input id="logs-search" type="search" maxlength="200" placeholder="session, IP, event…"></label><button id="logs-download" type="button">↓ Download JSON</button></div>
+            <div class="logs-table-wrap"><table class="logs-table"><thead><tr><th>Time</th><th>Level</th><th>Event</th><th>Details</th></tr></thead><tbody id="logs-entries"><tr><td colspan="4" class="loading-cell">Loading logs…</td></tr></tbody></table></div>
+          </div>
+        </section>
+
+        <section id="session-logs-panel" class="panel logs-panel collapsible" data-view-section="logs" data-collapse-id="session-logs" data-default-collapsed="true" hidden>
+          <div class="panel-heading collapse-heading"><div><h2>Session logs</h2><p>Temporary Console 1/2, SSH and KVM session files</p></div><div class="heading-actions"><span class="verified-label">RAM only</span><button id="session-logs-refresh" class="session-refresh" type="button" aria-label="Refresh session logs">↻</button><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Session logs">⌃</button></div></div>
+          <div class="collapsible-content logs-content"><div class="staged-logs"><div class="staged-logs-heading"><strong>Downloadable session files</strong><small>Cleared when the appliance or API restarts</small></div><div id="session-log-files" class="staged-log-files"><span class="muted">No staged session logs</span></div></div></div>
+        </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.26</span></footer>
+      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.36</span></footer>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <aside id="task-center" class="task-center" hidden>
+    <header><div><strong>Background tasks</strong><small id="task-summary">0 active</small></div><button id="task-center-toggle" type="button" aria-label="Minimize background tasks">−</button></header>
+    <div id="task-list" class="task-list"></div>
+  </aside>
   <dialog id="session-dialog" class="modal session-modal">
     <div class="modal-heading"><div><h2>New connection</h2><p>Select a connection type</p></div><button class="modal-close" type="button" data-close-dialog="session-dialog" aria-label="Close">×</button></div>
     <div class="session-types connection-types"><button type="button" data-connection-type="ssh"><b>›_</b><strong>SSH</strong><span>Native secure shell</span></button><button type="button" data-connection-type="telnet"><b>&gt;_</b><strong>Telnet</strong><span>Native Telnet client</span></button><button type="button" data-connection-type="rdp"><b>▣</b><strong>RDP</strong><span>Remote desktop client</span></button><button type="button" data-connection-type="vnc"><b>⌘</b><strong>VNC</strong><span>Screen sharing client</span></button><button type="button" data-connection-type="web"><b>◎</b><strong>Web URL</strong><span>HTTP or HTTPS</span></button></div>
@@ -96,6 +130,6 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.26.js" defer></script>
+  <script src="/app-0.3.36.js" defer></script>
 </body>
 </html>

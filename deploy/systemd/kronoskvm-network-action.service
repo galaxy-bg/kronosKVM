@@ -1,0 +1,8 @@
+[Unit]
+Description=Apply an approved KronosKVM NetworkManager configuration
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kronoskvm/scripts/handle-network-action.sh
