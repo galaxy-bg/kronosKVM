@@ -8,7 +8,7 @@ docker rm --force kronoskvm-api >/dev/null 2>&1 || true
 docker run --detach \
     --name kronoskvm-api \
     --network host \
-    --hostname kronoskvm \
+    --hostname kdx-infrabox \
     --restart unless-stopped \
     --read-only \
     --user 10001:20 \

@@ -1047,7 +1047,7 @@ function startTerminalLog(session) {
   session.logStaging = false;
   session.pendingLogName = pendingTerminalLogName(session, started);
   session.logParts = [
-    `KronosKVM terminal session log\n`,
+    `KDX InfraBox terminal session log\n`,
     `Terminal: ${session.label}\n`,
     `Started: ${started.toISOString()}\n`,
     `${terminalLogProfile(session)}\n`,
@@ -1191,7 +1191,7 @@ function closeVideoWindow() {
   videoWindow = null;
   const endedAt = new Date();
   const content = [
-    "KronosKVM KVM session log\n",
+    "KDX InfraBox KVM session log\n",
     `Started: ${closingSession.startedAt.toISOString()}\n`,
     `Stopped: ${endedAt.toISOString()}\n`,
     `Duration: ${Math.round((endedAt - closingSession.startedAt) / 1000)} seconds\n`,
@@ -1215,7 +1215,7 @@ function openVideoWindow() {
   element.style.left = `${Math.max(12, Math.min(110, window.innerWidth - 420))}px`;
   element.style.top = "105px";
   element.innerHTML = `<header class="terminal-titlebar">
-      <div class="terminal-heading"><div><strong>KronosKVM Remote Console</strong><span>VGA KVM · HDMI capture</span></div></div>
+      <div class="terminal-heading"><div><strong>KDX InfraBox Remote Console</strong><span>VGA KVM · HDMI capture</span></div></div>
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <div class="kvm-toolbar">
@@ -1228,7 +1228,7 @@ function openVideoWindow() {
       <button type="button" data-kvm-action="keyboard">⌨ Hot keys</button>
       <button type="button" data-kvm-action="media">▤ Virtual media</button>
     </div>
-    <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KronosKVM target video"></div>
+    <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KDX InfraBox target video"></div>
     <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
     <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;

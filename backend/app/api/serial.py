@@ -150,7 +150,7 @@ async def serial_console(
         audit("serial.session.busy", session_id=session_id, device=device)
         await websocket.accept()
         await websocket.send_text(
-            "\r\n[KronosKVM: serial port is already open in another terminal]\r\n"
+            "\r\n[KDX InfraBox: serial port is already open in another terminal]\r\n"
         )
         await websocket.close(code=4409)
         return
@@ -189,12 +189,12 @@ async def serial_console(
             )
             if probe is None:
                 result = "baud_detection_failed"
-                await websocket.send_text("\r\n[KronosKVM: baud rate could not be detected]\r\n")
+                await websocket.send_text("\r\n[KDX InfraBox: baud rate could not be detected]\r\n")
                 await websocket.close(code=4408)
                 return
             numeric_baud_rate, initial_payload = probe
             await websocket.send_text(
-                f"\r\n[KronosKVM: auto-detected {numeric_baud_rate} baud]\r\n"
+                f"\r\n[KDX InfraBox: auto-detected {numeric_baud_rate} baud]\r\n"
             )
         connection = serial.Serial(
             port=device,

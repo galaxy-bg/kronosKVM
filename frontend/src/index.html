@@ -4,16 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f7f6">
-  <title>KronosKVM</title>
-  <link rel="icon" href="/kronoskvm-logo.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.36.css">
+  <title>KDX InfraBox</title>
+  <link rel="icon" href="/infrabox-logo-transparent.png" type="image/png">
+  <link rel="stylesheet" href="/styles-0.3.37.css">
 </head>
 <body>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar">
-      <a class="brand" href="/" aria-label="KronosKVM home">
-        <img class="brand-logo" src="/kronoskvm-logo.png" alt="KronosKVM">
-      </a>
       <nav class="side-nav" aria-label="Main navigation">
         <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
         <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
@@ -29,8 +26,9 @@
     <div class="app-content">
       <header class="topbar">
         <button id="mobile-menu" class="icon-button mobile-menu" type="button" aria-label="Open navigation">☰</button>
-        <a class="header-brand" href="/" aria-label="KronosKVM home">
-          <span class="header-brand-copy"><strong>KronosKVM</strong><small>Remote Console Toolkit</small><em>All-in-One IP-KVM System</em></span>
+        <a class="header-brand" href="/" aria-label="KDX InfraBox home">
+          <img class="header-brand-mark" src="/infrabox-logo-transparent.png" alt="">
+          <span class="header-brand-copy"><strong>KDX InfraBox</strong><small>Infrastructure in a Box</small><em>Portable Access · Recovery · Diagnostics</em></span>
         </a>
         <label class="search"><span>⌕</span><input id="session-search" type="search" placeholder="Search ports, devices…" aria-label="Search ports and devices"></label>
         <div class="topbar-actions">
@@ -87,7 +85,7 @@
           <div id="network-settings" class="network-settings"><span class="muted">Loading network interfaces…</span></div>
           <div class="settings-group-heading"><div><strong>Power controls</strong><p>Restart or safely shut down the appliance.</p></div></div>
           <div class="appliance-controls">
-            <article><div><strong>Restart appliance</strong><p>Safely restarts the operating system and all KronosKVM services.</p></div><button id="appliance-reboot" type="button">↻ Reboot</button></article>
+            <article><div><strong>Restart appliance</strong><p>Safely restarts the operating system and all KDX InfraBox services.</p></div><button id="appliance-reboot" type="button">↻ Reboot</button></article>
             <article class="danger-control"><div><strong>Power off appliance</strong><p>Safely shuts down the operating system. GPIO power must be cycled to start again.</p></div><button id="appliance-poweroff" type="button">⏻ Power off</button></article>
           </div>
         </section>
@@ -106,7 +104,7 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KronosKVM management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.36</span></footer>
+      <footer class="statusbar"><span><i></i> KDX InfraBox management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.37</span></footer>
     </div>
   </div>
 
@@ -124,12 +122,12 @@
       <div class="config-grid"><label>Display name<input id="connection-name" required maxlength="64" placeholder="Core switch"></label><label>Host / IP<input id="connection-host" required maxlength="253" placeholder="192.168.1.10"></label></div>
       <div class="config-grid"><label>Port<input id="connection-port" required type="number" min="1" max="65535"></label><label>Username (optional)<input id="connection-username" maxlength="64" autocomplete="off"></label></div>
       <label id="connection-path-label">Web path<input id="connection-path" maxlength="512" value="/"></label>
-      <p class="credential-note">Passwords and tokens are never stored by KronosKVM.</p>
+      <p class="credential-note">Passwords and tokens are never stored by KDX InfraBox.</p>
       <div class="modal-actions"><button id="connection-back" type="button">Back</button><button class="primary" type="submit">Save connection</button></div>
     </form>
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.36.js" defer></script>
+  <script src="/app-0.3.37.js" defer></script>
 </body>
 </html>

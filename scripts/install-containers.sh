@@ -58,9 +58,20 @@ run install -d -m 0755 -o root -g root "${INSTALL_DIR}"
 run install -d -m 0750 -o 10001 -g 20 /mnt/kronoskvm-storage
 run install -d -m 0750 -o 10001 -g 20 /var/lib/kronoskvm/state
 run install -d -m 0755 -o root -g root /etc/docker
+run install -d -m 0755 -o root -g root /etc/kronoskvm/tls
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/docker/daemon.json" \
     /etc/docker/daemon.json
+
+if [[ ! -s /etc/kronoskvm/tls/kdx-infrabox.crt || ! -s /etc/kronoskvm/tls/kdx-infrabox.key ]]; then
+    run openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 \
+        -subj /CN=kdx-infrabox \
+        -addext subjectAltName=DNS:kdx-infrabox,IP:192.168.34.100 \
+        -keyout /etc/kronoskvm/tls/kdx-infrabox.key \
+        -out /etc/kronoskvm/tls/kdx-infrabox.crt
+    run chmod 0600 /etc/kronoskvm/tls/kdx-infrabox.key
+    run chmod 0644 /etc/kronoskvm/tls/kdx-infrabox.crt
+fi
 
 if "${DRY_RUN}"; then
     printf '[DRY-RUN] copy container application files to %q\n' "${INSTALL_DIR}"

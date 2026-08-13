@@ -1,5 +1,5 @@
 system:
-  hostname: kronoskvm
+  hostname: kdx-infrabox
   timezone: Europe/Istanbul
   data_directory: /var/lib/kronoskvm
   runtime_directory: /run/kronoskvm

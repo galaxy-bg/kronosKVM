@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class SystemConfig(BaseModel):
-    hostname: str = "kronoskvm"
+    hostname: str = "kdx-infrabox"
     timezone: str = "Europe/Istanbul"
     data_directory: Path = Path("/var/lib/kronoskvm")
     runtime_directory: Path = Path("/run/kronoskvm")

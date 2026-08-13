@@ -32,7 +32,7 @@ async def ssh_console(websocket: WebSocket) -> None:
         password = str(credentials.get("password", ""))
         port = int(credentials.get("port", 22))
         if not host or not username or not 1 <= port <= 65535:
-            await websocket.send_text("\r\n[KronosKVM: host, username and port are required]\r\n")
+            await websocket.send_text("\r\n[KDX InfraBox: host, username and port are required]\r\n")
             await websocket.close(code=1008)
             result = "invalid_request"
             return
@@ -64,7 +64,7 @@ async def ssh_console(websocket: WebSocket) -> None:
             port=port,
             username=username,
         )
-        await websocket.send_text("\r\n[KronosKVM: SSH connected]\r\n")
+        await websocket.send_text("\r\n[KDX InfraBox: SSH connected]\r\n")
 
         async def ssh_to_web() -> None:
             nonlocal received_bytes
@@ -103,7 +103,7 @@ async def ssh_console(websocket: WebSocket) -> None:
             username=username or None,
             error=type(error).__name__,
         )
-        await websocket.send_text(f"\r\n[KronosKVM: SSH connection failed: {error}]\r\n")
+        await websocket.send_text(f"\r\n[KDX InfraBox: SSH connection failed: {error}]\r\n")
     except WebSocketDisconnect:
         pass
     finally:

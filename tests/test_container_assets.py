@@ -55,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.36.js" in html
-    assert "/styles-0.3.36.css" in html
-    assert "app-0.3.36.js" in dockerfile
+    assert "/app-0.3.37.js" in html
+    assert "/styles-0.3.37.css" in html
+    assert "app-0.3.37.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -68,7 +68,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'class="action-menu"' in Path("frontend/src/app.js").read_text(
         encoding="utf-8"
     )
-    assert "/kronoskvm-logo.png" in html
+    assert "/infrabox-logo-transparent.png" in html
     assert 'data-theme-choice="light"' in html
     assert 'data-theme-choice="dark"' in html
     assert 'class="side-nav"' in html
@@ -79,9 +79,9 @@ def test_web_assets_use_filename_versioning() -> None:
     assert html.count('data-collapse-group="hardware-details"') == 2
     assert html.count('data-default-collapsed="true"') == 5
     assert 'class="header-brand"' in html
-    assert "header-brand-mark" not in html
-    assert "Remote Console Toolkit" in html
-    assert "All-in-One IP-KVM System" in html
+    assert "header-brand-mark" in html
+    assert "KDX InfraBox" in html
+    assert "Infrastructure in a Box" in html
     assert html.index('id="new-session"') > html.index('id="active-sessions-title"')
     assert "function setCollapsed" in app
     assert 'id="storage-panel"' in html
@@ -170,7 +170,11 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert web["cap_drop"] == ["ALL"]
     assert web["cap_add"] == ["CHOWN", "NET_BIND_SERVICE", "SETGID", "SETUID"]
     assert "no-new-privileges:true" in web["security_opt"]
+    assert "/etc/kronoskvm/tls:/etc/nginx/tls:ro" in web["volumes"]
     assert "listen 0.0.0.0:80 default_server;" in nginx
+    assert "listen 0.0.0.0:443 ssl;" in nginx
+    assert "ssl_certificate /etc/nginx/tls/kdx-infrabox.crt;" in nginx
+    assert "ssl_protocols TLSv1.2 TLSv1.3;" in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx

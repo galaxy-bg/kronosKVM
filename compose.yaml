@@ -9,7 +9,7 @@ services:
       network: host
     container_name: kronoskvm-api
     network_mode: host
-    hostname: kronoskvm
+    hostname: kdx-infrabox
     restart: unless-stopped
     read_only: true
     user: "10001:20"
@@ -71,3 +71,5 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
       - /var/cache/nginx:size=16m,mode=0755
+    volumes:
+      - /etc/kronoskvm/tls:/etc/nginx/tls:ro
