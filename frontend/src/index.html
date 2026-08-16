@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KDX InfraBox</title>
   <link rel="icon" href="/infrabox-logo-transparent.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.37.css">
+  <link rel="stylesheet" href="/styles-0.3.40.css">
+  <link rel="stylesheet" href="/services.css">
 </head>
 <body>
   <div class="app-shell">
@@ -16,6 +17,7 @@
         <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
         <button class="side-link" type="button" data-view="tasks"><span class="nav-icon">✓</span><span>Tasks</span></button>
+        <button class="side-link" type="button" data-view="services"><span class="nav-icon">◫</span><span>Services</span></button>
         <button class="side-link" type="button" data-view="logs"><span class="nav-icon">☷</span><span>Logs</span></button>
         <button class="side-link" type="button" data-view="settings"><span class="nav-icon">⚙</span><span>Settings</span></button>
       </nav>
@@ -79,6 +81,13 @@
           <div class="tasks-table-wrap"><table class="tasks-table"><thead><tr><th>Task</th><th>Source</th><th>Status</th><th>Progress</th><th>Started</th><th>Result</th></tr></thead><tbody id="tasks-entries"><tr><td colspan="6" class="loading-cell">Loading tasks…</td></tr></tbody></table></div>
         </section>
 
+        <section id="services-panel" class="panel services-panel" data-view-section="services" hidden>
+          <div class="panel-heading"><div><h2>Services</h2><p>Host, application and recovery service control</p></div><div class="heading-actions"><span id="services-state" class="live-label"><i></i> Monitoring</span><button id="services-refresh" class="session-refresh" type="button" aria-label="Refresh services">↻</button></div></div>
+          <div class="services-summary"><strong>Allow-listed service management</strong><small>Restart operations run as tracked tasks and are verified by the host helper.</small></div>
+          <div id="service-cards" class="service-cards"><span class="muted">Loading services…</span></div>
+          <section id="service-log-viewer" class="service-log-viewer" hidden><div class="service-log-heading"><div><strong id="service-log-title">Service logs</strong><small>Latest 100 host journal entries</small></div><button id="service-log-close" type="button">× Close</button></div><pre id="service-log-lines">Loading…</pre></section>
+        </section>
+
         <section id="settings-panel" class="panel settings-panel" data-view-section="settings" hidden>
           <div class="panel-heading"><div><h2>Global appliance settings</h2><p>System-wide lifecycle and management controls</p></div><span class="verified-label">Appliance</span></div>
           <div class="settings-group-heading"><div><strong>Network settings</strong><p>Configure DHCP or static IPv4 on Ethernet interfaces. The management AP remains protected.</p></div><button id="network-settings-refresh" class="session-refresh" type="button" aria-label="Refresh network settings">↻</button></div>
@@ -104,7 +113,7 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KDX InfraBox management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.37</span></footer>
+      <footer class="statusbar"><span><i></i> KDX InfraBox management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.40</span></footer>
     </div>
   </div>
 
@@ -128,6 +137,6 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.37.js" defer></script>
+  <script src="/app-0.3.40.js" defer></script>
 </body>
 </html>

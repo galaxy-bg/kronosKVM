@@ -14,11 +14,11 @@ ports:
     enabled: false
   service_usb:
     physical_port: USB-A 3.0 · Service
-    usb_path: "1-1.1 / 2-1"
+    usb_path: "1-1.2 / 2-2"
     enabled: true
   expansion_usb:
     physical_port: USB-A 3.0 · Storage
-    usb_path: "1-1.2 / 2-2"
+    usb_path: "1-1.1 / 2-1"
     enabled: true
   kvm_otg:
     physical_port: USB-C OTG · Device

@@ -135,9 +135,68 @@ def test_physical_port_detection(tmp_path: Path) -> None:
     assert console_1.device_name == "USB Serial Adapter"
 
 
+def test_service_and_storage_usb_port_mapping(tmp_path: Path) -> None:
+    from backend.app.hardware.ports import physical_ports
+
+    usb_root = tmp_path / "usb"
+    tty_root = tmp_path / "tty"
+    udc_root = tmp_path / "udc"
+    usb_root.mkdir()
+    tty_root.mkdir()
+    udc_root.mkdir()
+    service_device = usb_root / "1-1.2"
+    service_device.mkdir()
+    (service_device / "product").write_text("USB 10/100 LAN", encoding="utf-8")
+
+    inventory = physical_ports(usb_root, tty_root, udc_root)
+    service = next(port for port in inventory.ports if port.id == "service_usb")
+    storage = next(port for port in inventory.ports if port.id == "expansion_usb")
+
+    port_ids = [port.id for port in inventory.ports]
+    assert port_ids.index("expansion_usb") < port_ids.index("service_usb")
+    assert service.usb_path == "1-1.2 / 2-2"
+    assert service.connected is True
+    assert service.device_name == "USB 10/100 LAN"
+    assert storage.usb_path == "1-1.1 / 2-1"
+    assert storage.connected is False
+
+
 def test_usb_controller_detection(tmp_path: Path) -> None:
     (tmp_path / "fe980000.usb").mkdir()
     assert controllers(tmp_path) == ["fe980000.usb"]
+
+
+def test_service_status_and_restart_request(tmp_path: Path, monkeypatch) -> None:
+    from backend.app.api import services
+
+    monkeypatch.setattr(services, "STATE_PATH", tmp_path)
+    monkeypatch.setattr(services, "REQUEST_PATH", tmp_path / "service-action")
+    monkeypatch.setattr(services, "STATUS_PATH", tmp_path / "service-status.json")
+    services.STATUS_PATH.write_text(
+        '{"updated_at":"2026-08-15T12:00:00Z","services":{"management_ap":{"state":"active","detail":"NetworkManager"}}}',
+        encoding="utf-8",
+    )
+
+    listing = client.get("/api/v1/services")
+    assert listing.status_code == 200
+    management_ap = next(item for item in listing.json()["services"] if item["id"] == "management_ap")
+    assert management_ap["state"] == "active"
+    assert management_ap["restartable"] is True
+
+    restart = client.post("/api/v1/services/management_ap/restart", json={"confirmed": True})
+    assert restart.status_code == 202
+    request = services.REQUEST_PATH.read_text(encoding="ascii")
+    assert "service=management_ap\n" in request
+    assert "action=restart\n" in request
+
+    denied = client.post("/api/v1/services/networkmanager/restart", json={"confirmed": True})
+    assert denied.status_code == 400
+
+    (tmp_path / "service-log-dnsmasq.log").write_text("DHCPDISCOVER\nDHCPACK 192.168.34.156\n", encoding="utf-8")
+    logs = client.get("/api/v1/services/dnsmasq/logs")
+    assert logs.status_code == 200
+    assert logs.json()["lines"] == ["DHCPDISCOVER", "DHCPACK 192.168.34.156"]
+    assert client.get("/api/v1/services/unknown/logs").status_code == 404
 
 
 def test_serial_detection(tmp_path: Path) -> None:

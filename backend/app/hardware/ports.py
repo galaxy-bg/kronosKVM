@@ -6,8 +6,8 @@ from backend.app.models import PhysicalPort, PhysicalPortInventory
 PORTS = (
     ("console_1", "Console 1", "USB-A 2.0 · Console 1", ("1-1.3",)),
     ("console_2", "Console 2", "USB-A 2.0 · Console 2", ("1-1.4",)),
-    ("service_usb", "Service USB", "USB-A 3.0 · Service", ("1-1.1", "2-1")),
-    ("expansion_usb", "External Storage", "USB-A 3.0 · Storage", ("1-1.2", "2-2")),
+    ("expansion_usb", "External Storage", "USB-A 3.0 · Storage", ("1-1.1", "2-1")),
+    ("service_usb", "Service USB", "USB-A 3.0 · Service", ("1-1.2", "2-2")),
 )
 
 

@@ -57,7 +57,10 @@ document.querySelectorAll("[data-collapse-id]").forEach((panel) => {
 });
 
 async function getJson(path) {
-  const response = await fetch(path, { headers: { Accept: "application/json" } });
+  const response = await fetch(path, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
   return response.json();
 }
@@ -1794,6 +1797,63 @@ async function loadNetworkSettings() {
   }
 }
 
+function renderServiceCards(payload) {
+  const container = document.querySelector("#service-cards");
+  container.innerHTML = payload.services.map((service) => {
+    const healthy = ["active", "activating"].includes(service.state);
+    const unavailable = ["not_configured", "not_installed"].includes(service.state);
+    return `<article class="service-card"><div><strong>${escapeHtml(service.name)}</strong><p>${escapeHtml(service.description)}</p><small>${escapeHtml(service.detail || "No runtime detail")}</small></div><div class="service-card-actions"><span class="task-status-pill ${healthy ? "successful" : unavailable ? "" : "failed"}">${escapeHtml(service.state)}</span><button type="button" data-service-log="${escapeHtml(service.id)}">View Logs</button><button type="button" data-service-restart="${escapeHtml(service.id)}" data-service-name="${escapeHtml(service.name)}" ${service.restartable ? "" : "disabled"}>↻ Restart</button></div></article>`;
+  }).join("");
+  document.querySelector("#services-state").innerHTML = `<i></i> ${payload.updated_at ? `Updated ${escapeHtml(new Date(payload.updated_at).toLocaleTimeString())}` : "Status pending"}`;
+  container.querySelectorAll("[data-service-restart]").forEach((button) => button.addEventListener("click", () => restartManagedService(button)));
+  container.querySelectorAll("[data-service-log]").forEach((button) => button.addEventListener("click", () => loadServiceLogs(button.dataset.serviceLog)));
+}
+
+async function loadServiceLogs(serviceId) {
+  const viewer = document.querySelector("#service-log-viewer");
+  const output = document.querySelector("#service-log-lines");
+  viewer.hidden = false;
+  output.textContent = "Loading…";
+  try {
+    const payload = await getJson(`/api/v1/services/${encodeURIComponent(serviceId)}/logs`);
+    document.querySelector("#service-log-title").textContent = `${payload.name} logs`;
+    output.textContent = payload.lines.length ? payload.lines.join("\n") : "No journal entries captured yet. Refresh service status and try again.";
+  } catch (error) {
+    output.textContent = "Service logs are unavailable.";
+  }
+  viewer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function loadManagedServices() {
+  try {
+    renderServiceCards(await getJson("/api/v1/services"));
+  } catch (error) {
+    document.querySelector("#service-cards").innerHTML = '<span class="muted">Service status is unavailable.</span>';
+  }
+}
+
+async function queueServiceAction(path, options = {}) {
+  const response = await fetch(path, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+  if (result.task) { storageTasks.set(result.task.id, result.task); renderStorageTasks(); }
+  window.setTimeout(() => { loadManagedServices(); loadTasks(); }, 1200);
+  return result;
+}
+
+async function restartManagedService(button) {
+  const name = button.dataset.serviceName;
+  if (!window.confirm(`Restart ${name}? Active sessions using this service may be interrupted.`)) return;
+  button.disabled = true;
+  try {
+    await queueServiceAction(`/api/v1/services/${encodeURIComponent(button.dataset.serviceRestart)}/restart`, { confirmed: true });
+    showToast(`${name}: restart queued`);
+  } catch (error) {
+    showToast(`${name}: ${error.message}`);
+    button.disabled = false;
+  }
+}
+
 async function load() {
   const health = document.querySelector("#health");
   loadPorts();
@@ -1877,6 +1937,7 @@ function showView(view) {
     loadSessionLogs();
   }
   if (view === "tasks") loadTasks();
+  if (view === "services") loadManagedServices();
   if (view === "settings") {
     loadNetworkSettings();
     document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1917,6 +1978,11 @@ document.querySelector("#logs-refresh").addEventListener("click", loadLogs);
 document.querySelector("#session-logs-refresh").addEventListener("click", loadSessionLogs);
 document.querySelector("#tasks-refresh").addEventListener("click", loadTasks);
 document.querySelector("#network-settings-refresh").addEventListener("click", loadNetworkSettings);
+document.querySelector("#services-refresh").addEventListener("click", async () => {
+  try { await queueServiceAction("/api/v1/services/refresh"); showToast("Service status refresh queued"); }
+  catch (error) { showToast(error.message); }
+});
+document.querySelector("#service-log-close").addEventListener("click", () => { document.querySelector("#service-log-viewer").hidden = true; });
 document.querySelector("#tasks-clear").addEventListener("click", async () => {
   const response = await fetch("/api/v1/tasks/completed", { method: "DELETE" });
   if (!response.ok) return showToast("Unable to clear completed tasks");

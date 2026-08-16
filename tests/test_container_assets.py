@@ -55,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.37.js" in html
-    assert "/styles-0.3.37.css" in html
-    assert "app-0.3.37.js" in dockerfile
+    assert "/app-0.3.40.js" in html
+    assert "/styles-0.3.40.css" in html
+    assert "app-0.3.40.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -81,6 +81,8 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'class="header-brand"' in html
     assert "header-brand-mark" in html
     assert "KDX InfraBox" in html
+    assert 'data-view="services"' in html
+    assert 'id="service-cards"' in html
     assert "Infrastructure in a Box" in html
     assert html.index('id="new-session"') > html.index('id="active-sessions-title"')
     assert "function setCollapsed" in app
@@ -161,6 +163,15 @@ def test_network_host_helper_is_constrained() -> None:
     assert "ipv4.method manual" in helper
 
 
+def test_service_host_helper_is_allow_listed() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-service-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-service-action.path" in installer
+    assert "systemctl restart" in helper
+    assert "unit_for" in helper
+    assert "eval" not in helper
+
+
 def test_web_gateway_is_hardened_and_ap_only() -> None:
     compose = yaml.safe_load(Path("compose.yaml").read_text(encoding="utf-8"))
     web = compose["services"]["web"]
@@ -176,6 +187,7 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert "ssl_certificate /etc/nginx/tls/kdx-infrabox.crt;" in nginx
     assert "ssl_protocols TLSv1.2 TLSv1.3;" in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
+    assert 'add_header Cache-Control "no-store" always;' in nginx
     assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
     assert "client_max_body_size 16g;" in nginx

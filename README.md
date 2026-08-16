@@ -54,8 +54,8 @@ virtual media and ejected without rebuilding the keyboard/mouse gadget.
 |---|---|---|
 | Black USB-A 2.0 #1 | Console 1 | `1-1.3` |
 | Black USB-A 2.0 #2 | Console 2 | `1-1.4` |
-| Blue USB-A 3.0 #1 | Service USB / optional USB Ethernet | USB 2 companion `1-1.1`, SuperSpeed `2-1` |
-| Blue USB-A 3.0 #2 | External Storage | USB 2 companion `1-1.2`, SuperSpeed `2-2` |
+| Blue USB-A 3.0 #1 | External Storage | USB 2 companion `1-1.1`, SuperSpeed `2-1` |
+| Blue USB-A 3.0 #2 | Service USB / optional USB Ethernet | USB 2 companion `1-1.2`, SuperSpeed `2-2` |
 | USB-C | KVM OTG device | DWC2 UDC `fe980000.usb` |
 | CSI-2 | X630 video capture | `/dev/video0`, TC358743 |
 | RJ45 | Customer/development LAN | Linux `eth0` |

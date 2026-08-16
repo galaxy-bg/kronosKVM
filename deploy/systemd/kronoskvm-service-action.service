@@ -1,0 +1,6 @@
+[Unit]
+Description=Execute an approved KDX InfraBox service action
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kronoskvm/scripts/handle-service-action.sh

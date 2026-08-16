@@ -11,6 +11,7 @@ from backend.app.api.logs import router as logs_router
 from backend.app.api.network_settings import router as network_settings_router
 from backend.app.api.routes import router
 from backend.app.api.serial import router as serial_router
+from backend.app.api.services import router as services_router
 from backend.app.api.session_logs import router as session_logs_router
 from backend.app.api.ssh import router as ssh_router
 from backend.app.api.storage import router as storage_router
@@ -42,9 +43,8 @@ def create_app() -> FastAPI:
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         started = time.monotonic()
         task = None
-        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not request.url.path.startswith(
-            "/api/v1/tasks"
-        ):
+        task_owned_path = request.url.path.startswith(("/api/v1/tasks", "/api/v1/services"))
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not task_owned_path:
             requested_task_id = request.headers.get("x-kronos-task-id")
             if requested_task_id:
                 try:
@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
     application.include_router(router)
     application.include_router(connections_router)
     application.include_router(serial_router)
+    application.include_router(services_router)
     application.include_router(session_logs_router)
     application.include_router(hid_router)
     application.include_router(logs_router)
