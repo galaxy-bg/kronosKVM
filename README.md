@@ -27,7 +27,15 @@ Product descriptor: **All-in-One IP-KVM System**.
 - GPIO 5V prototype power; RTC/power-control board pending
 
 The current Ethernet DHCP address is installation-specific. The development
-prototype was last verified at `192.168.31.185`.
+prototype was last verified at `192.168.1.107` on 2026-09-07.
+
+HDMI compatibility now defaults to 720p60, with 1080p30 and legacy PC modes
+available through the persistent EDID profile. A directly connected PC's BIOS
+video was confirmed by the operator after restarting the source PC with HDMI
+attached. Some firmware reads EDID only at startup; reconnecting HDMI alone may
+not update its output mode. See [capture compatibility](hardware/capture/README.md)
+for supported modes and PS5 setup. VGA regression and PS5 testing with this
+profile are still pending.
 
 ## Verified functionality
 

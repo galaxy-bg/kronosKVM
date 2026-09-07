@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fix direct-HDMI capture compatibility on the two-lane X630 using a persistent
+  EDID that prefers 720p60 and retains 1080p30 and legacy PC modes. Document
+  source-PC restart requirements for BIOS, PS5 HDCP setup, and pending device
+  compatibility tests.
+
 - Establish the prototype repository, documentation and FastAPI skeleton.
 - Add read-only local and remote hardware inventory tooling.
 - Add idempotent base OS preparation and current-release update workflows.
