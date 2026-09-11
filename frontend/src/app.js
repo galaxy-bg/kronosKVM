@@ -1,3 +1,27 @@
+const startupSplash = document.querySelector("#startup-splash");
+const startupShell = document.querySelector(".app-shell");
+let startupFinished = false;
+let startupTimeout;
+
+function dismissStartupSplash() {
+  if (startupFinished) return;
+  startupFinished = true;
+  window.clearTimeout(startupTimeout);
+  const restoreFocus = startupSplash.contains(document.activeElement);
+  startupShell.inert = false;
+  document.body.classList.remove("startup-pending");
+  startupSplash.hidden = true;
+  if (restoreFocus) document.querySelector("#session-search").focus({ preventScroll: true });
+}
+
+startupSplash.hidden = false;
+startupShell.inert = true;
+document.body.classList.add("startup-pending");
+document.querySelector("#startup-skip").addEventListener("click", dismissStartupSplash);
+// Keep the dashboard reachable even if initialization fails or requests stall.
+startupTimeout = window.setTimeout(dismissStartupSplash, 8000);
+const startupMinimum = new Promise((resolve) => window.setTimeout(resolve, 2500));
+
 const text = (value, fallback = "unknown") =>
   value === null || value === undefined || value === "" ? fallback : String(value);
 
@@ -22,6 +46,7 @@ function applyTheme(theme) {
 
 applyTheme(localStorage.getItem(themeStorageKey) || "light");
 document.querySelector("#footer-address").textContent = location.hostname;
+document.querySelector("#copyright-year").textContent = new Date().getFullYear();
 
 function setCollapsed(panel, collapsed) {
   panel.classList.toggle("collapsed", collapsed);
@@ -145,11 +170,16 @@ function renderNetwork(network) {
   ).join("");
 }
 
-function renderServices() {
+function renderServices(hidStatus = null) {
   const services = [
     { name: "Web Interface", detail: "AP management access", status: "online", ready: true },
     { name: "Console Ports", detail: "Console 1 and Console 2 mapped", status: "mapped", ready: true },
-    { name: "KVM OTG", detail: "USB-C device · requires GPIO power", status: "power setup pending", ready: false },
+    {
+      name: "KVM OTG",
+      detail: "USB-C HID · Witty Pi GPIO power",
+      status: hidStatus === null ? "status unavailable" : hidStatus.ready === true ? "ready" : "HID not ready",
+      ready: hidStatus?.ready === true,
+    },
     { name: "Video Input", detail: "HDMI capture · /dev/video0", status: "ready", ready: true },
     { name: "Internal Stage", detail: "32 GiB SD pool · 10 GiB reserve", status: "ready", ready: true },
   ];
@@ -1865,8 +1895,9 @@ async function load() {
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
     getJson("/api/v1/system/network"),
+    getJson("/api/v1/hid/status"),
   ]);
-  const [healthResult, systemResult, networkResult] = results;
+  const [healthResult, systemResult, networkResult, hidResult] = results;
 
   if (healthResult.status === "fulfilled") {
     const healthData = healthResult.value;
@@ -1879,7 +1910,7 @@ async function load() {
   }
 
   try {
-    renderServices();
+    renderServices(hidResult.status === "fulfilled" ? hidResult.value : null);
   } catch (error) {
     console.error("Service readiness render failed", error);
   }
@@ -2123,5 +2154,5 @@ document.addEventListener("click", (event) => {
     if (!menu.contains(event.target)) menu.removeAttribute("open");
   });
 });
-load();
+Promise.allSettled([load(), startupMinimum]).then(dismissStartupSplash);
 window.setInterval(loadTasks, 3000);

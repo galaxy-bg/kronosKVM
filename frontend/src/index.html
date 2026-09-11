@@ -6,10 +6,21 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KDX InfraBox</title>
   <link rel="icon" href="/infrabox-logo-transparent.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.40.css">
+  <link rel="stylesheet" href="/styles-0.3.44.css">
   <link rel="stylesheet" href="/services.css">
 </head>
 <body>
+  <div id="startup-splash" class="startup-splash" hidden>
+    <div class="startup-brand">
+      <img src="/infrabox-logo-transparent.png" width="144" height="144" alt="">
+      <p class="startup-eyebrow">K R O N O S D X</p>
+      <h1>KDX InfraBox</h1>
+      <p class="startup-tagline">Infrastructure in a Box</p>
+      <div class="startup-status" role="status"><span class="startup-spinner" aria-hidden="true"></span>Preparing your workspace…</div>
+      <button id="startup-skip" type="button">Continue to dashboard <span aria-hidden="true">→</span></button>
+    </div>
+    <div class="startup-caption"><p>Portable Access <span>·</span> Recovery <span>·</span> Diagnostics</p><p class="startup-powered">Powered by <strong>KronosDX</strong></p></div>
+  </div>
   <div class="app-shell">
     <aside id="sidebar" class="sidebar">
       <nav class="side-nav" aria-label="Main navigation">
@@ -113,7 +124,7 @@
         </section>
       </main>
 
-      <footer class="statusbar"><span><i></i> KDX InfraBox management interface</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.40</span></footer>
+      <footer class="statusbar"><span class="footer-copyright">© <time id="copyright-year">2026</time> KronosDX. All rights reserved.</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.44</span></footer>
     </div>
   </div>
 
@@ -137,6 +148,6 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
-  <script src="/app-0.3.40.js" defer></script>
+  <script src="/app-0.3.44.js" defer></script>
 </body>
 </html>
