@@ -1,15 +1,35 @@
 # USB Gadget
 
-The USB-C `SLAVE` port is physically confirmed as the KVM OTG/device candidate.
-Connecting it removes the carrier's internal USB host hub and USB ETH1 from the
-CM4 topology; disconnecting it restores them. This indicates a carrier-level
-USB host/device mux.
+The USB-C connector is assigned exclusively to KVM OTG/device mode. Boot config
+uses:
 
-The current boot configuration uses `otg_mode=1`, so `/sys/class/udc` remains
-empty and the connected Mac does not enumerate a KronosKVM USB device. No
-gadget has been configured. DWC2 peripheral mode must be enabled and verified
-before creating keyboard, relative mouse, absolute mouse or read-only-first
-mass-storage functions.
+```ini
+[all]
+dtoverlay=dwc2,dr_mode=peripheral
+```
 
-USB1-3 and ETH1 must be treated as unavailable while KVM OTG is selected unless
-later hardware testing proves simultaneous operation.
+The registered UDC is `fe980000.usb`. `scripts/setup-hid-gadget.sh` builds a
+small ConfigFS composite gadget designed for the Pi 4 DWC2 controller:
+
+- `/dev/hidg0`: 8-byte boot keyboard
+- `/dev/hidg1`: 3-byte BIOS-compatible relative boot mouse
+- `mass_storage.usb0`: one removable, read-only virtual-media LUN
+
+An earlier three-interface keyboard/absolute-mouse/relative-mouse profile
+caused DWC2 endpoint shutdowns during testing. The two-interface profile avoids
+that unstable third periodic endpoint.
+
+UDC state meanings used during diagnosis:
+
+- `not attached`: gadget is ready but no powered USB host is connected
+- `configured`: the target host enumerated and configured the gadget
+
+The four USB-A host ports remain independent while USB-C operates in device
+mode. The mass-storage function stays configured with an empty LUN so ISO/IMG
+media can be inserted or ejected without rebuilding the composite gadget.
+
+## Power warning
+
+GPIO power and target USB VBUS must not be treated as isolated supplies. The
+final power board must prevent backfeed and provide correct power sequencing.
+Until then, boot the appliance before attaching the target OTG cable.

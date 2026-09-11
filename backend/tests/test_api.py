@@ -8,6 +8,7 @@ from backend.app.hardware.video import capture_devices
 from backend.app.main import create_app
 from backend.app.services import connections as connection_service
 from backend.app.services import storage as storage_service
+from backend.app.services import virtual_media as virtual_media_service
 
 client = TestClient(create_app())
 
@@ -18,6 +19,62 @@ def test_health() -> None:
     assert response.json()["status"] == "ok"
     assert response.json()["version"] == "0.1.0"
     assert response.headers["x-request-id"] == "test-request"
+
+
+def test_mutations_create_logged_tasks() -> None:
+    from backend.app.services import tasks as task_service
+
+    task_service.TASKS.clear()
+    response = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": False},
+    )
+    assert response.status_code == 400
+    task_id = response.headers["x-kronos-task-id"]
+    task = next(
+        item
+        for item in client.get("/api/v1/tasks").json()["tasks"]
+        if item["id"] == task_id
+    )
+    assert task["status"] == "failed"
+    assert task["error"] == "HTTP 400"
+
+
+def test_network_settings_lists_ethernet_and_stages_static_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from backend.app.api import network_settings
+
+    net_root = tmp_path / "net"
+    state = tmp_path / "state"
+    eth0 = net_root / "eth0"
+    eth0.mkdir(parents=True)
+    (eth0 / "device").mkdir()
+    state.mkdir()
+    monkeypatch.setattr(network_settings, "NET_ROOT", net_root)
+    monkeypatch.setattr(network_settings, "STATE_PATH", state)
+    monkeypatch.setattr(network_settings, "REQUEST_PATH", state / "network-action")
+
+    listing = client.get("/api/v1/network/settings")
+    assert listing.status_code == 200
+    assert listing.json()["interfaces"][0]["interface"] == "eth0"
+
+    response = client.post(
+        "/api/v1/network/settings",
+        json={
+            "interface": "eth0",
+            "mode": "static",
+            "address": "192.168.50.10/24",
+            "gateway": "192.168.50.1",
+            "dns": ["1.1.1.1", "8.8.8.8"],
+            "confirmed": True,
+        },
+    )
+    assert response.status_code == 202
+    request = network_settings.REQUEST_PATH.read_text(encoding="ascii")
+    assert "interface=eth0" in request
+    assert "address=192.168.50.10/24" in request
+    assert "dns=1.1.1.1,8.8.8.8" in request
 
 
 def test_optional_hardware_does_not_block_startup() -> None:
@@ -40,6 +97,26 @@ def test_system_endpoints() -> None:
         assert response.status_code == 200
 
 
+def test_power_action_requires_confirmation_and_stages_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from backend.app.api import routes
+
+    action_path = tmp_path / "power-action"
+    monkeypatch.setattr(routes, "POWER_ACTION_PATH", action_path)
+    denied = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": False},
+    )
+    assert denied.status_code == 400
+    accepted = client.post(
+        "/api/v1/system/power",
+        json={"action": "reboot", "confirmed": True},
+    )
+    assert accepted.status_code == 202
+    assert action_path.read_text(encoding="ascii") == "reboot\n"
+
+
 def test_physical_port_detection(tmp_path: Path) -> None:
     from backend.app.hardware.ports import physical_ports
 
@@ -49,7 +126,7 @@ def test_physical_port_detection(tmp_path: Path) -> None:
     usb_root.mkdir()
     tty_root.mkdir()
     udc_root.mkdir()
-    device = usb_root / "1-1.1"
+    device = usb_root / "1-1.3"
     device.mkdir()
     (device / "product").write_text("USB Serial Adapter", encoding="utf-8")
     inventory = physical_ports(usb_root, tty_root, udc_root)
@@ -58,9 +135,68 @@ def test_physical_port_detection(tmp_path: Path) -> None:
     assert console_1.device_name == "USB Serial Adapter"
 
 
+def test_service_and_storage_usb_port_mapping(tmp_path: Path) -> None:
+    from backend.app.hardware.ports import physical_ports
+
+    usb_root = tmp_path / "usb"
+    tty_root = tmp_path / "tty"
+    udc_root = tmp_path / "udc"
+    usb_root.mkdir()
+    tty_root.mkdir()
+    udc_root.mkdir()
+    service_device = usb_root / "1-1.2"
+    service_device.mkdir()
+    (service_device / "product").write_text("USB 10/100 LAN", encoding="utf-8")
+
+    inventory = physical_ports(usb_root, tty_root, udc_root)
+    service = next(port for port in inventory.ports if port.id == "service_usb")
+    storage = next(port for port in inventory.ports if port.id == "expansion_usb")
+
+    port_ids = [port.id for port in inventory.ports]
+    assert port_ids.index("expansion_usb") < port_ids.index("service_usb")
+    assert service.usb_path == "1-1.2 / 2-2"
+    assert service.connected is True
+    assert service.device_name == "USB 10/100 LAN"
+    assert storage.usb_path == "1-1.1 / 2-1"
+    assert storage.connected is False
+
+
 def test_usb_controller_detection(tmp_path: Path) -> None:
     (tmp_path / "fe980000.usb").mkdir()
     assert controllers(tmp_path) == ["fe980000.usb"]
+
+
+def test_service_status_and_restart_request(tmp_path: Path, monkeypatch) -> None:
+    from backend.app.api import services
+
+    monkeypatch.setattr(services, "STATE_PATH", tmp_path)
+    monkeypatch.setattr(services, "REQUEST_PATH", tmp_path / "service-action")
+    monkeypatch.setattr(services, "STATUS_PATH", tmp_path / "service-status.json")
+    services.STATUS_PATH.write_text(
+        '{"updated_at":"2026-08-15T12:00:00Z","services":{"management_ap":{"state":"active","detail":"NetworkManager"}}}',
+        encoding="utf-8",
+    )
+
+    listing = client.get("/api/v1/services")
+    assert listing.status_code == 200
+    management_ap = next(item for item in listing.json()["services"] if item["id"] == "management_ap")
+    assert management_ap["state"] == "active"
+    assert management_ap["restartable"] is True
+
+    restart = client.post("/api/v1/services/management_ap/restart", json={"confirmed": True})
+    assert restart.status_code == 202
+    request = services.REQUEST_PATH.read_text(encoding="ascii")
+    assert "service=management_ap\n" in request
+    assert "action=restart\n" in request
+
+    denied = client.post("/api/v1/services/networkmanager/restart", json={"confirmed": True})
+    assert denied.status_code == 400
+
+    (tmp_path / "service-log-dnsmasq.log").write_text("DHCPDISCOVER\nDHCPACK 192.168.34.156\n", encoding="utf-8")
+    logs = client.get("/api/v1/services/dnsmasq/logs")
+    assert logs.status_code == 200
+    assert logs.json()["lines"] == ["DHCPDISCOVER", "DHCPACK 192.168.34.156"]
+    assert client.get("/api/v1/services/unknown/logs").status_code == 404
 
 
 def test_serial_detection(tmp_path: Path) -> None:
@@ -109,6 +245,18 @@ def test_staging_storage_rejects_unsafe_names() -> None:
             raise AssertionError(f"Unsafe name accepted: {name}")
 
 
+def test_incomplete_storage_uploads_are_cleaned(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    fragment = tmp_path / ".installer.iso.test-task.uploading"
+    completed = tmp_path / "firmware.bin"
+    fragment.write_bytes(b"partial")
+    completed.write_bytes(b"complete")
+    assert storage_service.cleanup_incomplete_uploads() == [fragment.name]
+    assert not fragment.exists()
+    assert completed.exists()
+
+
 def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path / "external")
     monkeypatch.setattr(storage_service, "REQUIRE_MARKER", True)
@@ -116,6 +264,40 @@ def test_staging_storage_requires_initialized_media(tmp_path: Path, monkeypatch)
     assert response.status_code == 200
     assert response.json()["status"] == "media_missing"
     assert client.put("/api/v1/storage/files/test.iso", content=b"data").status_code == 503
+
+
+def test_virtual_media_attach_and_eject_requests(tmp_path: Path, monkeypatch) -> None:
+    staging = tmp_path / "storage"
+    state = tmp_path / "state"
+    staging.mkdir()
+    state.mkdir()
+    (staging / "linux.iso").write_bytes(b"iso")
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", staging)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    monkeypatch.setattr(virtual_media_service, "STATE_PATH", state)
+    monkeypatch.setattr(virtual_media_service, "REQUEST_PATH", state / "virtual-media-action")
+    monkeypatch.setattr(virtual_media_service, "STATUS_PATH", state / "virtual-media-status")
+
+    attached = client.post("/api/v1/storage/virtual-media", json={"filename": "linux.iso"})
+    assert attached.status_code == 202
+    assert attached.json()["status"] == "attaching"
+    assert virtual_media_service.REQUEST_PATH.read_text(encoding="utf-8") == "attach\nlinux.iso\n"
+
+    ejected = client.delete("/api/v1/storage/virtual-media")
+    assert ejected.status_code == 202
+    assert ejected.json()["status"] == "ejecting"
+    assert virtual_media_service.REQUEST_PATH.read_text(encoding="utf-8") == "eject\n\n"
+
+
+def test_virtual_media_rejects_non_image(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    (tmp_path / "firmware.bin").write_bytes(b"firmware")
+    response = client.post(
+        "/api/v1/storage/virtual-media",
+        json={"filename": "firmware.bin"},
+    )
+    assert response.status_code == 400
 
 
 def test_connection_profile_lifecycle(tmp_path: Path, monkeypatch) -> None:

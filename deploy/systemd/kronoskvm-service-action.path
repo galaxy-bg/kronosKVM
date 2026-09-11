@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for approved KDX InfraBox service actions
+
+[Path]
+PathExists=/var/lib/kronoskvm/state/service-action
+Unit=kronoskvm-service-action.service
+
+[Install]
+WantedBy=multi-user.target

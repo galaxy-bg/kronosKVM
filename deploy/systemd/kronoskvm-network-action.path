@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for approved KronosKVM network actions
+
+[Path]
+PathExists=/var/lib/kronoskvm/state/network-action
+Unit=kronoskvm-network-action.service
+
+[Install]
+WantedBy=multi-user.target

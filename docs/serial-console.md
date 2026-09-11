@@ -1,33 +1,25 @@
 # Serial Console
 
-Initial support targets Cisco, Aruba, HPE Comware, Zyxel, Linux and generic
-devices. Default profile is 9600 8N1 without flow control. Discovery will inspect
-`/dev/ttyUSB*`, `/dev/ttyACM*`, VID/PID, serial, driver and stable udev path.
-TCP exposure remains disabled during initial phases.
+KronosKVM supports browser serial sessions for Cisco, Aruba, HPE Comware,
+Ruijie, Zyxel, Linux and generic console devices. The default profile is auto
+baud with 8N1 and no flow control; common rates from 9600 through 115200 are
+available manually.
 
-## Milestone 4 foundation
+The API discovers `/dev/ttyUSB*` and `/dev/ttyACM*`, resolves the stable USB
+topology, opens exclusive sessions and streams terminal data over WebSocket.
+The UI supports auto-detection, reconnect, configurable line settings and
+explicit temporary session logging.
 
-The API discovers adapters without opening them:
+## Physical assignments
 
-- `GET /api/v1/serial/devices`
-- `POST /api/v1/serial/locks`
-- `DELETE /api/v1/serial/locks/{device_name}`
+- Console 1: black USB-A 2.0, topology `1-1.3`
+- Console 2: black USB-A 2.0, topology `1-1.4`
 
-Locks are exclusive and return a random release token. Unknown devices cannot be
-locked. Lock state is intentionally in-memory and clears on service restart.
+The PL2303 adapter used during verification appeared as `/dev/ttyUSB0`.
+`/dev/serial/by-id` remains preferable when an adapter exposes a unique serial
+number.
 
-The `kronoskvm` service receives supplementary `dialout` group membership, but
-there is no endpoint for opening, reading or writing a serial port yet. TCP
-serial exposure remains disabled.
-
-Supported initial profiles are 9600, 19200, 38400 and 115200 baud, all using
-8N1 without flow control.
-
-## Physical console assignments
-
-- `Console 1`: chassis USB1, stable topology path `1-1.1`
-- `Console 2`: chassis USB2, stable topology path `1-1.2`
-
-Device identity should still prefer `/dev/serial/by-id` when an adapter exposes
-a serial number. The physical topology path is the fallback that preserves the
-chassis port assignment when adapters are swapped.
+Session transcripts are written only after the operator presses **Start log**.
+They are staged under the API container's temporary filesystem, can be
+downloaded from Session Logs and are allowed to disappear on API/appliance
+restart. Terminal payloads are not copied into the persistent application log.

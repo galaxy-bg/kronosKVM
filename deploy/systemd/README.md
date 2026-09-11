@@ -1,7 +1,10 @@
 # systemd
 
-`kronoskvm-api.service` runs the FastAPI control plane as the locked
-`kronoskvm` account. It binds only to `127.0.0.1:8000` and applies baseline
-systemd hardening.
+The active appliance uses `kronoskvm-containers.service` to start the API and
+web containers. The API binds only inside the Compose network; the web gateway
+publishes the management application on Ethernet and the appliance AP.
 
-Capture, HID, virtual-media and serial units remain unimplemented and disabled.
+`kronoskvm-usb-gadget.service` configures the USB-C keyboard and relative-mouse
+gadget after boot. `kronoskvm-power-action.path` watches the API's constrained
+request file and delegates validated reboot or power-off actions to a root-only
+helper. See the unit files in this directory for ordering and hardening details.

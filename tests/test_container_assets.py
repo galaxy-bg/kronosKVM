@@ -20,7 +20,7 @@ def test_compose_api_is_hardened_and_localhost_only() -> None:
     )
     assert "/mnt/kronoskvm-storage:/storage" in api["volumes"]
     assert api["environment"]["KRONOSKVM_STORAGE_PATH"] == "/storage"
-    assert api["environment"]["KRONOSKVM_STORAGE_REQUIRE_MARKER"] == "1"
+    assert api["environment"]["KRONOSKVM_STORAGE_REQUIRE_MARKER"] == "0"
 
 
 def test_boot_service_does_not_pin_a_stale_image_version() -> None:
@@ -28,7 +28,7 @@ def test_boot_service_does_not_pin_a_stale_image_version() -> None:
         encoding="utf-8"
     )
     assert "Environment=KRONOSKVM_VERSION=" not in unit
-    assert "ExecStartPre=/usr/bin/install -d -m 0755 -o root -g root /mnt/kronoskvm-storage" in unit
+    assert "ExecStartPre=/usr/bin/install -d -m 0750 -o 10001 -g 20 /mnt/kronoskvm-storage" in unit
     assert "ExecStart=/opt/kronoskvm/scripts/start-containers.sh" in unit
     assert "ExecStartPre=/opt/kronoskvm/scripts/setup-hid-gadget.sh" in unit
 
@@ -55,9 +55,9 @@ def test_container_runs_as_non_root() -> None:
 def test_web_assets_use_filename_versioning() -> None:
     html = Path("frontend/src/index.html").read_text(encoding="utf-8")
     dockerfile = Path("Dockerfile.web").read_text(encoding="utf-8")
-    assert "/app-0.3.26.js" in html
-    assert "/styles-0.3.26.css" in html
-    assert "app-0.3.26.js" in dockerfile
+    assert "/app-0.3.44.js" in html
+    assert "/styles-0.3.44.css" in html
+    assert "app-0.3.44.js" in dockerfile
     assert 'id="terminal-layer"' in html
     app = Path("frontend/src/app.js").read_text(encoding="utf-8")
     assert "const terminals = new Map()" in app
@@ -68,7 +68,7 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'class="action-menu"' in Path("frontend/src/app.js").read_text(
         encoding="utf-8"
     )
-    assert "/kronoskvm-logo.png" in html
+    assert "/infrabox-logo-transparent.png" in html
     assert 'data-theme-choice="light"' in html
     assert 'data-theme-choice="dark"' in html
     assert 'class="side-nav"' in html
@@ -77,11 +77,13 @@ def test_web_assets_use_filename_versioning() -> None:
     assert 'data-collapse-id="physical-ports-v2"' in html
     assert 'data-collapse-id="appliance-status-v2"' in html
     assert html.count('data-collapse-group="hardware-details"') == 2
-    assert html.count('data-default-collapsed="true"') == 3
+    assert html.count('data-default-collapsed="true"') == 5
     assert 'class="header-brand"' in html
-    assert "header-brand-mark" not in html
-    assert "Remote Console Toolkit" in html
-    assert "All-in-One IP-KVM System" in html
+    assert "header-brand-mark" in html
+    assert "KDX InfraBox" in html
+    assert 'data-view="services"' in html
+    assert 'id="service-cards"' in html
+    assert "Infrastructure in a Box" in html
     assert html.index('id="new-session"') > html.index('id="active-sessions-title"')
     assert "function setCollapsed" in app
     assert 'id="storage-panel"' in html
@@ -131,11 +133,43 @@ def test_web_assets_use_filename_versioning() -> None:
     assert "suppressStreamError" in app
 
 
-def test_hid_gadget_has_absolute_and_bios_mouse_interfaces() -> None:
+def test_hid_gadget_uses_pi4_stable_keyboard_and_boot_mouse_interfaces() -> None:
     setup = Path("scripts/setup-hid-gadget.sh").read_text(encoding="utf-8")
-    assert "hid.mouse_relative" in setup
-    assert "printf '1' >\"${gadget}/functions/hid.mouse_relative/subclass\"" in setup
-    assert "printf '3' >\"${gadget}/functions/hid.mouse_relative/report_length\"" in setup
+    assert "Pi 4 DWC2 gadget" in setup
+    assert "printf '1' >\"${gadget}/functions/hid.mouse/subclass\"" in setup
+    assert "printf '3' >\"${gadget}/functions/hid.mouse/report_length\"" in setup
+    assert 'ln -sfn "${gadget}/functions/hid.mouse_relative"' not in setup
+    assert "functions/mass_storage.usb0" in setup
+    assert "lun.0/removable" in setup
+    assert "lun.0/ro" in setup
+
+
+def test_virtual_media_host_helper_is_installed() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-virtual-media-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-virtual-media-action.path" in installer
+    assert "handle-virtual-media-action.sh" in installer
+    assert "mass_storage.usb0/lun.0" in helper
+    assert "realpath" in helper
+
+
+def test_network_host_helper_is_constrained() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-network-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-network-action.path" in installer
+    assert '"${interface}" == "wlan0"' in helper
+    assert "nmcli connection modify" in helper
+    assert "ipv4.method auto" in helper
+    assert "ipv4.method manual" in helper
+
+
+def test_service_host_helper_is_allow_listed() -> None:
+    installer = Path("scripts/install-containers.sh").read_text(encoding="utf-8")
+    helper = Path("scripts/handle-service-action.sh").read_text(encoding="utf-8")
+    assert "kronoskvm-service-action.path" in installer
+    assert "systemctl restart" in helper
+    assert "unit_for" in helper
+    assert "eval" not in helper
 
 
 def test_web_gateway_is_hardened_and_ap_only() -> None:
@@ -147,8 +181,13 @@ def test_web_gateway_is_hardened_and_ap_only() -> None:
     assert web["cap_drop"] == ["ALL"]
     assert web["cap_add"] == ["CHOWN", "NET_BIND_SERVICE", "SETGID", "SETUID"]
     assert "no-new-privileges:true" in web["security_opt"]
+    assert "/etc/kronoskvm/tls:/etc/nginx/tls:ro" in web["volumes"]
     assert "listen 0.0.0.0:80 default_server;" in nginx
+    assert "listen 0.0.0.0:443 ssl;" in nginx
+    assert "ssl_certificate /etc/nginx/tls/kdx-infrabox.crt;" in nginx
+    assert "ssl_protocols TLSv1.2 TLSv1.3;" in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
+    assert 'add_header Cache-Control "no-store" always;' in nginx
     assert 'proxy_set_header Upgrade $http_upgrade;' in nginx
     assert 'Cache-Control "no-store, no-cache, must-revalidate"' in nginx
     assert "client_max_body_size 16g;" in nginx

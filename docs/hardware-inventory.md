@@ -1,5 +1,9 @@
 # Hardware Inventory
 
+> Legacy record: this page describes the retired CM4 carrier prototype
+> inventoried in July 2026. For the active appliance, see
+> [Hardware](hardware.md) and [Physical Port Map](physical-port-map.md).
+
 Status: initial read-only inventory completed on 2026-07-16. The private raw
 report remains local under `artifacts/inventory/` and is not committed.
 

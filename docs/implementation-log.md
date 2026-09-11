@@ -1,5 +1,45 @@
 # Implementation Log
 
+> Historical log: early entries describe the retired CM4 prototype. The active
+> Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
+
+## 2026-09-07 — Direct HDMI compatibility
+
+- Reached the active appliance at its new DHCP address, `192.168.1.107`.
+- Diagnosed stable 1080p60 HDMI input with no captured frames: the generic
+  EDID advertised a mode requiring more CSI lanes than the two configured.
+- Added `config/edid/infrabox-compat.hex`, preferring 720p60 and retaining
+  lower-bandwidth HDMI and legacy PC modes, and deployed it with the capture
+  startup script. Previous live settings were backed up at
+  `/var/tmp/kdx-capture-backup.EKC5JD` on the appliance.
+- Confirmed the profile remained loaded after an appliance restart.
+- HDMI reconnection alone did not change the BIOS output. After restarting
+  the source PC with HDMI attached, the operator confirmed video was restored.
+  No post-confirmation measurement of the negotiated mode was taken.
+- Validation: EDID conformity PASS in edid-decode (with a multiple-native-timing
+  warning), profile checksum/mode regression test passed, and shell syntax checked.
+- Older VGA PC regression and PS5 hardware validation are pending. PS5 capture
+  requires HDCP disabled at the source; EDID cannot force noncompliant sources
+  or fixed-output converters to choose a supported mode.
+
+## Active appliance migration — August 2026
+
+- Migrated the prototype to the four-host-port appliance platform with a
+  dedicated USB-C DWC2 device controller.
+- Assigned the two black USB 2.0 ports to Console 1 and Console 2, and the two
+  blue USB 3.0 ports to Service USB and External Storage.
+- Enabled HDMI-to-CSI capture on `/dev/video0` and validated browser video.
+- Replaced the unstable three-interface HID gadget with a boot keyboard and
+  BIOS-compatible relative mouse.
+- Added the open development AP `KronosDX-iKVM` at `192.168.34.100`, while
+  retaining Ethernet as the primary upstream and management path.
+- Added a 32 GiB internal staging allocation, concurrent background uploads,
+  cancellation, progress reporting and incomplete-fragment cleanup.
+- Added structured application logs, temporary console/KVM session logs and
+  safe host-mediated reboot/power-off controls.
+- Kept hardware model names out of the operator UI; service documentation owns
+  board- and bridge-specific details.
+
 ## 2026-07-16
 
 - Created the public GitHub repository and initial prototype.
