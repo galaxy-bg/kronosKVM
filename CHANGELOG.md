@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add read-only External Storage browsing, downloads, copy-to-stage and Copy & Mount.
+- Account for active uploads in available staging capacity; show insufficient-space
+  reasons before external copies while retaining the 32 GiB quota and 10 GiB reserve.
+- Fix virtual-media eject to clear the backing file and report host helper errors.
+- Preserve accumulated mouse movement, add adjustable sensitivity (default 0.2x),
+  and reduce video pipe buffering.
+- Improve snapshot and browser recording cleanup, format selection and size/time limits.
+  **Known issue:** the operator still reports frozen video recordings after the latest
+  fresh-JPEG recording change; recording is not validated as working. MP4 depends on
+  browser MediaRecorder support, with WebM fallback.
+
+
 - Fix direct-HDMI capture compatibility on the two-lane X630 using a persistent
   EDID that prefers 720p60 and retains 1080p30 and legacy PC modes. Document
   source-PC restart requirements for BIOS, PS5 HDCP setup, and pending device

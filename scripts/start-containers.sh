@@ -24,6 +24,7 @@ docker run --detach \
     --volume /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro \
     --volume /etc/kronoskvm:/etc/kronoskvm:ro \
     --volume /mnt/kronoskvm-storage:/storage \
+    --volume /mnt/kronoskvm-external:/external:ro,rslave \
     --volume /var/lib/kronoskvm/state:/state \
     --volume /var/log/kronoskvm:/logs \
     --env KRONOSKVM_STORAGE_PATH=/storage \

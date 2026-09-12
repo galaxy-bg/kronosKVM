@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 from backend.app.models import PhysicalPort, PhysicalPortInventory
+from backend.app.services.external_storage import inventory as external_inventory
 
 PORTS = (
     ("console_1", "Console 1", "USB-A 2.0 · Console 1", ("1-1.3",)),
@@ -45,6 +46,7 @@ def physical_ports(
     video_device: Path = Path("/dev/video0"),
 ) -> PhysicalPortInventory:
     ports = []
+    external_ready = any(item["status"] == "ready" for item in external_inventory()["devices"])
     for port_id, name, label, usb_paths in PORTS:
         active_path = next((path for path in usb_paths if (usb_root / path).exists()), None)
         device = usb_root / active_path if active_path else None
@@ -57,7 +59,8 @@ def physical_ports(
                 physical_label=label,
                 usb_path=" / ".join(usb_paths),
                 connected=connected,
-                status="connected" if connected else "disconnected",
+                status=("ready" if port_id == "expansion_usb" and connected and external_ready
+                        else "connected" if connected else "disconnected"),
                 device_name=_read(device / "product") if device else None,
                 vendor_id=_read(device / "idVendor") if device else None,
                 product_id=_read(device / "idProduct") if device else None,

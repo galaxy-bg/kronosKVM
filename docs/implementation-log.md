@@ -3,6 +3,26 @@
 > Historical log: early entries describe the retired CM4 prototype. The active
 > Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
 
+## 2026-09-12 — External storage and KVM session updates
+
+- Deployed external USB mounting/browsing and staging copy/mount actions to the active
+  appliance. Verified exFAT media inventory and directory access.
+- Corrected executable permissions on host action scripts and the zero-byte eject
+  write; verified repeated attach/eject cycles against the actual gadget backing file.
+- Added active-copy capacity accounting, preflight checks and single-line storage actions.
+- Confirmed HDMI input at 1920x1080p30 after the source PC restarted.
+- Replaced discarded mouse events with accumulated movement and adjustable sensitivity;
+  reduced default sensitivity to 0.2x after operator feedback.
+- Snapshot was confirmed working by the operator. Recording remains unresolved:
+  the timer advances but output appears frozen. Fresh JPEG frame delivery was verified
+  on the appliance, but the operator still reports the recording problem. Do not
+  describe browser video recording as fixed. MP4 support remains browser-dependent.
+- Resume with an actual browser recording reproduction and inspect the downloaded
+  file for multiple frames, duration and codec; mock lifecycle tests are insufficient.
+- Validation: 44 tests pass with a 1 GiB reserve override for the local test environment
+  (the Mac has less than the production 10 GiB reserve free). Appliance reserve stays
+  at 10 GiB. Existing repository lint findings remain; see the pull request.
+
 ## 2026-09-07 — Direct HDMI compatibility
 
 - Reached the active appliance at its new DHCP address, `192.168.1.107`.

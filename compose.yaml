@@ -24,6 +24,7 @@ services:
       - /sys/firmware/devicetree/base:/run/kronoskvm/device-tree:ro
       - /etc/kronoskvm:/etc/kronoskvm:ro
       - /mnt/kronoskvm-storage:/storage
+      - /mnt/kronoskvm-external:/external:ro,rslave
       - /var/lib/kronoskvm/state:/state
       - /var/log/kronoskvm:/logs
     environment:

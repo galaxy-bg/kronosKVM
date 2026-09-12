@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend.app.api.connections import router as connections_router
+from backend.app.api.external_storage import router as external_storage_router
 from backend.app.api.hid import router as hid_router
 from backend.app.api.logs import router as logs_router
 from backend.app.api.network_settings import router as network_settings_router
@@ -111,6 +112,7 @@ def create_app() -> FastAPI:
     application.include_router(network_settings_router)
     application.include_router(ssh_router)
     application.include_router(storage_router)
+    application.include_router(external_storage_router)
     application.include_router(tasks_router)
     application.include_router(video_router)
     return application

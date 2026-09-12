@@ -92,6 +92,17 @@ else
         "${INSTALL_DIR}/"
 fi
 
+run chmod 0755 "${INSTALL_DIR}/scripts/prepare-external-storage.sh"
+run install -m 0644 \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-external-root.service" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-external-storage.service" \
+    "${PROJECT_DIR}/deploy/systemd/kronoskvm-external-storage.timer" \
+    /etc/systemd/system/
+run install -m 0644 \
+    "${PROJECT_DIR}/deploy/udev/99-kronoskvm-external-storage.rules" \
+    /etc/udev/rules.d/
+run udevadm control --reload-rules
+
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-containers.service" \
     /etc/systemd/system/kronoskvm-containers.service
@@ -110,6 +121,7 @@ if ! "${DRY_RUN}"; then
     systemctl enable docker.service
     systemctl restart docker.service
     systemctl daemon-reload
+    systemctl enable --now kronoskvm-external-root.service kronoskvm-external-storage.timer
     systemctl disable --now kronoskvm-api.service || true
     (
         cd "${INSTALL_DIR}"

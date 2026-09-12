@@ -1,0 +1,11 @@
+[Unit]
+Description=KronosKVM external storage mount propagation
+Before=kronoskvm-containers.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/kronoskvm/scripts/prepare-external-storage.sh
+
+[Install]
+WantedBy=multi-user.target

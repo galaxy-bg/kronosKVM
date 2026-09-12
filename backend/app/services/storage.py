@@ -182,9 +182,10 @@ def staging_info() -> StagingStorage:
             )
         )
     managed_bytes = sum(item.size_bytes for item in files)
+    quota_reserved, physical_reserved = _active_upload_reservations()
     effective_free = min(
-        max(0, STORAGE_CAPACITY_BYTES - managed_bytes),
-        max(0, usage.free - MIN_FREE_BYTES),
+        max(0, STORAGE_CAPACITY_BYTES - managed_bytes - quota_reserved),
+        max(0, usage.free - MIN_FREE_BYTES - physical_reserved),
     )
     return StagingStorage(
         status="ready",
@@ -212,6 +213,8 @@ async def store_upload(
     filename: str,
     request: Request,
     requested_task_id: Optional[str] = None,
+    *,
+    overwrite: bool = True,
 ) -> FileOperation:
     name = _safe_name(filename)
     try:
@@ -229,6 +232,10 @@ async def store_upload(
     expected = request.headers.get("content-length")
     expected_bytes = 0
     target = root / name
+    if not overwrite and target.exists():
+        raise HTTPException(
+            status_code=409, detail="A file with this name already exists in staging"
+        )
     quota_reserved, physical_reserved = _active_upload_reservations()
     quota_available = max(
         0, STORAGE_CAPACITY_BYTES - _managed_bytes(root, exclude=target) - quota_reserved
@@ -286,7 +293,16 @@ async def store_upload(
                 )
         if written == 0:
             raise HTTPException(status_code=400, detail="Empty uploads are not accepted")
-        temporary.replace(target)
+        if overwrite:
+            temporary.replace(target)
+        else:
+            try:
+                os.link(temporary, target)
+            except FileExistsError as error:
+                raise HTTPException(
+                    status_code=409, detail="Staging filename already exists"
+                ) from error
+            temporary.unlink()
         completed = True
         _update_task(
             task_id,

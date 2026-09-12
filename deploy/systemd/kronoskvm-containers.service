@@ -1,7 +1,7 @@
 [Unit]
 Description=KronosKVM application containers
-Requires=docker.service
-After=docker.service network-online.target
+Requires=docker.service kronoskvm-external-root.service
+After=docker.service network-online.target kronoskvm-external-root.service
 Wants=network-online.target
 Conflicts=kronoskvm-api.service
 

@@ -249,6 +249,7 @@ function renderPorts(inventory) {
             data-device="${escapeHtml(port.serial_device || "")}" ${isConsole ? "" : "disabled"}>⚙ Config</button>
           <button class="menu-action" type="button" role="menuitem"
             data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">◎ Status</button>
+          ${port.id === "expansion_usb" ? `<button class="storage-action" type="button" role="menuitem">Open Storage</button>` : ""}
           ${isConsole ? `<button class="connect-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
             data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>→ Connect</button>
@@ -267,6 +268,9 @@ function renderPorts(inventory) {
     </tr>`;
   }).join("");
 
+  document.querySelectorAll(".storage-action").forEach((button) => {
+    button.addEventListener("click", () => document.querySelector('.side-link[data-view="storage"]').click());
+  });
   document.querySelectorAll(".menu-action").forEach((button) => {
     button.addEventListener("click", () => {
       showToast(button.dataset.message);
@@ -546,6 +550,110 @@ async function loadStorage() {
     document.querySelector("#storage-state").textContent = "Unavailable";
     document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Staging storage unavailable.</td></tr>';
     console.error("Storage request failed", error);
+  }
+}
+
+let externalDevice = "";
+let externalPath = "";
+let externalRequest = 0;
+let externalImportRunning = false;
+
+async function loadExternalStorage() {
+  if (externalImportRunning) return;
+  const request = ++externalRequest;
+  const badge = document.querySelector("#external-storage-state");
+  const message = document.querySelector("#external-message");
+  const body = document.querySelector("#external-files");
+  try {
+    const inventory = await getJson("/api/v1/external-storage");
+    if (request !== externalRequest) return;
+    const volumes = inventory.devices;
+    const selection = document.querySelector("#external-volume");
+    if (!volumes.some((volume) => volume.id === externalDevice)) {
+      externalDevice = volumes[0]?.id || "";
+      externalPath = "";
+    }
+    selection.innerHTML = volumes.length ? volumes.map((volume) =>
+      `<option value="${escapeHtml(volume.id)}">${escapeHtml(volume.label)} · ${escapeHtml(volume.filesystem || "Unknown filesystem")}</option>`
+    ).join("") : '<option value="">No USB volume</option>';
+    selection.value = externalDevice;
+    selection.disabled = !volumes.length || externalImportRunning;
+    const volume = volumes.find((item) => item.id === externalDevice);
+    const ready = volume?.status === "ready";
+    badge.textContent = ready ? "Mounted · Read-only" : volume ? "Not mounted" : inventory.status === "unavailable" ? "Unavailable" : "Disconnected";
+    badge.className = `badge ${ready ? "ready" : "pending"}`;
+    document.querySelector("#external-capacity").textContent = ready
+      ? `${formatBytes(volume.used_bytes)} / ${formatBytes(volume.total_bytes)} · ${formatBytes(volume.free_bytes)} free`
+      : "";
+    message.textContent = ready ? "Files are accessible. The original USB contents are preserved."
+      : volume?.message || (inventory.status === "unavailable" ? "USB mount service is unavailable. Check the external storage service on the appliance." : "Insert a USB drive into the External Storage port. Supported formats: exFAT, FAT and ext4; volumes mount automatically.");
+    document.querySelector("#external-path").textContent = `/${externalPath}`;
+    document.querySelector("#external-up").disabled = !ready || !externalPath || externalImportRunning;
+    if (!ready) {
+      body.innerHTML = '<tr><td colspan="3" class="loading-cell">No readable USB volume available.</td></tr>';
+      return;
+    }
+    const listing = await getJson(`/api/v1/external-storage/${encodeURIComponent(externalDevice)}/files?path=${encodeURIComponent(externalPath)}`);
+    if (request !== externalRequest) return;
+    const internal = await getJson("/api/v1/storage").catch(() => null);
+    if (request !== externalRequest) return;
+    document.querySelector("#external-stage-space").textContent = internal?.status === "ready"
+      ? `Internal Stage: ${formatBytes(internal.free_bytes)} available · ${formatBytes(internal.system_reserve_bytes)} reserved for the system. Copies remain until you delete them.`
+      : "Internal Stage unavailable. Copy and mount are disabled.";
+    if (listing.limited) message.textContent = "Showing the first 1,000 entries in this folder.";
+    body.innerHTML = listing.files.length ? listing.files.map((file) => {
+      const path = [externalPath, file.name].filter(Boolean).join("/");
+      const copyBlocked = internal?.status !== "ready" || file.size_bytes > internal.free_bytes;
+      const copyReason = internal?.status !== "ready" ? "Internal Stage unavailable" : copyBlocked ? `Not enough space: needs ${formatBytes(file.size_bytes)}, available ${formatBytes(internal.free_bytes)}` : "";
+      const endpoint = `/api/v1/external-storage/${encodeURIComponent(externalDevice)}`;
+      return `<tr><td>${file.directory ? `<button class="external-folder" data-path="${escapeHtml(path)}" type="button">▸ ${escapeHtml(file.name)}</button>` : escapeHtml(file.name)}</td><td>${file.directory ? "Folder" : formatBytes(file.size_bytes)}</td><td>${file.directory ? "" : `<div class="file-actions"><a href="${endpoint}/download?path=${encodeURIComponent(path)}" download>Download</a><button class="external-import" data-path="${escapeHtml(path)}" type="button" ${externalImportRunning || copyBlocked ? "disabled" : ""} title="${escapeHtml(copyReason)}" data-size="${file.size_bytes}">Copy to Internal Stage</button>${/\.(iso|img)$/i.test(file.name) ? `<button class="external-import" data-mount="true" data-path="${escapeHtml(path)}" type="button" ${externalImportRunning || copyBlocked ? "disabled" : ""} title="${escapeHtml(copyReason)}" data-size="${file.size_bytes}">Copy &amp; Mount</button>` : ""}</div>${copyBlocked ? `<small class="storage-space-warning">${escapeHtml(copyReason)}</small>` : ""}`}</td></tr>`;
+    }).join("") : '<tr><td colspan="3" class="loading-cell">This folder is empty.</td></tr>';
+    body.querySelectorAll(".external-folder").forEach((button) => button.addEventListener("click", () => {
+      if (externalImportRunning) return;
+      externalPath = button.dataset.path;
+      loadExternalStorage();
+    }));
+    body.querySelectorAll(".external-import").forEach((button) => button.addEventListener("click", async () => {
+      if (externalImportRunning) return;
+      const device = externalDevice;
+      externalImportRunning = true;
+      ++externalRequest;
+      document.querySelector("#external-volume").disabled = true;
+      document.querySelector("#external-refresh").disabled = true;
+      document.querySelector("#external-up").disabled = true;
+      let copied = false;
+      body.querySelectorAll(".external-import").forEach((item) => { item.disabled = true; });
+      message.textContent = button.dataset.mount ? "Copying to internal staging, then mounting on the target PC…" : "Copying to internal staging… Progress is available in Tasks.";
+      try {
+        const capacity = await getJson("/api/v1/storage");
+        if (capacity.status !== "ready") throw new Error("Internal Stage unavailable");
+        if (Number(button.dataset.size) > capacity.free_bytes) {
+          throw new Error(`Not enough space: needs ${formatBytes(Number(button.dataset.size))}, available ${formatBytes(capacity.free_bytes)}. Delete unused files from Internal Stage and retry.`);
+        }
+        const response = await fetch(`/api/v1/external-storage/${encodeURIComponent(device)}/import`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: button.dataset.path }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+        copied = true;
+        showToast(`${result.name}: copied to Internal Stage`);
+        if (button.dataset.mount) await setVirtualMedia(result.name);
+        await loadStorage();
+      } catch (error) {
+        showToast(`${copied ? "Copied, but mount failed" : "Copy failed"}: ${error.message}`);
+      } finally {
+        externalImportRunning = false;
+        document.querySelector("#external-refresh").disabled = false;
+        loadExternalStorage();
+      }
+    }));
+  } catch (error) {
+    if (request !== externalRequest) return;
+    badge.textContent = "Unavailable";
+    badge.className = "badge pending";
+    message.textContent = "USB storage could not be read. Reconnect the drive or return to the parent folder and refresh.";
+    body.innerHTML = '<tr><td colspan="3" class="loading-cell">USB files unavailable.</td></tr>';
   }
 }
 
@@ -1211,12 +1319,14 @@ async function loadVideoStatus() {
 function closeVideoWindow() {
   if (!videoWindow) return;
   const closingSession = videoWindow;
-  videoWindow.stopRecording?.(false);
+  videoWindow.stopRecording?.();
   videoWindow.aspectObserver?.disconnect();
   window.clearInterval(videoWindow.resolutionTimer);
   window.clearTimeout(videoWindow.streamRetryTimer);
   videoWindow.image.src = "";
   window.clearInterval(videoWindow.keepAwakeTimer);
+  videoWindow.clearMouseMotion?.();
+  videoWindow.mouseMotionAbort?.abort();
   videoWindow.releaseAllKeys?.();
   videoWindow.closeHid?.();
   videoWindow.keyboard?.remove();
@@ -1252,6 +1362,7 @@ function openVideoWindow() {
       <div class="terminal-controls"><button class="terminal-minimize" title="Minimize">−</button><button class="terminal-maximize" title="Maximize">□</button><button class="terminal-close" title="Close">×</button></div>
     </header>
     <div class="kvm-toolbar">
+      <button type="button" data-kvm-action="sensitivity" title="Change mouse sensitivity">Mouse: 0.2×</button>
       <button type="button" data-kvm-action="snapshot">▣ Snapshot</button>
       <button type="button" data-kvm-action="record">● Record</button>
       <button type="button" data-kvm-action="play">Ⅱ Pause</button>
@@ -1431,18 +1542,52 @@ function openVideoWindow() {
       }, 45);
     }, reports.length * 7 + 20);
   };
-  let lastMouseSent = 0;
+  const sensitivityLevels = [0.2, 0.35, 0.5, 0.75, 1];
+  const savedSensitivity = Number(localStorage.getItem("kronoskvm.mouse-sensitivity-v2"));
+  let mouseSensitivity = sensitivityLevels.includes(savedSensitivity) ? savedSensitivity : 0.2;
+  const sensitivityButton = element.querySelector('[data-kvm-action="sensitivity"]');
+  const renderSensitivity = () => { sensitivityButton.textContent = `Mouse: ${mouseSensitivity}×`; };
+  renderSensitivity();
+  sensitivityButton.addEventListener("click", () => {
+    mouseSensitivity = sensitivityLevels[(sensitivityLevels.indexOf(mouseSensitivity) + 1) % sensitivityLevels.length];
+    localStorage.setItem("kronoskvm.mouse-sensitivity-v2", String(mouseSensitivity));
+    clearMouseMotion();
+    renderSensitivity();
+  });
+  const mouseMotionAbort = new AbortController();
+  let mouseTimer = null;
+  let pendingMouseX = 0;
+  let pendingMouseY = 0;
+  const clearMouseMotion = () => {
+    window.clearTimeout(mouseTimer);
+    mouseTimer = null;
+    pendingMouseX = pendingMouseY = 0;
+  };
   const sendMouse = (event, wheel = 0) => {
-    if (relativeSyncing) return;
-    const x = Math.round(Math.max(-127, Math.min(127, event.movementX || 0)));
-    const y = Math.round(Math.max(-127, Math.min(127, event.movementY || 0)));
+    if (relativeSyncing) { clearMouseMotion(); return; }
+    window.clearTimeout(mouseTimer);
+    mouseTimer = null;
+    pendingMouseX += (event.movementX || 0) * mouseSensitivity;
+    pendingMouseY += (event.movementY || 0) * mouseSensitivity;
+    const x = Math.round(Math.max(-127, Math.min(127, pendingMouseX)));
+    const y = Math.round(Math.max(-127, Math.min(127, pendingMouseY)));
+    pendingMouseX -= x;
+    pendingMouseY -= y;
     sendHid({ type: "mouse", mode: "relative", buttons, x, y, wheel });
+    if (Math.abs(pendingMouseX) >= 1 || Math.abs(pendingMouseY) >= 1) {
+      mouseTimer = window.setTimeout(() => sendMouse({}), 16);
+    }
   };
   image.addEventListener("mousemove", (event) => {
-    if (performance.now() - lastMouseSent < 30) return;
-    lastMouseSent = performance.now();
-    sendMouse(event);
+    if (relativeSyncing) return;
+    pendingMouseX += (event.movementX || 0) * mouseSensitivity;
+    pendingMouseY += (event.movementY || 0) * mouseSensitivity;
+    if (mouseTimer === null) mouseTimer = window.setTimeout(() => sendMouse({}), 16);
   });
+  image.addEventListener("blur", clearMouseMotion);
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== image) clearMouseMotion();
+  }, { signal: mouseMotionAbort.signal });
   image.addEventListener("mousedown", (event) => {
     event.preventDefault();
     image.focus();
@@ -1539,57 +1684,103 @@ function openVideoWindow() {
     window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   };
   toolbarButton("snapshot").addEventListener("click", () => {
-    if (!image.naturalWidth) return showToast("Video frame is not ready");
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    canvas.getContext("2d").drawImage(image, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob) downloadBlob(blob, `kronoskvm-snapshot-${new Date().toISOString().replaceAll(":", "-")}.png`);
-    }, "image/png");
-    showToast("Snapshot captured");
+    if (!playing || !image.naturalWidth) return showToast("Video frame is not ready");
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext("2d").drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        if (!blob) return showToast("Snapshot could not be created");
+        downloadBlob(blob, `kronoskvm-snapshot-${new Date().toISOString().replaceAll(":", "-")}.png`);
+        showToast("Snapshot download started");
+      }, "image/png");
+    } catch (error) { showToast(`Snapshot failed: ${error.message}`); }
   });
   let recording = null;
   const stopRecording = (download = true) => {
-    if (!recording) return;
-    window.clearInterval(recording.timer);
-    if (recording.recorder.state !== "inactive") recording.recorder.stop();
-    recording.download = download;
+    const current = recording;
+    if (!current || current.stopping) return;
+    current.stopping = true;
+    current.download = download;
+    window.clearInterval(current.timer);
+    if (current.recorder.state !== "inactive") current.recorder.stop();
+    current.stream.getTracks().forEach((track) => track.stop());
     toolbarButton("record").classList.remove("active");
     toolbarButton("record").textContent = "● Record";
   };
+  toolbarButton("record").title = "Record to this computer; automatically saves after 15 minutes or 128 MiB";
   toolbarButton("record").addEventListener("click", () => {
-    if (recording) {
-      stopRecording();
-      return;
-    }
-    if (!image.naturalWidth || !window.MediaRecorder) return showToast("Browser recording is unavailable");
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const context = canvas.getContext("2d");
-    const timer = window.setInterval(() => {
-      try { context.drawImage(image, 0, 0, canvas.width, canvas.height); } catch (error) { console.debug(error); }
-    }, 84);
-    const options = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-      ? { mimeType: "video/webm;codecs=vp8" }
-      : {};
-    const recorder = new MediaRecorder(canvas.captureStream(12), options);
-    const chunks = [];
-    recording = { recorder, timer, chunks, download: true };
-    recorder.addEventListener("dataavailable", (event) => { if (event.data.size) chunks.push(event.data); });
-    recorder.addEventListener("stop", () => {
-      const completed = recording;
+    if (recording) { stopRecording(); return; }
+    if (!playing || !image.naturalWidth || !window.MediaRecorder) return showToast("Browser recording is unavailable or video is paused");
+    let stream;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      stream = canvas.captureStream(12);
+      const mimeType = ["video/mp4", "video/webm;codecs=vp8", "video/webm"].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      const current = { recorder, stream, chunks: [], bytes: 0, download: true, stopping: false, started: Date.now(), timer: null };
+      recording = current;
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size) { current.chunks.push(event.data); current.bytes += event.data.size; }
+        if (current.bytes >= 128 * 1024 * 1024 && !current.stopping) {
+          showToast("Recording size limit reached; downloading recording");
+          stopRecording();
+        }
+      });
+      recorder.addEventListener("stop", () => {
+        window.clearInterval(current.timer);
+        current.stream.getTracks().forEach((track) => track.stop());
+        if (recording === current) recording = null;
+        toolbarButton("record").classList.remove("active");
+        toolbarButton("record").textContent = "● Record";
+        if (current.download && current.chunks.length) {
+          const type = recorder.mimeType || current.chunks[0].type || "video/webm";
+          const extension = type.includes("mp4") ? "mp4" : "webm";
+          downloadBlob(new Blob(current.chunks, { type }), `kronoskvm-recording-${new Date().toISOString().replaceAll(":", "-")}.${extension}`);
+          showToast("Recording download started");
+        } else if (current.download) showToast("No video data was recorded");
+        current.chunks.length = 0;
+      });
+      recorder.addEventListener("error", () => {
+        showToast("Recording interrupted; saving available video");
+        stopRecording();
+      });
+      recorder.start(1000);
+      let framePending = false;
+      current.timer = window.setInterval(async () => {
+        if (Date.now() - current.started >= 15 * 60 * 1000) {
+          showToast("15 minute recording limit reached; downloading recording");
+          stopRecording();
+          return;
+        }
+        if (framePending || current.stopping) return;
+        framePending = true;
+        try {
+          const response = await fetch("/api/v1/video/latest.jpg", { cache: "no-store", signal: AbortSignal.timeout(3000) });
+          if (!response.ok) throw new Error("No current video frame");
+          const frame = await createImageBitmap(await response.blob());
+          try {
+            if (!current.stopping) context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+          } finally { frame.close(); }
+        } catch (error) {
+          if (!current.stopping) { showToast("Video unavailable; saving recording"); stopRecording(); }
+        } finally { framePending = false; }
+        if (current.stopping) return;
+        const seconds = Math.floor((Date.now() - current.started) / 1000);
+        toolbarButton("record").textContent = `■ Stop ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+      }, 84);
+      toolbarButton("record").classList.add("active");
+      showToast(`Recording started · ${recorder.mimeType.includes("mp4") ? "MP4" : "WebM (MP4 recording is not supported by this browser)"} · maximum 15 minutes / 128 MiB`);
+    } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
       recording = null;
-      if (completed?.download && chunks.length) {
-        downloadBlob(new Blob(chunks, { type: "video/webm" }), `kronoskvm-recording-${new Date().toISOString().replaceAll(":", "-")}.webm`);
-        showToast("Recording saved");
-      }
-    });
-    recorder.start(1000);
-    toolbarButton("record").classList.add("active");
-    toolbarButton("record").textContent = "■ Stop";
-    showToast("Screen recording started");
+      showToast(`Recording failed: ${error.message}`);
+    }
   });
   toolbarButton("play").addEventListener("click", () => {
     playing = !playing;
@@ -1597,6 +1788,7 @@ function openVideoWindow() {
       startVideoStream("Reconnecting video…");
       toolbarButton("play").textContent = "Ⅱ Pause";
     } else {
+      stopRecording();
       window.clearTimeout(streamRetryTimer);
       image.src = "";
       toolbarButton("play").textContent = "▷ Play";
@@ -1707,6 +1899,7 @@ function openVideoWindow() {
   }, 2000);
   videoWindow = {
     element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
+    clearMouseMotion, mouseMotionAbort,
     stopRecording, aspectObserver, resolutionTimer,
     startedAt: kvmStartedAt,
     get keyboardReports() { return keyboardReports; },
@@ -1962,6 +2155,7 @@ function showView(view) {
   if (view === "storage") {
     setCollapsed(document.querySelector("#storage-panel"), false);
     loadStorage();
+    loadExternalStorage();
   }
   if (view === "logs") {
     loadLogs();
@@ -2156,3 +2350,17 @@ document.addEventListener("click", (event) => {
 });
 Promise.allSettled([load(), startupMinimum]).then(dismissStartupSplash);
 window.setInterval(loadTasks, 3000);
+
+document.querySelector("#external-refresh").addEventListener("click", loadExternalStorage);
+document.querySelector("#external-volume").addEventListener("change", (event) => {
+  externalDevice = event.target.value;
+  externalPath = "";
+  loadExternalStorage();
+});
+document.querySelector("#external-up").addEventListener("click", () => {
+  externalPath = externalPath.split("/").slice(0, -1).join("/");
+  loadExternalStorage();
+});
+window.setInterval(() => {
+  if (!document.querySelector("#external-storage-panel").hidden && !externalImportRunning) loadExternalStorage();
+}, 5000);

@@ -319,3 +319,34 @@ def test_connection_profile_lifecycle(tmp_path: Path, monkeypatch) -> None:
     assert client.put(f"/api/v1/connections/{profile_id}", json=payload).status_code == 200
     assert client.delete(f"/api/v1/connections/{profile_id}").status_code == 204
     assert client.get("/api/v1/connections").json() == []
+
+
+def test_staging_capacity_accounts_for_active_copies(tmp_path, monkeypatch):
+    from collections import namedtuple
+
+    usage = namedtuple('usage', 'total used free')
+    monkeypatch.setattr(storage_service, 'STORAGE_PATH', tmp_path)
+    monkeypatch.setattr(storage_service, 'REQUIRE_MARKER', False)
+    monkeypatch.setattr(storage_service, 'STORAGE_CAPACITY_BYTES', 1000)
+    monkeypatch.setattr(storage_service, 'MIN_FREE_BYTES', 100)
+    monkeypatch.setattr(storage_service.shutil, 'disk_usage', lambda _: usage(2000, 1500, 500))
+    monkeypatch.setattr(storage_service, 'UPLOAD_TASKS', {
+        'copy': {'name': 'other.iso', 'status': 'running', 'bytes_total': 300, 'bytes_done': 100},
+    })
+    assert client.get('/api/v1/storage').json()['free_bytes'] == 200
+    result = client.put('/api/v1/storage/files/too-large.iso', content=b'x' * 201)
+    assert result.status_code == 507
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_latest_video_frame_rejects_stale_cache(monkeypatch):
+    from backend.app.api import video
+
+    monkeypatch.setattr(video, '_latest_frame', b'\xff\xd8test\xff\xd9')
+    monkeypatch.setattr(video, '_latest_frame_at', video.time.monotonic())
+    response = client.get('/api/v1/video/latest.jpg')
+    assert response.status_code == 200
+    assert response.content == b'\xff\xd8test\xff\xd9'
+    assert response.headers['content-type'] == 'image/jpeg'
+    monkeypatch.setattr(video, '_latest_frame_at', video.time.monotonic() - 4)
+    assert client.get('/api/v1/video/latest.jpg').status_code == 503

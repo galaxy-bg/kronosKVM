@@ -268,3 +268,25 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 @media (max-width: 1050px) { .workspace-grid { grid-template-columns: 1fr; }.workspace-card { min-height: 260px; }.detail-grid { grid-template-columns: 1fr; }.detail-section { border-right: 0; border-bottom: 1px solid var(--line); }.detail-section:last-child { border-bottom: 0; }.port-table { min-width: 760px; }.port-table-wrap { overflow-x: auto; }.session-types { grid-template-columns: repeat(2, 1fr); }.header-brand { min-width: 150px; }.header-brand-copy small { display: none; }.network-form-grid { grid-template-columns: 1fr; }.network-static-fields { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .sidebar { transform: translateX(-100%); box-shadow: 15px 0 45px rgba(0,0,0,.25); }.sidebar.mobile-open { transform: translateX(0); }.sidebar.compact { width: 224px; }.sidebar.compact .side-link span:last-child, .sidebar.compact .sidebar-toggle b, .sidebar.compact .sidebar-version { display: initial; }.sidebar.compact .brand { width: auto; }.sidebar.compact .brand-logo { width: 58px; height: 58px; transform: none; }.app-content, .sidebar.compact + .app-content { margin-left: 0; }.statusbar, .sidebar.compact + .app-content .statusbar { left: 0; }.mobile-menu { display: block; }.topbar { padding-inline: 13px; gap: 8px; }.header-brand { min-width: auto; }.header-brand-copy { display: none; }.search { flex: 1; width: auto; }.theme-switcher button span { display: none; }main { width: min(100% - 24px, 1300px); padding-top: 18px; }.terminal-window.maximized { inset: 82px 8px 44px !important; }.quick-actions > div { display: none; } }
 @media (max-width: 520px) { .badge, .header-brand { display: none; }.search { min-width: 0; }.section-title .live-label { display: none; }.workspace-card { min-height: 240px; }.session-types { grid-template-columns: 1fr 1fr; }.notice { align-items: flex-start; }.storage-summary { grid-template-columns: 1fr; }.storage-dropzone { align-items: flex-start; flex-wrap: wrap; }.storage-dropzone button { width: 100%; }.statusbar { justify-content: center; }.statusbar span:last-child { display: none; }.config-grid { grid-template-columns: 1fr; gap: 0; }.terminal-window { left: 8px !important; width: calc(100vw - 16px); min-width: 0; }.terminal-footer { align-items: flex-end; }.port-table { min-width: 700px; }.network-static-fields { grid-template-columns: 1fr; }.network-form-footer, .network-interface-heading { align-items: flex-start; flex-direction: column; }.network-form-footer button { width: 100%; } }
+
+.external-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.external-toolbar label { display: flex; align-items: center; gap: 10px; font-size: .8rem; }
+.external-toolbar select { max-width: min(70vw, 320px); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+.external-toolbar code { overflow-wrap: anywhere; }
+#external-message, .external-help { font-size: .78rem; line-height: 1.6; }
+#external-files .external-folder { border: 0; background: transparent; text-align: left; color: var(--accent-strong); overflow-wrap: anywhere; }
+#external-files td:first-child { overflow-wrap: anywhere; }
+
+/* Keep storage actions readable; narrow screens scroll the table. */
+.file-actions button, .file-actions a { white-space: nowrap; flex-shrink: 0; padding: 9px 14px; }
+#storage-panel .storage-table { min-width: 900px; }
+#storage-panel .storage-table th:first-child { width: 32%; }
+#storage-panel .storage-table th:nth-child(2) { width: 12%; }
+#storage-panel .storage-table th:nth-child(3) { width: 10%; }
+#storage-panel .storage-table th:nth-child(4) { width: 19%; }
+#external-storage-panel .storage-table { min-width: 960px; }
+#external-storage-panel .storage-table th:first-child { width: 43%; }
+#external-storage-panel .storage-table th:nth-child(2) { width: 12%; }
+#external-storage-panel .storage-table th:nth-child(3) { width: 45%; }
+.storage-space-warning { display: block; margin-top: 8px; color: var(--warning); }
+#external-stage-space { font-size: .78rem; line-height: 1.6; }

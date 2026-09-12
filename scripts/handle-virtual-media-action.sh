@@ -22,6 +22,8 @@ write_status() {
     mv -f -- "${temporary}" "${status_file}"
 }
 
+trap 'write_status error "${filename:-}" "" "Virtual media operation failed; check the host service log"' ERR
+
 if [[ ! -d "${lun}" ]]; then
     write_status unavailable "" "" "USB virtual-media gadget is not configured"
     exit 1
@@ -51,7 +53,7 @@ case "${action}" in
         exit 1
         ;;
     esac
-    printf '' >"${lun}/file"
+    printf '\n' >"${lun}/file"
     printf '%s' "${cdrom}" >"${lun}/cdrom"
     printf '1' >"${lun}/ro"
     printf '%s' "${resolved}" >"${lun}/file"
@@ -59,7 +61,7 @@ case "${action}" in
     logger --tag kronoskvm-media "Attached read-only virtual media: ${filename} (${media_type})"
     ;;
   eject)
-    printf '' >"${lun}/file"
+    printf '\n' >"${lun}/file"
     write_status ejected "" "" "Virtual media ejected"
     logger --tag kronoskvm-media "Ejected virtual media"
     ;;
