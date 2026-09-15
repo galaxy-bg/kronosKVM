@@ -23,9 +23,10 @@ CATALOG = (
     ("dnsmasq", "DHCP and DNS", "Management AP address services", True),
     ("networkmanager", "Network Manager", "Ethernet and Wi-Fi configuration", False),
     ("ssh", "SSH Management", "Secure host administration", True),
+    ("virtual_media", "Virtual Media (ISO/IMG)", "ISO/IMG mount and eject watcher", True),
     ("wittypi", "Witty Pi", "RTC and power-management daemon", True),
-    ("tftp", "TFTP Recovery", "Recovery firmware and PXE transfer service", False),
-    ("recovery_http", "HTTP Recovery", "Recovery file distribution service", False),
+    ("tftp", "TFTP Recovery", "Read-only firmware transfer · UDP 69", True),
+    ("recovery_http", "HTTP Recovery", "Read-only recovery files · HTTP 8080", True),
 )
 
 
@@ -100,6 +101,8 @@ def service_list() -> dict:
                 "description": description,
                 "state": state.get("state", "unknown"),
                 "detail": state.get("detail"),
+                "controllable": service_id in {"tftp", "recovery_http"}
+                and state.get("state") != "not_installed",
                 "restartable": restartable and state.get("state") != "not_installed",
             }
         )
@@ -135,3 +138,10 @@ def restart_service(service_id: str, value: ServiceAction) -> dict:
         "accepted": True,
         "task": _queue(service_id, "restart", f"Restart {allowed[service_id][1]}"),
     }
+
+
+@router.post("/{service_id}/{action}", status_code=status.HTTP_202_ACCEPTED)
+def control_recovery_service(service_id: str, action: str) -> dict:
+    if service_id not in {"tftp", "recovery_http"} or action not in {"start", "stop"}:
+        raise HTTPException(status_code=400, detail="Unsupported service action")
+    return {"accepted": True, "task": _queue(service_id, action, f"{action} {service_id}")}

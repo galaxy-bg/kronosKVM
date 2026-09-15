@@ -24,3 +24,9 @@ then inserts it into the permanently configured mass-storage LUN:
 - IMG files are exposed as a read-only removable disk.
 - Eject clears the LUN without rebuilding the keyboard/mouse gadget.
 - Mounted media cannot be deleted until it is ejected.
+
+If mount/eject requests stop being processed, open **Services → Virtual Media
+(ISO/IMG) → Restart** to restart the action watcher. **View Logs** includes both
+the watcher and the mount/eject helper logs.
+
+For firmware transfers over the service port, see [Recovery services](recovery-services.md).

@@ -189,6 +189,13 @@ def test_service_status_and_restart_request(tmp_path: Path, monkeypatch) -> None
     assert "service=management_ap\n" in request
     assert "action=restart\n" in request
 
+    media = next(item for item in listing.json()["services"] if item["id"] == "virtual_media")
+    assert media["restartable"] is True
+    assert client.post("/api/v1/services/virtual_media/restart", json={}).status_code == 400
+    restart = client.post("/api/v1/services/virtual_media/restart", json={"confirmed": True})
+    assert restart.status_code == 202
+    assert "service=virtual_media\n" in services.REQUEST_PATH.read_text(encoding="ascii")
+
     denied = client.post("/api/v1/services/networkmanager/restart", json={"confirmed": True})
     assert denied.status_code == 400
 

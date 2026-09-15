@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add Service Port Recovery folders, staging moves, shared quota and SHA256 checks.
+- Add on-demand read-only TFTP/HTTP services with Start/Stop/Restart and transfer logs.
+- Refresh host service status/logs automatically and expose them in the Logs view.
+- Add Virtual Media watcher restart and logs to Services.
+
 - Add read-only External Storage browsing, downloads, copy-to-stage and Copy & Mount.
 - Account for active uploads in available staging capacity; show insufficient-space
   reasons before external copies while retaining the 32 GiB quota and 10 GiB reserve.

@@ -143,7 +143,16 @@ def _managed_files(root: Path) -> list[Path]:
 
 
 def _managed_bytes(root: Path, exclude: Optional[Path] = None) -> int:
-    return sum(path.stat().st_size for path in _managed_files(root) if path != exclude)
+    total = sum(path.stat().st_size for path in _managed_files(root) if path != exclude)
+    recovery = root / "recovery"
+    if recovery.is_dir() and not recovery.is_symlink():
+        for directory, dirs, names in os.walk(recovery, followlinks=False):
+            dirs[:] = [name for name in dirs if not (Path(directory) / name).is_symlink()]
+            for name in names:
+                path = Path(directory) / name
+                if path != exclude and path.is_file() and not path.is_symlink():
+                    total += path.stat().st_size
+    return total
 
 
 def staging_info() -> StagingStorage:
@@ -181,7 +190,7 @@ def staging_info() -> StagingStorage:
                 media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream",
             )
         )
-    managed_bytes = sum(item.size_bytes for item in files)
+    managed_bytes = _managed_bytes(root)
     quota_reserved, physical_reserved = _active_upload_reservations()
     effective_free = min(
         max(0, STORAGE_CAPACITY_BYTES - managed_bytes - quota_reserved),

@@ -3,6 +3,23 @@
 > Historical log: early entries describe the retired CM4 prototype. The active
 > Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
 
+## 2026-09-15 — Service Port Recovery
+
+- Deployed shared Recovery file publication, folder paths and SHA256 checks to
+  InfraBox at `192.168.1.112`. Recovery files count toward the staging quota.
+- Added independent read-only TFTP and HTTP host services on the recovery network,
+  Start/Stop/Restart controls, and automatic five-second status/journal refresh.
+- Verified 54 local tests (1 GiB reserve override only for local tests), shell and
+  JavaScript syntax, and live stage/publish/restore, shared quota, SHA256, service
+  start/stop, HTTP byte equality and multi-block TFTP byte equality. Verified both
+  transfer logs through the API; removed the generated validation file.
+- Verified HTTP rejects writes, traversal and directory listing. This was an
+  appliance-local transfer test; actual target firmware flashing was not attempted.
+- Both download services are running after validation, but remain disabled at boot
+  for on-demand use. FTP and incoming uploads are deferred. HTTP has no Range resume.
+- API and web containers are healthy. Pre-deployment source archive is under
+  `/var/tmp/infrabox-recovery-backup.*`; prior images have `before-recovery` tags.
+
 ## 2026-09-12 — External storage and KVM session updates
 
 - Deployed external USB mounting/browsing and staging copy/mount actions to the active

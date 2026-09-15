@@ -135,4 +135,6 @@ if ! "${DRY_RUN}"; then
     systemctl restart kronoskvm-containers.service
 fi
 
+run bash "${INSTALL_DIR}/scripts/install-recovery-services.sh"
+
 printf '[INFO] KronosKVM container installation complete.\n'

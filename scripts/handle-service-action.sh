@@ -3,7 +3,12 @@ set -Eeuo pipefail
 
 state_dir=/var/lib/kronoskvm/state
 request="${state_dir}/service-action"
-[[ -f "${request}" ]] || exit 0
+exec 9>"${state_dir}/.service-action.lock"
+flock 9
+service=all
+action=refresh
+task_id=""
+if [[ -f "${request}" ]]; then
 
 value() { sed -n "s/^$1=//p" "${request}" | head -1; }
 service="$(value service)"
@@ -12,6 +17,7 @@ task_id="$(value task_id)"
 rm -f -- "${request}"
 
 [[ "${task_id}" =~ ^[0-9a-f-]{36}$ ]] || exit 1
+fi
 
 unit_for() {
     case "$1" in
@@ -20,6 +26,9 @@ unit_for() {
         dnsmasq) printf '%s' dnsmasq.service ;;
         networkmanager) printf '%s' NetworkManager.service ;;
         ssh) printf '%s' ssh.service ;;
+        virtual_media) printf '%s' kronoskvm-virtual-media-action.path ;;
+        tftp) printf '%s' kronoskvm-recovery-tftp.service ;;
+        recovery_http) printf '%s' kronoskvm-recovery-http.service ;;
         wittypi) printf '%s' wittypi.service ;;
         *) return 1 ;;
     esac
@@ -28,7 +37,7 @@ unit_for() {
 write_status() {
     local temporary="${state_dir}/.service-status.tmp" id unit state detail first=true
     printf '{"updated_at":"%s","services":{' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"${temporary}"
-    for id in containers docker dnsmasq networkmanager ssh wittypi; do
+    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http; do
         unit="$(unit_for "${id}")"
         state="$(systemctl is-active "${unit}" 2>/dev/null || true)"
         [[ -n "${state}" ]] || state=unknown
@@ -41,16 +50,19 @@ write_status() {
     state=inactive
     [[ "$(nmcli -g GENERAL.CONNECTION device show wlan0 2>/dev/null || true)" == KronosDX-iKVM ]] && state=active
     printf ',"management_ap":{"state":"%s","detail":"NetworkManager · KronosDX-iKVM"}' "${state}" >>"${temporary}"
-    printf ',"tftp":{"state":"not_configured","detail":"Recovery Network required"}' >>"${temporary}"
-    printf ',"recovery_http":{"state":"not_configured","detail":"Recovery Network required"}}}\n' >>"${temporary}"
+    printf '}}\n' >>"${temporary}"
     chown 10001:20 "${temporary}"
     chmod 0640 "${temporary}"
     mv -f -- "${temporary}" "${state_dir}/service-status.json"
 
-    for id in containers docker dnsmasq networkmanager ssh wittypi; do
+    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http; do
         unit="$(unit_for "${id}")"
         temporary="${state_dir}/.service-log-${id}.tmp"
-        journalctl -u "${unit}" -n 100 --no-pager -o short-iso >"${temporary}" 2>/dev/null || true
+        local log_units=(-u "${unit}")
+        if [[ "${id}" == virtual_media ]]; then
+            log_units+=(-u kronoskvm-virtual-media-action.service)
+        fi
+        journalctl "${log_units[@]}" -n 100 --no-pager -o short-iso >"${temporary}" 2>/dev/null || true
         chown 10001:20 "${temporary}"
         chmod 0640 "${temporary}"
         mv -f -- "${temporary}" "${state_dir}/service-log-${id}.log"
@@ -78,12 +90,18 @@ if [[ "${action}" == restart ]]; then
         successful=false
         error="Rejected service"
     fi
+elif [[ "${action}" == start || "${action}" == stop ]] && [[ "${service}" == tftp || "${service}" == recovery_http ]]; then
+    if ! systemctl "${action}" "$(unit_for "${service}")"; then
+        successful=false
+        error="Recovery service action failed"
+    fi
 elif [[ "${action}" != refresh || "${service}" != all ]]; then
     successful=false
     error="Rejected action"
 fi
 
 write_status
+[[ -n "${task_id}" ]] || exit 0
 result="${state_dir}/service-result-${task_id}.json"
 printf '{"successful":%s,"error":"%s","service":"%s","action":"%s"}\n' \
     "${successful}" "${error}" "${service}" "${action}" >"${result}"

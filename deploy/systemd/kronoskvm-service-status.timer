@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh KronosKVM service status and transfer logs
+
+[Timer]
+OnBootSec=15
+OnUnitInactiveSec=5
+AccuracySec=1
+Unit=kronoskvm-service-action.service
+
+[Install]
+WantedBy=timers.target

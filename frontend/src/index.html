@@ -27,6 +27,7 @@
         <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
         <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
+        <button class="side-link" type="button" data-view="recovery"><span class="nav-icon">⇩</span><span>Service Port</span></button>
         <button class="side-link" type="button" data-view="tasks"><span class="nav-icon">✓</span><span>Tasks</span></button>
         <button class="side-link" type="button" data-view="services"><span class="nav-icon">◫</span><span>Services</span></button>
         <button class="side-link" type="button" data-view="logs"><span class="nav-icon">☷</span><span>Logs</span></button>
@@ -104,11 +105,23 @@
           <div class="tasks-table-wrap"><table class="tasks-table"><thead><tr><th>Task</th><th>Source</th><th>Status</th><th>Progress</th><th>Started</th><th>Result</th></tr></thead><tbody id="tasks-entries"><tr><td colspan="6" class="loading-cell">Loading tasks…</td></tr></tbody></table></div>
         </section>
 
-        <section id="services-panel" class="panel services-panel" data-view-section="services" hidden>
+        <section id="recovery-panel" class="panel" data-view-section="recovery" hidden>
+          <div class="panel-heading"><div><h2>Service Port · Recovery Files</h2><p>Shared internal staging capacity · Read-only TFTP and HTTP downloads</p></div><button id="recovery-refresh" type="button">↻ Refresh</button></div>
+          <div class="storage-content">
+            <p>Server: <strong>192.168.34.100</strong> · Available on the service port and recovery Wi-Fi. Start or stop TFTP / HTTP in Services.</p>
+            <p>Upload firmware in Storage, then move it here. Leave the folder empty to serve a file directly from the root for older devices.</p>
+            <form id="recovery-publish" class="external-toolbar"><label>Staged file <select id="recovery-source" required></select></label><label>Folder <input id="recovery-folder" placeholder="hpe, cisco, or empty for root"></label><button type="submit">Move to Recovery</button></form>
+            <p id="recovery-message" role="status"></p>
+            <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>File / TFTP path</th><th>Size</th><th>HTTP URL</th><th>Actions</th></tr></thead><tbody id="recovery-files"></tbody></table></div>
+            <p>Move a file back to Stage to stop publishing it or delete it from Storage. FTP and incoming uploads are not enabled.</p>
+          </div>
+        </section>
+
+        <section id="services-panel" class="panel services-panel" data-view-section="services logs" hidden>
           <div class="panel-heading"><div><h2>Services</h2><p>Host, application and recovery service control</p></div><div class="heading-actions"><span id="services-state" class="live-label"><i></i> Monitoring</span><button id="services-refresh" class="session-refresh" type="button" aria-label="Refresh services">↻</button></div></div>
           <div class="services-summary"><strong>Allow-listed service management</strong><small>Restart operations run as tracked tasks and are verified by the host helper.</small></div>
           <div id="service-cards" class="service-cards"><span class="muted">Loading services…</span></div>
-          <section id="service-log-viewer" class="service-log-viewer" hidden><div class="service-log-heading"><div><strong id="service-log-title">Service logs</strong><small>Latest 100 host journal entries</small></div><button id="service-log-close" type="button">× Close</button></div><pre id="service-log-lines">Loading…</pre></section>
+          <section id="service-log-viewer" class="service-log-viewer" hidden><div class="service-log-heading"><div><strong id="service-log-title">Service logs</strong><small>Latest 100 host journal entries · refreshes every 5 seconds</small></div><button id="service-log-close" type="button">× Close</button></div><pre id="service-log-lines">Loading…</pre></section>
         </section>
 
         <section id="settings-panel" class="panel settings-panel" data-view-section="settings" hidden>

@@ -2025,18 +2025,25 @@ function renderServiceCards(payload) {
   container.innerHTML = payload.services.map((service) => {
     const healthy = ["active", "activating"].includes(service.state);
     const unavailable = ["not_configured", "not_installed"].includes(service.state);
-    return `<article class="service-card"><div><strong>${escapeHtml(service.name)}</strong><p>${escapeHtml(service.description)}</p><small>${escapeHtml(service.detail || "No runtime detail")}</small></div><div class="service-card-actions"><span class="task-status-pill ${healthy ? "successful" : unavailable ? "" : "failed"}">${escapeHtml(service.state)}</span><button type="button" data-service-log="${escapeHtml(service.id)}">View Logs</button><button type="button" data-service-restart="${escapeHtml(service.id)}" data-service-name="${escapeHtml(service.name)}" ${service.restartable ? "" : "disabled"}>↻ Restart</button></div></article>`;
+    return `<article class="service-card"><div><strong>${escapeHtml(service.name)}</strong><p>${escapeHtml(service.description)}</p><small>${escapeHtml(service.detail || "No runtime detail")}</small></div><div class="service-card-actions"><span class="task-status-pill ${healthy ? "successful" : unavailable ? "" : "failed"}">${escapeHtml(service.state)}</span><button type="button" data-service-log="${escapeHtml(service.id)}">View Logs</button>${service.controllable ? `<button type="button" data-recovery-service="${escapeHtml(service.id)}" data-action="${healthy ? "stop" : "start"}">${healthy ? "Stop" : "Start"}</button>` : ""}<button type="button" data-service-restart="${escapeHtml(service.id)}" data-service-name="${escapeHtml(service.name)}" ${service.restartable ? "" : "disabled"}>↻ Restart</button></div></article>`;
   }).join("");
   document.querySelector("#services-state").innerHTML = `<i></i> ${payload.updated_at ? `Updated ${escapeHtml(new Date(payload.updated_at).toLocaleTimeString())}` : "Status pending"}`;
+  container.querySelectorAll("[data-recovery-service]").forEach((button) => button.addEventListener("click", async () => {
+    button.disabled = true;
+    try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`); }
+    catch (error) { showToast(error.message); button.disabled = false; }
+  }));
   container.querySelectorAll("[data-service-restart]").forEach((button) => button.addEventListener("click", () => restartManagedService(button)));
   container.querySelectorAll("[data-service-log]").forEach((button) => button.addEventListener("click", () => loadServiceLogs(button.dataset.serviceLog)));
 }
 
-async function loadServiceLogs(serviceId) {
+let selectedServiceLog = null;
+async function loadServiceLogs(serviceId, background = false) {
+  selectedServiceLog = serviceId;
   const viewer = document.querySelector("#service-log-viewer");
   const output = document.querySelector("#service-log-lines");
   viewer.hidden = false;
-  output.textContent = "Loading…";
+  if (!background) output.textContent = "Loading…";
   try {
     const payload = await getJson(`/api/v1/services/${encodeURIComponent(serviceId)}/logs`);
     document.querySelector("#service-log-title").textContent = `${payload.name} logs`;
@@ -2044,7 +2051,7 @@ async function loadServiceLogs(serviceId) {
   } catch (error) {
     output.textContent = "Service logs are unavailable.";
   }
-  viewer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (!background) viewer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 async function loadManagedServices() {
@@ -2158,9 +2165,11 @@ function showView(view) {
     loadExternalStorage();
   }
   if (view === "logs") {
+    loadManagedServices();
     loadLogs();
     loadSessionLogs();
   }
+  if (view === "recovery") loadRecovery();
   if (view === "tasks") loadTasks();
   if (view === "services") loadManagedServices();
   if (view === "settings") {
@@ -2363,4 +2372,60 @@ document.querySelector("#external-up").addEventListener("click", () => {
 });
 window.setInterval(() => {
   if (!document.querySelector("#external-storage-panel").hidden && !externalImportRunning) loadExternalStorage();
+}, 5000);
+
+
+async function loadRecovery() {
+  try {
+    const [recovery, stage] = await Promise.all([getJson("/api/v1/recovery"), getJson("/api/v1/storage")]);
+    document.querySelector("#recovery-source").innerHTML = stage.files.map((file) => `<option value="${escapeHtml(file.name)}">${escapeHtml(file.name)}</option>`).join("");
+    document.querySelector("#recovery-files").innerHTML = recovery.files.map((file) => `<tr><td>${escapeHtml(file.path)}</td><td>${formatBytes(file.size_bytes)}</td><td><code>${escapeHtml(file.http_url)}</code></td><td><div class="file-actions"><button data-copy-recovery="${escapeHtml(file.http_url)}">Copy URL</button><button data-copy-recovery="${escapeHtml(file.tftp_path)}">Copy TFTP path</button><button data-recovery-hash="${escapeHtml(file.path)}">SHA256</button><button data-recovery-restore="${escapeHtml(file.path)}">Move to Stage</button></div></td></tr>`).join("") || '<tr><td colspan="4">No recovery files. Upload a file in Storage and move it here.</td></tr>';
+  } catch (error) { document.querySelector("#recovery-message").textContent = error.message; }
+}
+
+document.querySelector("#recovery-refresh").addEventListener("click", loadRecovery);
+document.querySelector("#recovery-publish").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/v1/recovery/files", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: document.querySelector("#recovery-source").value, folder: document.querySelector("#recovery-folder").value.trim() }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || "Move failed");
+    document.querySelector("#recovery-message").textContent = `${result.path}: ready for TFTP / HTTP`;
+    await loadRecovery();
+  } catch (error) { document.querySelector("#recovery-message").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+document.querySelector("#recovery-files").addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  button.disabled = true;
+  const message = document.querySelector("#recovery-message");
+  try {
+    if (button.dataset.copyRecovery) {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(button.dataset.copyRecovery);
+      message.textContent = button.dataset.copyRecovery;
+    } else if (button.dataset.recoveryHash) {
+      message.textContent = "Calculating SHA256…";
+      const result = await getJson(`/api/v1/recovery/checksum/${button.dataset.recoveryHash.split("/").map(encodeURIComponent).join("/")}`);
+      message.textContent = `${result.path} · SHA256: ${result.sha256}`;
+    } else if (button.dataset.recoveryRestore) {
+      const response = await fetch(`/api/v1/recovery/restore/${button.dataset.recoveryRestore.split("/").map(encodeURIComponent).join("/")}`, { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || "Move failed");
+      message.textContent = `${result.name}: moved to Stage`;
+      await loadRecovery();
+    }
+  } catch (error) { message.textContent = error.message; }
+  finally { button.disabled = false; }
+});
+let serviceRefreshRunning = false;
+window.setInterval(async () => {
+  if (document.hidden || document.querySelector("#services-panel").hidden || serviceRefreshRunning) return;
+  serviceRefreshRunning = true;
+  try {
+    await loadManagedServices();
+    if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) await loadServiceLogs(selectedServiceLog, true);
+  } finally { serviceRefreshRunning = false; }
 }, 5000);
