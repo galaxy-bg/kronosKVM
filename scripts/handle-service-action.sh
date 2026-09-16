@@ -27,6 +27,7 @@ unit_for() {
         networkmanager) printf '%s' NetworkManager.service ;;
         ssh) printf '%s' ssh.service ;;
         virtual_media) printf '%s' kronoskvm-virtual-media-action.path ;;
+        recovery_ftp) printf '%s' kronoskvm-recovery-ftp.service ;;
         tftp) printf '%s' kronoskvm-recovery-tftp.service ;;
         recovery_http) printf '%s' kronoskvm-recovery-http.service ;;
         wittypi) printf '%s' wittypi.service ;;
@@ -37,7 +38,7 @@ unit_for() {
 write_status() {
     local temporary="${state_dir}/.service-status.tmp" id unit state detail first=true
     printf '{"updated_at":"%s","services":{' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"${temporary}"
-    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http; do
+    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http recovery_ftp; do
         unit="$(unit_for "${id}")"
         state="$(systemctl is-active "${unit}" 2>/dev/null || true)"
         [[ -n "${state}" ]] || state=unknown
@@ -55,7 +56,7 @@ write_status() {
     chmod 0640 "${temporary}"
     mv -f -- "${temporary}" "${state_dir}/service-status.json"
 
-    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http; do
+    for id in containers docker dnsmasq networkmanager ssh wittypi virtual_media tftp recovery_http recovery_ftp; do
         unit="$(unit_for "${id}")"
         temporary="${state_dir}/.service-log-${id}.tmp"
         local log_units=(-u "${unit}")
@@ -90,7 +91,7 @@ if [[ "${action}" == restart ]]; then
         successful=false
         error="Rejected service"
     fi
-elif [[ "${action}" == start || "${action}" == stop ]] && [[ "${service}" == tftp || "${service}" == recovery_http ]]; then
+elif [[ "${action}" == start || "${action}" == stop ]] && [[ "${service}" == tftp || "${service}" == recovery_http || "${service}" == recovery_ftp ]]; then
     if ! systemctl "${action}" "$(unit_for "${service}")"; then
         successful=false
         error="Recovery service action failed"
@@ -101,6 +102,7 @@ elif [[ "${action}" != refresh || "${service}" != all ]]; then
 fi
 
 write_status
+python3 /opt/kronoskvm/scripts/snapshot-recovery-network.py
 [[ -n "${task_id}" ]] || exit 0
 result="${state_dir}/service-result-${task_id}.json"
 printf '{"successful":%s,"error":"%s","service":"%s","action":"%s"}\n' \

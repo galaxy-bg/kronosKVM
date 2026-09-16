@@ -60,6 +60,7 @@ def create_app() -> FastAPI:
                 detail=request.url.path,
                 source="api",
             )
+            request.state.task_id = task["id"]
         try:
             response = await call_next(request)
         except Exception:

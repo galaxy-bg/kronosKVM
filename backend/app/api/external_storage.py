@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.app.services import external_storage, storage
+from backend.app.services.tasks import update_task
 
 router = APIRouter(prefix="/api/v1/external-storage", tags=["storage"])
 
@@ -52,11 +53,15 @@ def download_external_file(device: str, path: str = Query(max_length=2048)) -> S
 
 
 @router.post("/{device}/import")
-async def import_external_file(device: str, value: ImportFile) -> dict:
+async def import_external_file(device: str, value: ImportFile, request: Request) -> dict:
     fd = external_storage.open_entry(device, value.path)
     with os.fdopen(fd, "rb") as file:
         size = os.fstat(fd).st_size
         remaining = size
+        task_id = getattr(request.state, "task_id", None)
+        if task_id:
+            update_task(task_id, title=f"Copy from USB: {PurePosixPath(value.path).name}",
+                        filename=PurePosixPath(value.path).name, bytes_total=size, bytes_done=0)
 
         async def receive():
             nonlocal remaining
@@ -66,7 +71,7 @@ async def import_external_file(device: str, value: ImportFile) -> dict:
             remaining -= len(chunk)
             return {"type": "http.request", "body": chunk, "more_body": remaining > 0}
 
-        request = Request(
+        upload_request = Request(
             {
                 "type": "http",
                 "headers": [
@@ -76,6 +81,6 @@ async def import_external_file(device: str, value: ImportFile) -> dict:
             receive=receive,
         )
         result = await storage.store_upload(
-            PurePosixPath(value.path).name, request, overwrite=False
+            PurePosixPath(value.path).name, upload_request, task_id, overwrite=False
         )
         return result.model_dump()

@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- Mount oversized hybrid ISOs as read-only USB disks to avoid the Linux gadget
+  CD-ROM size limit; Ubuntu boot and OS installation start verified on hardware.
+- Browse published Recovery files per service and keep FTP/TFTP/HTTP disabled by default.
+- Show USB copy byte progress in Tasks and Background tasks using a shared task ID;
+  Copy & Mount displays a separate mounting phase and waits for the requested ISO.
+- Restore standalone Storage navigation with Recovery shortcuts to Internal/External storage.
+
+- Add checkbox-based multi-file publication with Select all, per-file results and
+  retry selection for files that could not be published.
+
+- Fix Background tasks rendering and completion for service actions; automatically
+  dismiss successful service entries and reconcile results from the task endpoint.
+- Wrap Recovery file URLs and actions; clarify that the publication folder is optional.
+
+- Consolidate staging uploads, USB imports, published files, transfer controls and
+  logs under Recovery; show service Ethernet link state and current DHCP leases.
+- Add read-only anonymous FTP on the recovery network, with passive/active
+  transfers and Start/Stop/Restart controls alongside TFTP and HTTP.
+
 - Add Service Port Recovery folders, staging moves, shared quota and SHA256 checks.
 - Add on-demand read-only TFTP/HTTP services with Start/Stop/Restart and transfer logs.
 - Refresh host service status/logs automatically and expose them in the Logs view.

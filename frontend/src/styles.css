@@ -290,3 +290,46 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 #external-storage-panel .storage-table th:nth-child(3) { width: 45%; }
 .storage-space-warning { display: block; margin-top: 8px; color: var(--warning); }
 #external-stage-space { font-size: .78rem; line-height: 1.6; }
+
+.recovery-shortcuts { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.recovery-network, .recovery-connection-settings { padding: 1rem; margin: 1rem 0; border: 1px solid var(--line); border-radius: 8px; }
+.recovery-log-lines { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 28rem; overflow: auto; padding: 1rem; font-size: .8rem; }
+#recovery-message { overflow-wrap: anywhere; }
+#recovery-service-cards { margin: 1rem 0; }
+.recovery-network, .recovery-connection-settings { border-color: var(--line); background: var(--surface-2); }
+#recovery-panel h3 { margin-top: 24px; font-size: .95rem; }
+#recovery-panel p { color: var(--muted); font-size: .84rem; line-height: 1.6; }
+.recovery-shortcuts button, #recovery-refresh, #recovery-publish button { border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 12px; background: var(--surface); cursor: pointer; font-size: .78rem; font-weight: 600; }
+.recovery-shortcuts button:hover, #recovery-refresh:hover { background: var(--accent-soft); color: var(--accent-strong); }
+#recovery-publish button { background: var(--accent); color: white; border-color: var(--accent); }
+#recovery-publish button:disabled { opacity: .5; cursor: default; }
+#recovery-folder, #recovery-log-service { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--surface); max-width: 100%; }
+.recovery-connection-settings summary { cursor: pointer; font-size: .84rem; font-weight: 600; }
+#recovery-panel, #recovery-log-panel { scroll-margin-top: 88px; }
+@media (min-width: 1200px) { #recovery-service-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { #recovery-publish label { flex-wrap: wrap; max-width: 100%; } #recovery-service-cards { grid-template-columns: 1fr; } .recovery-shortcuts button { flex: 1 1 45%; } }
+
+.recovery-browse-link, .recovery-browser button, .recovery-browser td a { display: inline-block; text-decoration: none; border: 1px solid var(--line-strong); border-radius: 7px; padding: 7px 10px; background: var(--surface); color: var(--text); cursor: pointer; font-size: .76rem; }
+.recovery-browser { width: min(960px, 94vw); max-height: 85vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); padding: 20px; }
+.recovery-browser::backdrop { background: rgb(0 0 0 / .45); }
+.recovery-browser .panel-heading { padding: 0 0 18px; }
+.recovery-browser-address { display: block; margin-top: 6px; overflow-wrap: anywhere; color: var(--muted); }
+#recovery-browser-message { overflow-wrap: anywhere; font-size: .82rem; color: var(--muted); }
+
+#recovery-files td { vertical-align: top; }
+#recovery-files td:first-child { overflow-wrap: anywhere; }
+#recovery-files td:nth-child(3) { min-width: 180px; max-width: 300px; white-space: normal; overflow-wrap: anywhere; }
+#recovery-files td:nth-child(3) code { display: block; white-space: normal; overflow-wrap: anywhere; }
+#recovery-files .file-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 220px; justify-content: flex-start; }
+
+.recovery-selection-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; font-size: .82rem; }
+#recovery-selected-count { color: var(--muted); margin-right: auto; }
+.recovery-source-list { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; }
+.recovery-source-list label { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: .8rem; }
+.recovery-source-list label:last-child { border-bottom: 0; }
+.recovery-source-list span { overflow-wrap: anywhere; min-width: 0; flex: 1; }
+.recovery-source-list input { accent-color: var(--accent); flex-shrink: 0; }
+.recovery-source-list small { color: var(--muted); white-space: nowrap; }
+.recovery-publish-results { font-size: .8rem; overflow-wrap: anywhere; color: var(--accent-strong); }
+.recovery-publish-results .publish-failed { color: var(--danger); }
+#recovery-publish .recovery-selection-heading button { background: var(--surface); color: var(--text); border-color: var(--line); }

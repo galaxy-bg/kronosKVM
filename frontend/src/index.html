@@ -27,7 +27,7 @@
         <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
         <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
-        <button class="side-link" type="button" data-view="recovery"><span class="nav-icon">⇩</span><span>Service Port</span></button>
+        <button class="side-link" type="button" data-view="recovery"><span class="nav-icon">⇩</span><span>Recovery</span></button>
         <button class="side-link" type="button" data-view="tasks"><span class="nav-icon">✓</span><span>Tasks</span></button>
         <button class="side-link" type="button" data-view="services"><span class="nav-icon">◫</span><span>Services</span></button>
         <button class="side-link" type="button" data-view="logs"><span class="nav-icon">☷</span><span>Logs</span></button>
@@ -66,6 +66,27 @@
           </div>
         </section>
 
+        <section id="recovery-panel" class="panel" data-view-section="recovery" hidden>
+          <div class="panel-heading"><div><h2>Recovery · Files &amp; Transfers</h2><p>Shared internal staging capacity · FTP · TFTP · HTTP · Shared internal storage</p></div><button id="recovery-refresh" type="button">↻ Refresh</button></div>
+          <div class="storage-content">
+            <p>Server: <strong>192.168.34.100</strong> · Available on the service port and recovery Wi-Fi. Management Ethernet uses its own IP; use this recovery address on the target device.</p>
+            <div id="recovery-network" class="recovery-network" aria-live="polite">Checking service port and DHCP leases…</div>
+            <div class="recovery-shortcuts"><button type="button" data-recovery-jump="storage-panel">Open Storage · Upload / Mount</button><button type="button" data-recovery-jump="external-storage-panel">Open External Storage</button><button type="button" data-recovery-jump="recovery-publish">2 · Publish files</button><button type="button" data-recovery-jump="recovery-service-cards">3 · Start a service</button><button type="button" data-recovery-jump="recovery-log-panel">Transfer logs</button></div>
+            <h3>Transfer services</h3><div id="recovery-service-cards" class="service-cards">Loading services…</div>
+            <details class="recovery-connection-settings"><summary>Connection settings</summary><p>FTP: port 21 · User <code>anonymous</code> · Any password (for example <code>recovery@</code>) · Passive ports 30000–30010.<br>TFTP: UDP port 69 · No login.<br>HTTP: port 8080 · No login.<br>All services provide read-only downloads of published files. Start them when needed; after reboot they remain stopped.</p></details>
+            <h3>Published files</h3><p>Upload files or copy from USB in Storage, then select the staged files here. Publishing moves it without making a duplicate. Enter a folder such as hpe or cisco, or leave it empty to publish at the root.</p>
+            <form id="recovery-publish" class="recovery-publish-form">
+              <div class="recovery-selection-heading"><strong>Staged files</strong><span id="recovery-selected-count">0 selected</span><button id="recovery-select-all" type="button">Select all</button><button id="recovery-select-none" type="button">Clear selection</button></div>
+              <div id="recovery-source" class="recovery-source-list" role="group" aria-label="Files to publish"></div>
+              <div class="external-toolbar"><label>Folder (optional) <input id="recovery-folder" placeholder="Empty = root; e.g. hpe"></label><button type="submit" disabled>Publish selected</button></div>
+            </form>
+            <ul id="recovery-publish-results" class="recovery-publish-results" aria-live="polite"></ul>
+            <p id="recovery-message" role="status"></p>
+            <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>File / TFTP–FTP path</th><th>Size</th><th>HTTP URL</th><th>Actions</th></tr></thead><tbody id="recovery-files"></tbody></table></div>
+            <p>Unpublish returns the file to Internal Stage in Storage. Only published files are available through FTP, TFTP and HTTP.</p>
+          </div>
+        </section>
+
         <section id="storage-panel" class="panel storage-panel collapsible" data-view-section="storage" data-collapse-id="staging-storage" data-default-collapsed="true" hidden>
           <div class="panel-heading collapse-heading"><div><h2>Internal Stage &amp; Virtual Media</h2><p>Internal 32G pool for ISO images, firmware and deployment files</p></div><div class="heading-actions"><span id="storage-state" class="verified-label">Checking…</span><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Staging storage">⌃</button></div></div>
           <div class="collapsible-content storage-content">
@@ -88,6 +109,11 @@
           </div>
         </section>
 
+        <section id="recovery-log-panel" class="panel" data-view-section="recovery" hidden>
+          <div class="panel-heading"><div><h2>Recovery logs</h2><p>Latest 100 entries · updates every 5 seconds</p></div><label>Service <select id="recovery-log-service"><option value="tftp">TFTP</option><option value="recovery_http">HTTP</option><option value="recovery_ftp">FTP</option><option value="dnsmasq">DHCP</option></select></label></div>
+          <pre id="recovery-log-lines" class="recovery-log-lines">Loading…</pre>
+        </section>
+
         <section id="devices-panel" class="panel ports-panel collapsible" data-view-section="dashboard" data-collapse-id="physical-ports-v2" data-collapse-group="hardware-details" data-default-collapsed="true">
           <div class="panel-heading collapse-heading"><div><h2>Physical ports</h2><p>Verified port assignments and live device detection</p></div><div class="heading-actions"><span class="verified-label">✓ Mapped</span><button class="collapse-button" type="button" aria-expanded="true" aria-label="Collapse Physical ports">⌃</button></div></div>
           <div class="collapsible-content"><div class="port-table-wrap"><table class="port-table"><thead><tr><th scope="col">Port</th><th scope="col">Interface</th><th scope="col">Connected device</th><th scope="col">State</th><th scope="col" class="actions-heading">Actions</th></tr></thead><tbody id="ports"><tr><td colspan="5" class="loading-cell">Loading port status…</td></tr></tbody></table></div>
@@ -105,17 +131,6 @@
           <div class="tasks-table-wrap"><table class="tasks-table"><thead><tr><th>Task</th><th>Source</th><th>Status</th><th>Progress</th><th>Started</th><th>Result</th></tr></thead><tbody id="tasks-entries"><tr><td colspan="6" class="loading-cell">Loading tasks…</td></tr></tbody></table></div>
         </section>
 
-        <section id="recovery-panel" class="panel" data-view-section="recovery" hidden>
-          <div class="panel-heading"><div><h2>Service Port · Recovery Files</h2><p>Shared internal staging capacity · Read-only TFTP and HTTP downloads</p></div><button id="recovery-refresh" type="button">↻ Refresh</button></div>
-          <div class="storage-content">
-            <p>Server: <strong>192.168.34.100</strong> · Available on the service port and recovery Wi-Fi. Start or stop TFTP / HTTP in Services.</p>
-            <p>Upload firmware in Storage, then move it here. Leave the folder empty to serve a file directly from the root for older devices.</p>
-            <form id="recovery-publish" class="external-toolbar"><label>Staged file <select id="recovery-source" required></select></label><label>Folder <input id="recovery-folder" placeholder="hpe, cisco, or empty for root"></label><button type="submit">Move to Recovery</button></form>
-            <p id="recovery-message" role="status"></p>
-            <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>File / TFTP path</th><th>Size</th><th>HTTP URL</th><th>Actions</th></tr></thead><tbody id="recovery-files"></tbody></table></div>
-            <p>Move a file back to Stage to stop publishing it or delete it from Storage. FTP and incoming uploads are not enabled.</p>
-          </div>
-        </section>
 
         <section id="services-panel" class="panel services-panel" data-view-section="services logs" hidden>
           <div class="panel-heading"><div><h2>Services</h2><p>Host, application and recovery service control</p></div><div class="heading-actions"><span id="services-state" class="live-label"><i></i> Monitoring</span><button id="services-refresh" class="session-refresh" type="button" aria-label="Refresh services">↻</button></div></div>
@@ -173,6 +188,12 @@
   </dialog>
   <dialog id="config-dialog" class="modal"><form id="config-form" method="dialog"><div class="modal-heading"><div><h2>Serial configuration</h2><p id="config-port-name"></p></div><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="config-device" type="hidden"><label>Display name<input id="config-display-name" type="text" maxlength="32" placeholder="Switch 1 or SW1"></label><label>Baud rate<select id="config-baud"><option value="auto" selected>Auto detect</option><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label><div class="config-grid"><label>Data bits<select id="config-bits"><option selected>8</option><option>7</option><option>6</option><option>5</option></select></label><label>Parity<select id="config-parity"><option value="none">None</option><option value="even">Even</option><option value="odd">Odd</option></select></label></div><div class="config-grid"><label>Stop bits<select id="config-stop"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select></label><label>Flow control<select id="config-flow"><option value="none">None</option><option value="software">Software</option><option value="hardware">Hardware</option></select></label></div><div class="modal-actions"><button value="cancel">Cancel</button><button id="config-save" class="primary" value="default">Save</button></div></form></dialog>
   <div id="terminal-layer" aria-live="polite"></div>
+  <dialog id="recovery-browser" class="recovery-browser">
+    <div class="panel-heading"><strong id="recovery-browser-title">Published files</strong><button id="recovery-browser-close" type="button">× Close</button></div>
+    <div class="external-toolbar"><button id="recovery-browser-up" type="button">↑ Parent</button><code id="recovery-browser-path">/</code><button id="recovery-browser-refresh" type="button">↻ Refresh</button></div>
+    <p id="recovery-browser-message" role="status"></p>
+    <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>Name / address</th><th>Size</th><th>Actions</th></tr></thead><tbody id="recovery-browser-files"></tbody></table></div>
+  </dialog>
   <script src="/app-0.3.45-live-record.js" defer></script>
 </body>
 </html>

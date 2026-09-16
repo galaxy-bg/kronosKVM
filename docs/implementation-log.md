@@ -3,6 +3,36 @@
 > Historical log: early entries describe the retired CM4 prototype. The active
 > Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
 
+## 2026-09-16 — Storage workflow follow-ups
+
+- Restored Storage as a separate menu for uploads, ISO mount/eject and external
+  USB browsing; Recovery links to it and retains publication, services and logs.
+- Added multi-file publication and Browse Files links, and corrected service-task
+  rendering/completion in the floating task panel.
+- Diagnosed the user's Ubuntu USB import as a running copy (69% at inspection),
+  then verified all 6,482,409,472 bytes copied and the requested ISO attached.
+- Correlated external import and middleware task IDs, exposed byte progress, and
+  added Background task copy/mount phases without resetting the mounted gadget.
+- Validation: 58 local tests passed with the local reserve override, including
+  actual import byte-progress propagation into the global task record.
+
+## 2026-09-16 — Unified Recovery and FTP
+
+- Replaced separate Storage/Service Port navigation with one Recovery workspace;
+  reused existing upload, staging and external USB components in that view.
+- Added FTP (anonymous, read-only, TCP 21, passive ports 30000–30010), same-page
+  service controls and logs, and a timestamped DHCP/link snapshot refreshed by
+  the existing host status timer. Expired leases are excluded; leases are not
+  presented as online-device detection.
+- Deployed to `192.168.1.112`. All 56 local tests pass with the existing local
+  reserve override. Chrome verified upload, source selection refresh, publication,
+  SHA256, FTP Start, in-page logs and unpublish without JavaScript errors.
+- Live FTP validation passed listing, active and passive byte-equal downloads,
+  denied uploads, denied path escape, checksum and completed-transfer log checks.
+  Generated files were removed. No target firmware flashing was performed.
+- API/web source and images were backed up before deployment. FTP was left active
+  after validation; download services remain on-demand, disabled at boot.
+
 ## 2026-09-15 — Service Port Recovery
 
 - Deployed shared Recovery file publication, folder paths and SHA256 checks to
@@ -324,3 +354,15 @@
   retains non-root dialout permissions and does not use privileged mode.
 - Added a persistent, password-free network connection registry for SSH,
   Telnet, RDP, VNC and Web URL profiles with native-client launch actions.
+
+### 2026-09-16 — Large Ubuntu ISO virtual-media boot
+
+The target returned to BIOS with Ubuntu 26.04.1 desktop mounted. Host kernel logs
+confirmed CD-ROM gadget truncation (`using only first 1151999 blocks`) for the
+6,482,409,472-byte image. The host mount helper now selects read-only disk mode
+for oversized ISOs with a valid bounded MBR partition (and GPT signature for a
+protective MBR), rejecting oversized optical-only images before ejecting existing
+media. Small ISOs retain CD-ROM mode. Five focused tests cover the size boundary,
+Ubuntu-sized hybrid images, rejection and IMG mode. Deployed helper to .112 and
+reattached Ubuntu: API reports attached/disk, configfs cdrom=0 and ro=1. Target
+boot was subsequently confirmed by the operator, who started Ubuntu installation.

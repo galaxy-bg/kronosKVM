@@ -20,7 +20,13 @@ ISO and IMG files can be attached from Storage or the KVM Virtual Media drawer.
 The host helper validates that the file remains inside managed staging storage,
 then inserts it into the permanently configured mass-storage LUN:
 
-- ISO images are exposed as a read-only removable CD-ROM.
+- Small ISO images are exposed as a read-only removable CD-ROM.
+- Linux's gadget CD-ROM mode truncates images at 1,152,000 sectors (about
+  2.36 GB). At or above this limit, ISOs with a disk partition table are exposed
+  as a read-only removable disk. Choose **UEFI USB / USB HDD** in the target's
+  boot menu for these hybrid images, including recent Ubuntu desktop ISOs.
+  Oversized ISOs without a disk partition table are rejected before changing
+  the current media; use a hybrid ISO or bootable IMG instead.
 - IMG files are exposed as a read-only removable disk.
 - Eject clears the LUN without rebuilding the keyboard/mouse gadget.
 - Mounted media cannot be deleted until it is ejected.

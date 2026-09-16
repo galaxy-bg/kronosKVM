@@ -58,7 +58,6 @@ def _update_task(task_id: str, **values: object) -> None:
         global_values["status"] = "successful"
     elif status_value == "cancelled":
         global_values["status"] = "cancelled"
-    global_values.pop("bytes_done", None)
     global_values.pop("updated_at", None)
     update_global_task(task_id, **global_values)
 

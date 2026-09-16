@@ -466,10 +466,13 @@ async function setVirtualMedia(filename = null) {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     await new Promise((resolve) => window.setTimeout(resolve, 500));
     await loadVirtualMediaStatus();
-    if (!["attaching", "ejecting"].includes(virtualMediaStatus.status)) break;
+    const confirmed = attaching
+      ? virtualMediaStatus.status === "attached" && virtualMediaStatus.filename === filename
+      : virtualMediaStatus.status === "ejected";
+    if (confirmed || ["error", "unavailable"].includes(virtualMediaStatus.status)) break;
   }
-  if (virtualMediaStatus.status === "attached") showToast(`${virtualMediaStatus.filename}: mounted read-only`);
-  else if (virtualMediaStatus.status === "ejected") showToast("Virtual media ejected");
+  if (attaching && virtualMediaStatus.status === "attached" && virtualMediaStatus.filename === filename) showToast(`${virtualMediaStatus.filename}: mounted read-only`);
+  else if (!attaching && virtualMediaStatus.status === "ejected") showToast("Virtual media ejected");
   else throw new Error(virtualMediaStatus.message || "Virtual media operation failed");
   await loadStorage();
 }
@@ -545,7 +548,9 @@ function renderStorage(storage) {
 async function loadStorage() {
   try {
     await loadVirtualMediaStatus();
-    renderStorage(await getJson("/api/v1/storage"));
+    const stage = await getJson("/api/v1/storage");
+    renderStorage(stage);
+    updateRecoverySources(stage.files);
   } catch (error) {
     document.querySelector("#storage-state").textContent = "Unavailable";
     document.querySelector("#storage-files").innerHTML = '<tr><td colspan="5" class="loading-cell">Staging storage unavailable.</td></tr>';
@@ -622,6 +627,12 @@ async function loadExternalStorage() {
       document.querySelector("#external-refresh").disabled = true;
       document.querySelector("#external-up").disabled = true;
       let copied = false;
+      const copyTask = {
+        id: newStorageTaskId(), file: { name: button.dataset.path.split("/").pop(), size: Number(button.dataset.size) },
+        status: "running", progress: 0, loaded: 0, externalCopy: true, phase: "Checking capacity",
+      };
+      storageTasks.set(copyTask.id, copyTask);
+      renderStorageTasks();
       body.querySelectorAll(".external-import").forEach((item) => { item.disabled = true; });
       message.textContent = button.dataset.mount ? "Copying to internal staging, then mounting on the target PC…" : "Copying to internal staging… Progress is available in Tasks.";
       try {
@@ -630,18 +641,34 @@ async function loadExternalStorage() {
         if (Number(button.dataset.size) > capacity.free_bytes) {
           throw new Error(`Not enough space: needs ${formatBytes(Number(button.dataset.size))}, available ${formatBytes(capacity.free_bytes)}. Delete unused files from Internal Stage and retry.`);
         }
+        copyTask.phase = "Copying USB → Internal Stage";
+        renderStorageTasks();
         const response = await fetch(`/api/v1/external-storage/${encodeURIComponent(device)}/import`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json", "X-Kronos-Task-ID": copyTask.id },
           body: JSON.stringify({ path: button.dataset.path }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
         copied = true;
         showToast(`${result.name}: copied to Internal Stage`);
-        if (button.dataset.mount) await setVirtualMedia(result.name);
+        copyTask.loaded = copyTask.file.size;
+        copyTask.progress = 100;
+        if (button.dataset.mount) {
+          copyTask.phase = "Copy complete · Mounting on target PC";
+          renderStorageTasks();
+          await setVirtualMedia(result.name);
+        }
+        copyTask.status = "completed";
+        copyTask.finishedAt = new Date();
+        message.textContent = button.dataset.mount ? `${result.name}: copied and mounted` : `${result.name}: copied to Internal Stage`;
+        renderStorageTasks();
         await loadStorage();
       } catch (error) {
-        showToast(`${copied ? "Copied, but mount failed" : "Copy failed"}: ${error.message}`);
+        copyTask.status = "failed";
+        copyTask.error = `${copied ? "Copied, but mount failed" : "Copy failed"}: ${error.message}`;
+        copyTask.finishedAt = new Date();
+        renderStorageTasks();
+        showToast(copyTask.error);
       } finally {
         externalImportRunning = false;
         document.querySelector("#external-refresh").disabled = false;
@@ -658,6 +685,7 @@ async function loadExternalStorage() {
 }
 
 const storageTasks = new Map();
+let recoveryPublishRunning = false;
 const storageTaskQueue = [];
 const maxParallelStorageTasks = 2;
 let activeStorageTasks = 0;
@@ -667,7 +695,7 @@ const supportedStorageExtensions = new Set([
 ]);
 
 window.addEventListener("beforeunload", (event) => {
-  if (activeStorageTasks === 0 && storageTaskQueue.every((task) => task.status !== "queued")) return;
+  if (!externalImportRunning && activeStorageTasks === 0 && storageTaskQueue.every((task) => task.status !== "queued")) return;
   event.preventDefault();
   event.returnValue = "";
 });
@@ -696,12 +724,12 @@ function renderStorageTasks() {
     cancelled: "Cancelled",
   };
   document.querySelector("#task-list").innerHTML = tasks.map((task) => {
-    const cancellable = ["queued", "running"].includes(task.status);
+    const cancellable = !task.serverManaged && !task.externalCopy && ["queued", "running"].includes(task.status);
     const result = task.error ? ` · ${task.error}` : task.finishedAt ? ` · ${task.finishedAt.toLocaleTimeString()}` : "";
     const action = cancellable
       ? '<button type="button" class="task-cancel">Cancel</button>'
-      : '<button type="button" class="task-dismiss">Dismiss</button>';
-    return `<article class="task-row task-${escapeHtml(task.status)}" data-task-id="${escapeHtml(task.id)}"><div><strong>${escapeHtml(task.file.name)}</strong><small><b>${escapeHtml(statusLabels[task.status] || task.status)}</b> · ${formatBytes(task.loaded)} / ${formatBytes(task.file.size)}${escapeHtml(result)}</small></div>${action}<div class="task-progress"><i style="width:${task.progress}%"></i></div></article>`;
+      : (task.serverManaged || task.externalCopy) && task.status === "running" ? "" : '<button type="button" class="task-dismiss">Dismiss</button>';
+    return `<article class="task-row task-${escapeHtml(task.status)}" data-task-id="${escapeHtml(task.id)}"><div><strong>${escapeHtml(task.file?.name || task.title || "Service operation")}</strong><small><b>${escapeHtml(task.status === "running" && task.phase ? task.phase : statusLabels[task.status] || task.status)}</b> · ${task.serverManaged ? "Service operation" : `${formatBytes(task.loaded)} / ${formatBytes(task.file.size)}`}${escapeHtml(result)}</small></div>${action}<div class="task-progress"><i style="width:${task.progress}%"></i></div></article>`;
   }).join("");
   document.querySelectorAll(".task-cancel").forEach((button) => {
     button.addEventListener("click", () => cancelStorageTask(button.closest("[data-task-id]").dataset.taskId));
@@ -1946,6 +1974,38 @@ async function loadTasks() {
   try {
     const response = await getJson("/api/v1/tasks");
     renderTasks(response.tasks);
+    for (const remote of response.tasks) {
+      if (remote.status === "running" && remote.filename && remote.detail?.includes("/external-storage/") && !storageTasks.has(remote.id)) {
+        storageTasks.set(remote.id, { id: remote.id, file: { name: remote.filename, size: remote.bytes_total }, status: "running", externalCopy: true, detached: true, phase: "Copying USB → Internal Stage", progress: remote.progress, loaded: remote.bytes_done || 0 });
+      }
+    }
+    for (const [id, local] of storageTasks) {
+      if (!local.externalCopy || local.status !== "running" || local.phase.includes("Mounting")) continue;
+      const remote = response.tasks.find((task) => task.id === id);
+      if (!remote) continue;
+      local.loaded = remote.bytes_done || 0;
+      local.progress = remote.progress;
+      if (local.detached && ["successful", "failed", "cancelled"].includes(remote.status)) {
+        local.status = remote.status === "successful" ? "completed" : remote.status;
+        local.error = remote.error;
+        local.finishedAt = remote.completed_at ? new Date(remote.completed_at) : new Date();
+      }
+      if (externalImportRunning) document.querySelector("#external-message").textContent = `${local.file.name}: ${local.progress}% · ${formatBytes(local.loaded)} / ${formatBytes(local.file.size)} copied`;
+    }
+    for (const [id, local] of storageTasks) {
+      if (!local.serverManaged) continue;
+      const remote = response.tasks.find((task) => task.id === id);
+      if (!remote) { storageTasks.delete(id); continue; }
+      local.status = remote.status === "successful" ? "completed" : remote.status;
+      local.progress = remote.progress;
+      local.error = remote.error;
+      local.finishedAt = remote.completed_at ? new Date(remote.completed_at) : null;
+      if (local.status === "completed" && !local.dismissScheduled) {
+        local.dismissScheduled = true;
+        window.setTimeout(() => { storageTasks.delete(id); renderStorageTasks(); }, 4000);
+      }
+    }
+    renderStorageTasks();
     document.querySelector("#tasks-state").innerHTML = "<i></i> Monitoring";
   } catch (error) {
     document.querySelector("#tasks-state").textContent = "Unavailable";
@@ -2020,12 +2080,12 @@ async function loadNetworkSettings() {
   }
 }
 
-function renderServiceCards(payload) {
-  const container = document.querySelector("#service-cards");
+function renderServiceCards(payload, target = "#service-cards") {
+  const container = document.querySelector(target);
   container.innerHTML = payload.services.map((service) => {
     const healthy = ["active", "activating"].includes(service.state);
     const unavailable = ["not_configured", "not_installed"].includes(service.state);
-    return `<article class="service-card"><div><strong>${escapeHtml(service.name)}</strong><p>${escapeHtml(service.description)}</p><small>${escapeHtml(service.detail || "No runtime detail")}</small></div><div class="service-card-actions"><span class="task-status-pill ${healthy ? "successful" : unavailable ? "" : "failed"}">${escapeHtml(service.state)}</span><button type="button" data-service-log="${escapeHtml(service.id)}">View Logs</button>${service.controllable ? `<button type="button" data-recovery-service="${escapeHtml(service.id)}" data-action="${healthy ? "stop" : "start"}">${healthy ? "Stop" : "Start"}</button>` : ""}<button type="button" data-service-restart="${escapeHtml(service.id)}" data-service-name="${escapeHtml(service.name)}" ${service.restartable ? "" : "disabled"}>↻ Restart</button></div></article>`;
+    return `<article class="service-card"><div><strong>${escapeHtml(service.name)}</strong><p>${escapeHtml(service.description)}</p><small>${escapeHtml(service.detail || "No runtime detail")}</small></div><div class="service-card-actions"><span class="task-status-pill ${healthy ? "successful" : unavailable ? "" : "failed"}">${escapeHtml(service.state)}</span><button type="button" data-service-log="${escapeHtml(service.id)}">View Logs</button>${["tftp", "recovery_http", "recovery_ftp"].includes(service.id) ? `<a class="recovery-browse-link" href="#recovery-browse=${service.id}" data-recovery-browse="${service.id}">Browse Files</a>` : ""}${service.controllable ? `<button type="button" data-recovery-service="${escapeHtml(service.id)}" data-action="${healthy ? "stop" : "start"}">${healthy ? "Stop" : "Start"}</button>` : ""}<button type="button" data-service-restart="${escapeHtml(service.id)}" data-service-name="${escapeHtml(service.name)}" ${service.restartable ? "" : "disabled"}>↻ Restart</button></div></article>`;
   }).join("");
   document.querySelector("#services-state").innerHTML = `<i></i> ${payload.updated_at ? `Updated ${escapeHtml(new Date(payload.updated_at).toLocaleTimeString())}` : "Status pending"}`;
   container.querySelectorAll("[data-recovery-service]").forEach((button) => button.addEventListener("click", async () => {
@@ -2033,8 +2093,13 @@ function renderServiceCards(payload) {
     try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`); }
     catch (error) { showToast(error.message); button.disabled = false; }
   }));
+  container.querySelectorAll("[data-recovery-browse]").forEach((link) => link.addEventListener("click", (event) => {
+    event.preventDefault();
+    history.replaceState(null, "", link.hash);
+    openRecoveryBrowser(link.dataset.recoveryBrowse);
+  }));
   container.querySelectorAll("[data-service-restart]").forEach((button) => button.addEventListener("click", () => restartManagedService(button)));
-  container.querySelectorAll("[data-service-log]").forEach((button) => button.addEventListener("click", () => loadServiceLogs(button.dataset.serviceLog)));
+  container.querySelectorAll("[data-service-log]").forEach((button) => button.addEventListener("click", () => target === "#recovery-service-cards" ? openRecoveryLog(button.dataset.serviceLog) : loadServiceLogs(button.dataset.serviceLog)));
 }
 
 let selectedServiceLog = null;
@@ -2066,8 +2131,8 @@ async function queueServiceAction(path, options = {}) {
   const response = await fetch(path, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
-  if (result.task) { storageTasks.set(result.task.id, result.task); renderStorageTasks(); }
-  window.setTimeout(() => { loadManagedServices(); loadTasks(); }, 1200);
+  if (result.task) { storageTasks.set(result.task.id, { ...result.task, serverManaged: true }); renderStorageTasks(); }
+  window.setTimeout(() => { loadManagedServices(); loadTasks(); if (!document.querySelector("#recovery-panel").hidden) loadRecoveryMonitoring(); }, 1200);
   return result;
 }
 
@@ -2169,7 +2234,7 @@ function showView(view) {
     loadLogs();
     loadSessionLogs();
   }
-  if (view === "recovery") loadRecovery();
+  if (view === "recovery") { loadRecovery(); loadRecoveryMonitoring(); }
   if (view === "tasks") loadTasks();
   if (view === "services") loadManagedServices();
   if (view === "settings") {
@@ -2378,24 +2443,47 @@ window.setInterval(() => {
 async function loadRecovery() {
   try {
     const [recovery, stage] = await Promise.all([getJson("/api/v1/recovery"), getJson("/api/v1/storage")]);
-    document.querySelector("#recovery-source").innerHTML = stage.files.map((file) => `<option value="${escapeHtml(file.name)}">${escapeHtml(file.name)}</option>`).join("");
-    document.querySelector("#recovery-files").innerHTML = recovery.files.map((file) => `<tr><td>${escapeHtml(file.path)}</td><td>${formatBytes(file.size_bytes)}</td><td><code>${escapeHtml(file.http_url)}</code></td><td><div class="file-actions"><button data-copy-recovery="${escapeHtml(file.http_url)}">Copy URL</button><button data-copy-recovery="${escapeHtml(file.tftp_path)}">Copy TFTP path</button><button data-recovery-hash="${escapeHtml(file.path)}">SHA256</button><button data-recovery-restore="${escapeHtml(file.path)}">Move to Stage</button></div></td></tr>`).join("") || '<tr><td colspan="4">No recovery files. Upload a file in Storage and move it here.</td></tr>';
+    updateRecoverySources(stage.files);
+    renderStorage(stage);
+    document.querySelector("#recovery-files").innerHTML = recovery.files.map((file) => `<tr><td>${escapeHtml(file.path)}</td><td>${formatBytes(file.size_bytes)}</td><td><code>${escapeHtml(file.http_url)}</code></td><td><div class="file-actions"><button data-copy-recovery="${escapeHtml(file.http_url)}">Copy URL</button><button data-copy-recovery="${escapeHtml(file.tftp_path)}">Copy TFTP/FTP path</button><button data-copy-recovery="${escapeHtml(file.ftp_url)}">Copy FTP URL</button><button data-recovery-hash="${escapeHtml(file.path)}">SHA256</button><button data-recovery-restore="${escapeHtml(file.path)}">Unpublish</button></div></td></tr>`).join("") || '<tr><td colspan="4">No published files. Upload in Storage or copy from USB there, then publish the staged file.</td></tr>';
   } catch (error) { document.querySelector("#recovery-message").textContent = error.message; }
 }
 
-document.querySelector("#recovery-refresh").addEventListener("click", loadRecovery);
+document.querySelector("#recovery-refresh").addEventListener("click", () => { loadRecovery(); loadRecoveryMonitoring(); });
 document.querySelector("#recovery-publish").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const button = event.submitter;
-  button.disabled = true;
+  if (recoveryPublishRunning) return;
+  const filenames = [...document.querySelectorAll("#recovery-source input:checked")].map((input) => input.value);
+  if (!filenames.length) return;
+  const folder = document.querySelector("#recovery-folder").value.trim();
+  const message = document.querySelector("#recovery-message");
+  const results = document.querySelector("#recovery-publish-results");
+  results.replaceChildren();
+  recoveryPublishRunning = true;
+  updateRecoverySelection();
+  let successful = 0;
   try {
-    const response = await fetch("/api/v1/recovery/files", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: document.querySelector("#recovery-source").value, folder: document.querySelector("#recovery-folder").value.trim() }) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || "Move failed");
-    document.querySelector("#recovery-message").textContent = `${result.path}: ready for TFTP / HTTP`;
+    for (const [index, filename] of filenames.entries()) {
+      message.textContent = `Publishing ${index + 1}/${filenames.length}: ${filename}`;
+      const item = document.createElement("li");
+      try {
+        const response = await fetch("/api/v1/recovery/files", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename, folder }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Publish failed");
+        successful += 1;
+        item.textContent = `Published: ${result.path}`;
+      } catch (error) {
+        item.textContent = `${filename}: ${error.message}`;
+        item.classList.add("publish-failed");
+      }
+      results.append(item);
+    }
+    message.textContent = `${successful}/${filenames.length} files published for FTP / TFTP / HTTP${successful < filenames.length ? "; see individual results above." : "."}`;
     await loadRecovery();
-  } catch (error) { document.querySelector("#recovery-message").textContent = error.message; }
-  finally { button.disabled = false; }
+  } finally {
+    recoveryPublishRunning = false;
+    updateRecoverySelection();
+  }
 });
 document.querySelector("#recovery-files").addEventListener("click", async (event) => {
   const button = event.target.closest("button");
@@ -2429,3 +2517,150 @@ window.setInterval(async () => {
     if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) await loadServiceLogs(selectedServiceLog, true);
   } finally { serviceRefreshRunning = false; }
 }, 5000);
+
+
+function updateRecoverySources(files) {
+  const list = document.querySelector("#recovery-source");
+  const selected = new Set([...list.querySelectorAll("input:checked")].map((input) => input.value));
+  list.innerHTML = files.map((file) => `<label><input type="checkbox" value="${escapeHtml(file.name)}" ${selected.has(file.name) ? "checked" : ""}><span>${escapeHtml(file.name)}</span><small>${formatBytes(file.size_bytes)}</small></label>`).join("") || '<p>No staged files. Upload in Storage or copy from USB there.</p>';
+  updateRecoverySelection();
+}
+function updateRecoverySelection() {
+  const inputs = [...document.querySelectorAll("#recovery-source input")];
+  const count = inputs.filter((input) => input.checked).length;
+  document.querySelector("#recovery-selected-count").textContent = `${count} selected`;
+  inputs.forEach((input) => { input.disabled = recoveryPublishRunning; });
+  document.querySelector("#recovery-folder").disabled = recoveryPublishRunning;
+  document.querySelector("#recovery-select-all").disabled = recoveryPublishRunning || !inputs.length;
+  document.querySelector("#recovery-select-none").disabled = recoveryPublishRunning || !count;
+  const button = document.querySelector("#recovery-publish button[type=submit]");
+  button.disabled = recoveryPublishRunning || !count;
+  button.textContent = recoveryPublishRunning ? "Publishing…" : `Publish selected${count ? ` (${count})` : ""}`;
+}
+document.querySelector("#recovery-source").addEventListener("change", updateRecoverySelection);
+for (const [id, checked] of [["recovery-select-all", true], ["recovery-select-none", false]]) {
+  document.getElementById(id).addEventListener("click", () => {
+    document.querySelectorAll("#recovery-source input").forEach((input) => { input.checked = checked; });
+    updateRecoverySelection();
+  });
+}
+
+async function loadRecoveryLog() {
+  const select = document.querySelector("#recovery-log-service");
+  const selected = select.value;
+  const output = document.querySelector("#recovery-log-lines");
+  try {
+    const payload = await getJson(`/api/v1/services/${selected}/logs`);
+    if (select.value === selected) output.textContent = payload.lines.join("\n") || "No transfer entries yet.";
+  } catch (error) { output.textContent = "Logs unavailable: " + error.message; }
+}
+function openRecoveryLog(service) {
+  document.querySelector("#recovery-log-service").value = service;
+  loadRecoveryLog();
+  document.querySelector("#recovery-log-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+let recoveryMonitoring = false;
+async function loadRecoveryMonitoring() {
+  if (recoveryMonitoring) return;
+  recoveryMonitoring = true;
+  try {
+    const results = await Promise.allSettled([getJson("/api/v1/services"), getJson("/api/v1/recovery/network"), loadRecoveryLog()]);
+    if (results[0].status === "fulfilled") {
+      const payload = results[0].value;
+      renderServiceCards({ ...payload, services: payload.services.filter((service) => ["tftp", "recovery_http", "recovery_ftp"].includes(service.id)) }, "#recovery-service-cards");
+    } else document.querySelector("#recovery-service-cards").textContent = "Service status unavailable";
+    if (results[1].status === "fulfilled") {
+      const network = results[1].value;
+      document.querySelector("#recovery-network").innerHTML = `<strong>${network.stale ? "Network snapshot unavailable or out of date" : network.ports.some((port) => port.connected) ? "Service Ethernet: link connected" : "Service Ethernet: no cable detected"}</strong><p>DHCP leases · Shared service-port / recovery Wi-Fi network. A lease does not confirm that a device is currently online.</p><div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>Device</th><th>IP address</th><th>MAC</th><th>Lease expires</th></tr></thead><tbody>${network.leases.map((lease) => `<tr><td>${escapeHtml(lease.hostname)}</td><td>${escapeHtml(lease.ip)}</td><td>${escapeHtml(lease.mac)}</td><td>${lease.expires_at ? escapeHtml(new Date(lease.expires_at * 1000).toLocaleString()) : "Permanent"}</td></tr>`).join("") || '<tr><td colspan="4">No current DHCP leases</td></tr>'}</tbody></table></div>`;
+    } else document.querySelector("#recovery-network").textContent = "Network information unavailable";
+  } finally { recoveryMonitoring = false; }
+}
+document.querySelector("#recovery-log-service").addEventListener("change", loadRecoveryLog);
+document.querySelectorAll("[data-recovery-jump]").forEach((button) => button.addEventListener("click", () => {
+  const target = document.getElementById(button.dataset.recoveryJump);
+  if (["storage-panel", "external-storage-panel"].includes(target.id)) {
+    document.querySelector('.side-link[data-view="storage"]').click();
+  }
+  if (target.classList.contains("collapsible")) setCollapsed(target, false);
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
+window.setInterval(() => {
+  if (!document.hidden && !document.querySelector("#recovery-panel").hidden) loadRecoveryMonitoring();
+}, 5000);
+
+
+let recoveryBrowserFiles = [];
+let recoveryBrowserFolder = "";
+let recoveryBrowserService = "tftp";
+let recoveryBrowserRequest = 0;
+async function openRecoveryBrowser(service) {
+  if (!["tftp", "recovery_http", "recovery_ftp"].includes(service)) return;
+  recoveryBrowserService = service;
+  recoveryBrowserFolder = "";
+  const dialog = document.querySelector("#recovery-browser");
+  if (!dialog.open) dialog.showModal();
+  await refreshRecoveryBrowser();
+}
+async function refreshRecoveryBrowser() {
+  const request = ++recoveryBrowserRequest;
+  const body = document.querySelector("#recovery-browser-files");
+  body.innerHTML = '<tr><td colspan="3">Loading published files…</td></tr>';
+  try {
+    const payload = await getJson("/api/v1/recovery");
+    if (request !== recoveryBrowserRequest) return;
+    recoveryBrowserFiles = payload.files;
+    renderRecoveryBrowser();
+  } catch (error) {
+    if (request === recoveryBrowserRequest) body.innerHTML = `<tr><td colspan="3">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+function renderRecoveryBrowser() {
+  const protocol = {tftp: "TFTP", recovery_http: "HTTP", recovery_ftp: "FTP"}[recoveryBrowserService];
+  document.querySelector("#recovery-browser-title").textContent = `${protocol} · Published files`;
+  document.querySelector("#recovery-browser-path").textContent = "/" + recoveryBrowserFolder;
+  document.querySelector("#recovery-browser-up").disabled = !recoveryBrowserFolder;
+  document.querySelector("#recovery-browser-message").textContent = "All three services share this folder. Browsing does not start a service; start it before transferring files.";
+  const prefix = recoveryBrowserFolder ? recoveryBrowserFolder + "/" : "";
+  const folders = new Set();
+  const files = [];
+  for (const file of recoveryBrowserFiles) {
+    if (!file.path.startsWith(prefix)) continue;
+    const relative = file.path.slice(prefix.length);
+    if (relative.includes("/")) folders.add(relative.split("/")[0]);
+    else files.push({...file, name: relative});
+  }
+  const rows = [...folders].sort().map((folder) => `<tr><td><button type="button" data-browse-folder="${escapeHtml(prefix + folder)}">▸ ${escapeHtml(folder)}</button></td><td>Folder</td><td></td></tr>`);
+  for (const file of files) {
+    const address = recoveryBrowserService === "recovery_http" ? file.http_url : recoveryBrowserService === "recovery_ftp" ? file.ftp_url : file.tftp_path;
+    rows.push(`<tr><td>${escapeHtml(file.name)}<small class="recovery-browser-address">${escapeHtml(address)}</small></td><td>${formatBytes(file.size_bytes)}</td><td><button type="button" data-browse-copy="${escapeHtml(address)}">Copy ${protocol === "TFTP" ? "path" : "URL"}</button>${protocol === "HTTP" ? `<a href="${escapeHtml(file.http_url)}" target="_blank" rel="noopener noreferrer">Open HTTP</a>` : ""}</td></tr>`);
+  }
+  document.querySelector("#recovery-browser-files").innerHTML = rows.join("") || '<tr><td colspan="3">No published files in this folder. Publish files from Recovery first.</td></tr>';
+}
+document.querySelector("#recovery-browser-close").addEventListener("click", () => document.querySelector("#recovery-browser").close());
+document.querySelector("#recovery-browser").addEventListener("close", () => {
+  if (document.querySelector("#recovery-browser").open) return;
+  recoveryBrowserRequest += 1;
+  if (location.hash === `#recovery-browse=${recoveryBrowserService}`) history.replaceState(null, "", location.pathname + location.search);
+});
+document.querySelector("#recovery-browser-refresh").addEventListener("click", refreshRecoveryBrowser);
+document.querySelector("#recovery-browser-up").addEventListener("click", () => {
+  recoveryBrowserFolder = recoveryBrowserFolder.split("/").slice(0, -1).join("/");
+  renderRecoveryBrowser();
+});
+document.querySelector("#recovery-browser-files").addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.dataset.browseFolder !== undefined) {
+    recoveryBrowserFolder = button.dataset.browseFolder;
+    renderRecoveryBrowser();
+  } else if (button.dataset.browseCopy) {
+    const address = button.dataset.browseCopy;
+    let copied = false;
+    try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(address); copied = true; } } catch (_) { /* Address remains selectable below. */ }
+    document.querySelector("#recovery-browser-message").textContent = (copied ? "Copied: " : "Select and copy: ") + address;
+  }
+});
+window.addEventListener("hashchange", () => {
+  if (location.hash.startsWith("#recovery-browse=")) openRecoveryBrowser(location.hash.split("=")[1]);
+});
+if (location.hash.startsWith("#recovery-browse=")) openRecoveryBrowser(location.hash.split("=")[1]);

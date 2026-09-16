@@ -45,14 +45,13 @@ case "${action}" in
         write_status error "${filename}" "" "Media path is outside staging storage"
         exit 1
     fi
-    case "${filename,,}" in
-      *.iso) media_type=cdrom; cdrom=1 ;;
-      *.img) media_type=disk; cdrom=0 ;;
-      *)
-        write_status error "${filename}" "" "Only ISO and IMG files are supported"
+    script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    if ! media_type="$(python3 "${script_dir}/detect-virtual-media-type.py" "${resolved}" 2>&1)"; then
+        write_status error "${filename}" "" "${media_type}"
         exit 1
-        ;;
-    esac
+    fi
+    cdrom=0
+    [[ "${media_type}" != cdrom ]] || cdrom=1
     printf '\n' >"${lun}/file"
     printf '%s' "${cdrom}" >"${lun}/cdrom"
     printf '1' >"${lun}/ro"

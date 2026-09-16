@@ -1,7 +1,9 @@
 """Manage the shared, read-only recovery publication directory."""
 import hashlib
+import json
 import os
 import threading
+import time
 from pathlib import Path
 from urllib.parse import quote
 
@@ -14,6 +16,7 @@ from backend.app.services.virtual_media import virtual_media_status
 router = APIRouter(prefix="/api/v1/recovery", tags=["recovery"])
 LOCK = threading.Lock()
 ADDRESS = "192.168.34.100"
+NETWORK_STATE = Path(os.environ.get("KRONOSKVM_STATE_PATH", "/state")) / "recovery-network.json"
 
 
 class PublishFile(BaseModel):
@@ -60,6 +63,7 @@ def list_recovery() -> dict:
                 "size_bytes": path.stat().st_size,
                 "http_url": f"http://{ADDRESS}:8080/{quote(relative)}",
                 "tftp_path": relative,
+                "ftp_url": f"ftp://{ADDRESS}/{quote(relative)}",
             })
     return {"address": ADDRESS, "files": sorted(files, key=lambda item: item["path"])}
 
@@ -108,3 +112,13 @@ def restore_file(path: str) -> dict:
         except FileExistsError as error:
             raise HTTPException(status_code=409, detail="Staging file already exists") from error
         return {"status": "restored", "name": target.name}
+
+
+@router.get("/network")
+def recovery_network() -> dict:
+    try:
+        value = json.loads(NETWORK_STATE.read_text(encoding="utf-8"))
+        value["stale"] = time.time() - value["updated_at"] > 20
+        return value
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"stale": True, "ports": [], "leases": [], "updated_at": None}
