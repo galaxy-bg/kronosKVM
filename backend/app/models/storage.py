@@ -39,3 +39,4 @@ class VirtualMediaStatus(BaseModel):
     filename: Optional[str] = None
     media_type: Optional[str] = None
     message: Optional[str] = None
+    activity: Optional[dict] = None

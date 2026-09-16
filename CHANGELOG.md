@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show sampled virtual-media read activity, speed, last-read time and USB
+  disconnection in KVM and Storage, with unavailable telemetry distinguished from idle.
 - Mount oversized hybrid ISOs as read-only USB disks to avoid the Linux gadget
   CD-ROM size limit; Ubuntu boot and OS installation start verified on hardware.
 - Browse published Recovery files per service and keep FTP/TFTP/HTTP disabled by default.

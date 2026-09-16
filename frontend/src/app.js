@@ -447,7 +447,26 @@ async function loadVirtualMediaStatus() {
   } catch (error) {
     virtualMediaStatus = { status: "unavailable", filename: null, message: "Status unavailable" };
   }
+  renderMediaActivity();
   return virtualMediaStatus;
+}
+
+function renderMediaActivity() {
+  const media = virtualMediaStatus;
+  const activity = media.activity || {};
+  const fresh = activity.updated_at && Date.now() / 1000 - activity.updated_at <= 20;
+  let state = media.status === "attached" ? (fresh ? activity.state : "unknown") : media.status;
+  const labels = { reading: "Media: Reading", idle: "Media: Idle", disconnected: "Media: USB disconnected",
+    unknown: "Media: Activity unavailable", unavailable: "Media: Status unavailable",
+    error: "Media: Error", ejected: "Media: No image", attaching: "Media: Mounting", ejecting: "Media: Ejecting" };
+  let detail = media.filename || "";
+  if (state === "reading") detail += ` · ${formatBytes(activity.read_bytes_per_second)}/s`;
+  if (fresh && activity.last_read_at) detail += ` · Last read ${Math.max(0, Math.floor(Date.now() / 1000 - activity.last_read_at))}s ago`;
+  document.querySelectorAll(".media-activity").forEach((indicator) => {
+    indicator.dataset.state = state;
+    indicator.textContent = `● ${labels[state] || "Media: Checking"}${detail ? ` · ${detail}` : ""}`;
+    indicator.title = "USB image read activity sampled about every 5 seconds, including cached reads. Idle does not mean an error. This is not OS installation progress.";
+  });
 }
 
 async function setVirtualMedia(filename = null) {
@@ -1400,11 +1419,13 @@ function openVideoWindow() {
       <button type="button" data-kvm-action="keyboard">⌨ Hot keys</button>
       <button type="button" data-kvm-action="media">▤ Virtual media</button>
     </div>
+    <div class="media-activity" role="status">● Media: Checking…</div>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KDX InfraBox target video"></div>
     <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
     <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
+  loadVirtualMediaStatus();
   const image = element.querySelector(".video-frame");
   const status = element.querySelector(".video-frame-status");
   const keyboard = element.querySelector(".video-keyboard");
@@ -1851,6 +1872,7 @@ function openVideoWindow() {
     adjustingAspect = true;
     const chromeHeight = element.querySelector(".terminal-titlebar").offsetHeight
       + element.querySelector(".kvm-toolbar").offsetHeight
+      + element.querySelector(".media-activity").offsetHeight
       + element.querySelector(".terminal-footer").offsetHeight;
     const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 4 / 3;
     element.style.height = `${Math.round(element.offsetWidth / ratio + chromeHeight)}px`;
@@ -2424,6 +2446,9 @@ document.addEventListener("click", (event) => {
 });
 Promise.allSettled([load(), startupMinimum]).then(dismissStartupSplash);
 window.setInterval(loadTasks, 3000);
+window.setInterval(() => {
+  if (!document.hidden) loadVirtualMediaStatus();
+}, 3000);
 
 document.querySelector("#external-refresh").addEventListener("click", loadExternalStorage);
 document.querySelector("#external-volume").addEventListener("change", (event) => {

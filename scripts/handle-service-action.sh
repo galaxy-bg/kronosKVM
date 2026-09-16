@@ -103,6 +103,7 @@ fi
 
 write_status
 python3 /opt/kronoskvm/scripts/snapshot-recovery-network.py
+python3 /opt/kronoskvm/scripts/snapshot-media-activity.py
 [[ -n "${task_id}" ]] || exit 0
 result="${state_dir}/service-result-${task_id}.json"
 printf '{"successful":%s,"error":"%s","service":"%s","action":"%s"}\n' \

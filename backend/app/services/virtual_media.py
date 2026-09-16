@@ -1,4 +1,6 @@
 import os
+import json
+import time
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -10,6 +12,20 @@ STATE_PATH = Path(os.environ.get("KRONOSKVM_STATE_PATH", "/var/lib/kronoskvm/sta
 REQUEST_PATH = STATE_PATH / "virtual-media-action"
 STATUS_PATH = STATE_PATH / "virtual-media-status"
 SUPPORTED_MEDIA = {".iso": "cdrom", ".img": "disk"}
+
+
+def media_activity(filename: str) -> dict:
+    try:
+        value = json.loads((STATE_PATH / "media-activity.json").read_text())
+        age = time.time() - value["updated_at"]
+        if not 0 <= age <= 20 or value.get("filename") != filename:
+            return {"state": "unknown"}
+        return {key: value.get(key) for key in (
+            "state", "connected", "updated_at", "read_bytes_per_second",
+            "last_read_at", "observed_bytes",
+        )}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"state": "unknown"}
 
 
 def virtual_media_status() -> VirtualMediaStatus:
@@ -31,6 +47,7 @@ def virtual_media_status() -> VirtualMediaStatus:
         filename=values.get("filename") or None,
         media_type=values.get("media_type") or None,
         message=values.get("message") or None,
+        activity=media_activity(values.get("filename", "")),
     )
 
 

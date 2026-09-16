@@ -36,3 +36,12 @@ If mount/eject requests stop being processed, open **Services → Virtual Media
 the watcher and the mount/eject helper logs.
 
 For firmware transfers over the service port, see [Recovery services](recovery-services.md).
+
+Virtual media activity is shown in Storage and the KVM console. The host samples
+`file-storage`'s `rchar` counter about every five seconds, including reads served
+from cache. The indicator shows Reading (with sampled bytes/second), Idle, USB
+disconnected, or Activity unavailable, plus the last observed read time. It is
+not installation progress or a guarantee of successful boot. Idle alone is not
+an error. Samples older than 20 seconds are unavailable, and a changed mount or
+reset counter starts a new baseline. Multiple mass-storage workers are treated
+as unavailable because their reads cannot safely be attributed to this gadget.

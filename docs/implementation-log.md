@@ -366,3 +366,12 @@ media. Small ISOs retain CD-ROM mode. Five focused tests cover the size boundary
 Ubuntu-sized hybrid images, rejection and IMG mode. Deployed helper to .112 and
 reattached Ubuntu: API reports attached/disk, configfs cdrom=0 and ro=1. Target
 boot was subsequently confirmed by the operator, who started Ubuntu installation.
+
+### 2026-09-16 — Virtual media activity indicator
+
+Added a read-only host sampler to the existing service-status refresh, API
+telemetry, and indicators in KVM and Storage. Uses gadget worker logical read
+bytes rather than physical disk I/O so cache hits remain visible. Handles idle,
+disconnected, unavailable/stale data and counter resets without implying OS
+installation progress. Local tests cover cached reads and these transitions.
+Live rollout is pending installation completion to avoid interrupting the console.
