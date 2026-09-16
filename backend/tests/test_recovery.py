@@ -152,3 +152,19 @@ def test_tasks_poll_reconciles_service_completion(pool, monkeypatch):
     finished = next(item for item in response.json()["tasks"] if item["id"] == task["id"])
     assert finished["status"] == "successful"
     assert not (pool / f"service-result-{task['id']}.json").exists()
+
+
+def test_failed_eject_still_protects_backing_file(pool, monkeypatch):
+    from backend.app.services import virtual_media
+
+    path = pool / 'ubuntu.iso'
+    path.write_bytes(b'iso')
+    state = lambda: VirtualMediaStatus(status='error', filename=path.name)
+    monkeypatch.setattr(recovery, 'virtual_media_status', state)
+    monkeypatch.setattr(virtual_media, 'virtual_media_status', state)
+    assert client.post('/api/v1/recovery/files', json={'filename': path.name}).status_code == 409
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        storage.delete_staged_file(path.name)
+    assert error.value.status_code == 409
+    assert path.read_bytes() == b'iso'

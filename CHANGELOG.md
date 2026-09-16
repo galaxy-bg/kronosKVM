@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add confirmed Force Eject controls for target-locked virtual media; preserve
+  backing-file protection after failed eject and block overwrite while in use.
 - Show sampled virtual-media read activity, speed, last-read time and USB
   disconnection in KVM and Storage, with unavailable telemetry distinguished from idle.
 - Mount oversized hybrid ISOs as read-only USB disks to avoid the Linux gadget

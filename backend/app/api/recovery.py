@@ -73,7 +73,7 @@ def publish_file(value: PublishFile) -> dict:
     with LOCK:
         source = storage.staged_path(value.filename)
         media = virtual_media_status()
-        if media.filename == source.name and media.status in {"attached", "attaching"}:
+        if media.filename == source.name and media.status != "ejected":
             raise HTTPException(status_code=409, detail="Eject virtual media before moving it")
         relative = f"{value.folder}/{source.name}" if value.folder else source.name
         target = recovery_path(relative)

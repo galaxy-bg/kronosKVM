@@ -469,9 +469,9 @@ function renderMediaActivity() {
   });
 }
 
-async function setVirtualMedia(filename = null) {
+async function setVirtualMedia(filename = null, force = false) {
   const attaching = Boolean(filename);
-  const response = await fetch("/api/v1/storage/virtual-media", {
+  const response = await fetch(`/api/v1/storage/virtual-media${force ? "?force=true" : ""}`, {
     method: attaching ? "POST" : "DELETE",
     headers: attaching ? { "Content-Type": "application/json" } : {},
     body: attaching ? JSON.stringify({ filename }) : null,
@@ -1421,7 +1421,7 @@ function openVideoWindow() {
     </div>
     <div class="media-activity" role="status">● Media: Checking…</div>
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KDX InfraBox target video"></div>
-    <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
+    <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="force-media-eject">Force Eject</button><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
     <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
@@ -2689,3 +2689,13 @@ window.addEventListener("hashchange", () => {
   if (location.hash.startsWith("#recovery-browse=")) openRecoveryBrowser(location.hash.split("=")[1]);
 });
 if (location.hash.startsWith("#recovery-browse=")) openRecoveryBrowser(location.hash.split("=")[1]);
+
+// Available even when the mounted file was deleted or a normal eject failed.
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".force-media-eject");
+  if (!button || !window.confirm("Force eject virtual media? This disconnects the image even if the target has locked it and may interrupt an active OS installation. Stop the target installation first.")) return;
+  button.disabled = true;
+  try { await setVirtualMedia(null, true); }
+  catch (error) { showToast(`Force eject failed: ${error.message}`); }
+  finally { button.disabled = false; }
+});

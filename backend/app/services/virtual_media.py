@@ -77,5 +77,5 @@ def attach_virtual_media(filename: str) -> VirtualMediaStatus:
     return _stage_action("attach", path.name)
 
 
-def eject_virtual_media() -> VirtualMediaStatus:
-    return _stage_action("eject")
+def eject_virtual_media(force: bool = False) -> VirtualMediaStatus:
+    return _stage_action("force_eject" if force else "eject")

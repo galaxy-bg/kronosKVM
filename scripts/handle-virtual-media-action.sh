@@ -22,7 +22,15 @@ write_status() {
     mv -f -- "${temporary}" "${status_file}"
 }
 
-trap 'write_status error "${filename:-}" "" "Virtual media operation failed; check the host service log"' ERR
+operation_failed() {
+    local backing="" actual_type=disk
+    [[ ! -r "${lun}/file" ]] || IFS= read -r backing <"${lun}/file" || true
+    backing="${backing% (deleted)}"
+    [[ "$(cat "${lun}/cdrom" 2>/dev/null)" != 1 ]] || actual_type=cdrom
+    write_status error "${backing##*/}" "${actual_type}" \
+        "Virtual media change failed; the target may have locked the medium. Stop the target installation before ejecting; check the host service log."
+}
+trap operation_failed ERR
 
 if [[ ! -d "${lun}" ]]; then
     write_status unavailable "" "" "USB virtual-media gadget is not configured"
@@ -59,10 +67,14 @@ case "${action}" in
     write_status attached "${filename}" "${media_type}" "Read-only virtual media is active"
     logger --tag kronoskvm-media "Attached read-only virtual media: ${filename} (${media_type})"
     ;;
-  eject)
-    printf '\n' >"${lun}/file"
+  eject|force_eject)
+    if [[ "${action}" == force_eject ]]; then
+        printf '1\n' >"${lun}/forced_eject"
+    else
+        printf '\n' >"${lun}/file"
+    fi
     write_status ejected "" "" "Virtual media ejected"
-    logger --tag kronoskvm-media "Ejected virtual media"
+    logger --tag kronoskvm-media "Ejected virtual media (${action})"
     ;;
   *)
     write_status error "" "" "Invalid virtual media action"

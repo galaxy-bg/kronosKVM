@@ -374,4 +374,17 @@ telemetry, and indicators in KVM and Storage. Uses gadget worker logical read
 bytes rather than physical disk I/O so cache hits remain visible. Handles idle,
 disconnected, unavailable/stale data and counter resets without implying OS
 installation progress. Local tests cover cached reads and these transitions.
-Live rollout is pending installation completion to avoid interrupting the console.
+Live rollout completed after operator approval. API and web rebuilt; Ubuntu
+remained attached as a read-only disk. Live sampling observed approximately
+8 MB/s reads followed by idle. Browser checks passed for Storage and KVM
+indicators, activity states and usable video layout without target HID input.
+
+### 2026-09-16 — Locked media recovery
+
+The target rejected normal eject with EBUSY and retained a deleted Ubuntu backing
+file despite a fresh upload. Operator requested force after restart did not help.
+Forced eject released the stale file; reattached Ubuntu in disk mode and observed
+reads. Added explicit force=true API request, host forced_eject handling, and
+confirmed Force Eject controls in Storage/KVM even when the file is missing.
+Failed helper operations preserve the real backing filename; delete, publish
+and overwrite guards now protect it on error as well as attached state.

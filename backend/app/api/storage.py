@@ -59,8 +59,8 @@ def mount_virtual_media(request: VirtualMediaRequest) -> VirtualMediaStatus:
 
 
 @router.delete("/virtual-media", response_model=VirtualMediaStatus, status_code=202)
-def unmount_virtual_media() -> VirtualMediaStatus:
-    return eject_virtual_media()
+def unmount_virtual_media(force: bool = False) -> VirtualMediaStatus:
+    return eject_virtual_media(force=force)
 
 
 @router.get("/files/{filename}")

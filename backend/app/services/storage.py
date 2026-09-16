@@ -240,6 +240,8 @@ async def store_upload(
     expected = request.headers.get("content-length")
     expected_bytes = 0
     target = root / name
+    if overwrite:
+        _ensure_media_released(name)
     if not overwrite and target.exists():
         raise HTTPException(
             status_code=409, detail="A file with this name already exists in staging"
@@ -302,6 +304,7 @@ async def store_upload(
         if written == 0:
             raise HTTPException(status_code=400, detail="Empty uploads are not accepted")
         if overwrite:
+            _ensure_media_released(name)
             temporary.replace(target)
         else:
             try:
@@ -349,13 +352,17 @@ async def store_upload(
     return FileOperation(status="stored", name=name, size_bytes=written)
 
 
-def delete_staged_file(filename: str) -> FileOperation:
-    path = staged_path(filename)
+def _ensure_media_released(filename: str) -> None:
     from backend.app.services.virtual_media import virtual_media_status
 
     media = virtual_media_status()
-    if media.status in {"attaching", "attached"} and media.filename == path.name:
-        raise HTTPException(status_code=409, detail="Eject virtual media before deleting it")
+    if media.status != "ejected" and media.filename == filename:
+        raise HTTPException(status_code=409, detail="Eject virtual media before changing its file")
+
+
+def delete_staged_file(filename: str) -> FileOperation:
+    path = staged_path(filename)
+    _ensure_media_released(path.name)
     size = path.stat().st_size
     try:
         path.unlink()

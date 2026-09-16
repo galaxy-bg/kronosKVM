@@ -45,3 +45,11 @@ not installation progress or a guarantee of successful boot. Idle alone is not
 an error. Samples older than 20 seconds are unavailable, and a changed mount or
 reset counter starts a new baseline. Multiple mass-storage workers are treated
 as unavailable because their reads cannot safely be attributed to this gadget.
+
+If the target locks the medium and normal Eject returns “Device or resource busy”,
+stop its installation and use **Force Eject** in the Storage summary or the KVM
+Virtual media drawer. Confirming bypasses the target's media-removal lock using
+configfs `forced_eject`; it does not reboot the appliance or reset the HID gadget.
+Mount the desired image afterward. The button remains available if the old image
+was deleted. Failed operations retain the actual backing filename so deletion,
+publication and overwrite remain blocked until the medium is released.
