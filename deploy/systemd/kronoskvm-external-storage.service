@@ -1,0 +1,9 @@
+[Unit]
+Description=Detect and mount external USB storage read-only
+Requires=kronoskvm-external-root.service
+After=kronoskvm-external-root.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/manage-external-storage.py
+TimeoutStartSec=60

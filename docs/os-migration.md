@@ -1,11 +1,17 @@
-# Operating-System Update and Migration
+# Operating-System Maintenance
+
+## Active release
+
+The current prototype runs Debian GNU/Linux 13 (64-bit) on the active appliance
+hardware. Capture, serial-console and USB gadget functions must be revalidated
+after kernel or firmware changes.
 
 ## Current-release updates
 
-Use `scripts/update-current-os.sh` to update packages, stable kernel and
+Use `scripts/update-current-os.sh` to update packages, the stable kernel and
 firmware within the configured release. It creates a local root-only backup of
-APT and boot configuration before applying `apt-get full-upgrade`.
-It intentionally does not run `autoremove`.
+APT and boot configuration before applying `apt-get full-upgrade`. It does not
+run `autoremove` or change the configured Debian release.
 
 Preview:
 
@@ -13,30 +19,21 @@ Preview:
 sudo ./scripts/update-current-os.sh --dry-run
 ```
 
-Apply:
+Apply during a maintenance window:
 
 ```bash
 sudo ./scripts/update-current-os.sh
 sudo reboot
 ```
 
-This script never edits APT release codenames.
+After reboot, verify Ethernet and AP access, X630 capture, both USB consoles and
+the two-interface USB-C HID gadget. When the target supplies USB VBUS, also
+confirm that the final power board prevents backfeed and unsafe power sequencing.
 
 ## Major release migration
 
-The prototype currently runs Debian/Raspberry Pi OS Bullseye. Raspberry Pi
-officially recommends a clean image instead of an in-place major upgrade. The
-production migration target is the current Raspberry Pi OS Lite 64-bit release.
-
-Migration requires physical or out-of-band access:
-
-1. Preserve inventory and required configuration.
-2. Prepare new boot media with Raspberry Pi Imager.
-3. Configure hostname, `kronosdx` user, SSH and management Wi-Fi.
-4. Boot the new media and verify SSH host keys intentionally.
-5. Re-run `scripts/remote-inventory.sh`.
-6. Apply `scripts/bootstrap.sh`.
-7. Revalidate Ethernet, USB, UDC, RTC, display and capture hardware.
-
-Do not change Bullseye APT sources to Bookworm or Trixie for an unattended
-remote upgrade.
+Use a clean 64-bit image for a major Debian/Raspberry Pi OS release transition.
+Preserve the application configuration and inventory, provision SSH and the
+management AP, run `scripts/bootstrap.sh`, deploy the containers, then repeat
+the complete hardware validation. Do not perform an unattended in-place release
+upgrade on the appliance.

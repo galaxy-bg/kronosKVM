@@ -1,7 +1,19 @@
 # Video Capture
 
-HDMI capture is inactive. HDMI0/HDMI1 appear to be CM4 display outputs. Target
-video is expected to arrive through an HDMI-to-CSI bridge on CAM0. Do not add
-overlays or edit boot configuration until capture hardware is installed and
-identified. The first inventory found only BCM2835 codec/ISP and RPivid nodes;
-there was no `/dev/video0` capture device and no detected camera interface.
+The active capture path is:
+
+```text
+Target HDMI → Geekworm X630 / TC358743 → CSI-2 → /dev/video0
+```
+
+The TC358743 bridge loses EDID across a power cycle. The host systemd service
+runs `scripts/configure-capture.sh` before starting the application containers;
+the script installs an HDMI EDID and applies detected DV timings when a source
+is present.
+
+The API reports live signal and resolution at `GET /api/v1/video/status` and
+serves the browser stream from `/api/v1/video/stream.mjpg`.
+
+Verified input includes 1024×768 at 60 Hz. `Cable detected` without TMDS, PLL
+lock or stable sync means the HDMI cable is present but the target is not
+emitting video; it is not an application-stream failure.

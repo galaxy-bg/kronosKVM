@@ -1,0 +1,7 @@
+[Unit]
+Description=Attach or eject approved KronosKVM virtual media
+After=kronoskvm-containers.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kronoskvm/scripts/handle-virtual-media-action.sh

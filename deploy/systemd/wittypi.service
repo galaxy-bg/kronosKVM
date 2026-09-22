@@ -1,0 +1,15 @@
+[Unit]
+Description=Witty Pi 4 RTC and power-management daemon
+After=local-fs.target systemd-modules-load.service
+Before=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/opt/wittypi/daemon.sh
+WorkingDirectory=/opt/wittypi
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

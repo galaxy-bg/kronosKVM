@@ -5,6 +5,7 @@ import re
 import struct
 import subprocess
 import threading
+import time
 import zlib
 from pathlib import Path
 from typing import Optional
@@ -18,6 +19,18 @@ VIDEO_DEVICE = Path("/dev/video0")
 _capture_lock = threading.Lock()
 _stream_state_lock = threading.Lock()
 _stream_process: Optional[subprocess.Popen] = None  # noqa: UP045
+_latest_frame: bytes = b""
+_latest_frame_at = 0.0
+
+
+@router.get("/latest.jpg")
+def latest_video_frame() -> Response:
+    with _stream_state_lock:
+        frame, captured_at = _latest_frame, _latest_frame_at
+    if not frame or time.monotonic() - captured_at > 3:
+        raise HTTPException(status_code=503, detail="No current video frame; open the live stream")
+    return Response(frame, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
 
 
 def _run(*args: str, timeout: float = 5.0) -> subprocess.CompletedProcess:
@@ -75,7 +88,7 @@ def video_status() -> dict:
 @router.get("/frame.png")
 def video_frame() -> Response:
     if not VIDEO_DEVICE.exists():
-        raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
+        raise HTTPException(status_code=503, detail="HDMI capture device is unavailable")
     if not _capture_lock.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="A video frame is already being captured")
     try:
@@ -119,7 +132,7 @@ def video_frame() -> Response:
 def video_stream() -> StreamingResponse:
     global _stream_process
     if not VIDEO_DEVICE.exists():
-        raise HTTPException(status_code=503, detail="X630 capture device is unavailable")
+        raise HTTPException(status_code=503, detail="HDMI capture device is unavailable")
     with _stream_state_lock:
         previous_process = _stream_process
     if previous_process and previous_process.poll() is None:
@@ -180,12 +193,30 @@ def video_stream() -> StreamingResponse:
         _stream_process = process
 
     def frames():
-        global _stream_process
+        global _stream_process, _latest_frame, _latest_frame_at
+        pending = bytearray()
         try:
             while process.stdout:
-                chunk = process.stdout.read(64 * 1024)
+                chunk = process.stdout.read1(64 * 1024)
                 if not chunk:
                     break
+                pending.extend(chunk)
+                while True:
+                    start = pending.find(b"\xff\xd8")
+                    if start < 0:
+                        pending[:] = pending[-1:]
+                        break
+                    end = pending.find(b"\xff\xd9", start + 2)
+                    if end < 0:
+                        del pending[:start]
+                        break
+                    frame = bytes(pending[start:end + 2])
+                    del pending[:end + 2]
+                    with _stream_state_lock:
+                        _latest_frame = frame
+                        _latest_frame_at = time.monotonic()
+                if len(pending) > 16 * 1024 * 1024:
+                    pending.clear()
                 yield chunk
         finally:
             process.terminate()

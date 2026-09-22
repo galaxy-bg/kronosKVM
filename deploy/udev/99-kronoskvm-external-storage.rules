@@ -1,0 +1,3 @@
+# The dedicated storage port is managed read-only by KronosKVM, not the desktop.
+SUBSYSTEM=="block", KERNELS=="2-1", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", KERNELS=="1-1.1", ENV{UDISKS_IGNORE}="1"

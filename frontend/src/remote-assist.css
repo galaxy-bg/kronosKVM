@@ -1,0 +1,23 @@
+#remote-assist-panel { margin-bottom: 18px; }
+.ra-body { padding: 18px; }
+.ra-body p, .ra-body small { color: var(--muted); font-size: .78rem; line-height: 1.55; }
+.ra-body h3 { font-size: .85rem; margin: 0 0 10px; }
+.ra-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.ra-cards article { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); overflow-wrap: anywhere; }
+.ra-cards small { display: block; margin-top: 10px; }
+.ra-cards a { color: var(--accent-strong); }
+#remote-assist-panel button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-2); cursor: pointer; font-size: .78rem; }
+#remote-assist-panel button:disabled { opacity: .5; cursor: default; }
+#ra-toggle[aria-checked="true"] { background: var(--accent); color: white; }
+.ra-boot { display: flex; align-items: center; gap: 10px; margin: 18px 0; font-size: .8rem; }
+.ra-boot input { width: 20px; height: 20px; }
+.ra-body details { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
+.ra-body summary { padding: 8px 0; cursor: pointer; font-weight: 650; }
+.ra-body form { display: grid; gap: 12px; margin-top: 18px; max-width: 850px; }
+.ra-body form label { display: grid; gap: 7px; font-size: .78rem; min-width: 0; }
+.ra-body form input { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--text); }
+.ra-body form button { justify-self: start; }
+.ra-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.ra-body .ra-error { color: var(--danger); }
+@media (max-width: 900px) { .ra-cards { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .ra-fields { grid-template-columns: 1fr; }.ra-body { padding: 12px; } }

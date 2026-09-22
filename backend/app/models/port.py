@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PhysicalPort(BaseModel):
@@ -15,6 +15,10 @@ class PhysicalPort(BaseModel):
     product_id: Optional[str] = None
     serial_device: Optional[str] = None
     console_available: bool = False
+    mode: Optional[str] = None
+    network_interface: Optional[str] = None
+    addresses: list[str] = Field(default_factory=list)
+    gateway: Optional[str] = None
 
 
 class PhysicalPortInventory(BaseModel):

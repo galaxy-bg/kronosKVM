@@ -3,7 +3,7 @@
 | Port | Purpose | Initial state |
 |---|---|---|
 | 22/TCP | SSH administration | Enabled |
-| 80/TCP | Development web UI on `192.168.34.100` only | Enabled on AP |
+| 80/TCP | Management web UI | Enabled on Ethernet and AP |
 | 443/TCP | Web interface | Future |
 | 5900/TCP | VNC compatibility | Disabled |
 | 6080/TCP | noVNC development | Localhost only |
@@ -14,8 +14,8 @@
 | 9100/TCP | Metrics | Disabled |
 | 8554/TCP | Optional RTSP | Disabled |
 
-SSH remains the only service exposed on ETH0. The unauthenticated development
-web UI is reachable only by clients connected to the isolated management AP.
+SSH and the management web gateway are reachable through Ethernet. The same web
+gateway is available directly on the appliance AP at `192.168.34.100`.
 
 The management AP uses DHCP UDP 67 and DNS TCP/UDP 53 only on `wlan0`; DNS also
 listens on loopback for the appliance resolver. No customer-network forwarding,

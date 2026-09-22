@@ -1,8 +1,13 @@
+import os
 import socket
+from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 
 from backend.app.hardware import display, ports, rtc, serial, temperature, usb_gadget, video
+from backend.app.logging import audit
 from backend.app.models import (
     Capability,
     HealthResponse,
@@ -21,6 +26,14 @@ from backend.app.services.system import (
 )
 
 router = APIRouter(prefix="/api/v1")
+POWER_ACTION_PATH = Path(
+    os.environ.get("KRONOSKVM_POWER_ACTION_PATH", "/state/power-action")
+)
+
+
+class PowerActionRequest(BaseModel):
+    action: Literal["reboot", "poweroff"]
+    confirmed: bool = False
 
 
 def get_capabilities() -> list[Capability]:
@@ -67,6 +80,21 @@ def storage_info() -> StorageInfo:
 @router.get("/system/services", response_model=ServicesInfo)
 def services_info() -> ServicesInfo:
     return get_services_info()
+
+
+@router.post("/system/power", status_code=status.HTTP_202_ACCEPTED)
+def system_power(request: PowerActionRequest) -> dict:
+    if not request.confirmed:
+        raise HTTPException(status_code=400, detail="Explicit confirmation is required")
+    try:
+        POWER_ACTION_PATH.parent.mkdir(parents=True, exist_ok=True)
+        pending = POWER_ACTION_PATH.with_suffix(".pending")
+        pending.write_text(f"{request.action}\n", encoding="ascii")
+        pending.replace(POWER_ACTION_PATH)
+    except OSError as error:
+        raise HTTPException(status_code=503, detail="Power control is unavailable") from error
+    audit("system.power.requested", action=request.action)
+    return {"accepted": True, "action": request.action}
 
 
 @router.get("/hardware/usb", response_model=Capability)

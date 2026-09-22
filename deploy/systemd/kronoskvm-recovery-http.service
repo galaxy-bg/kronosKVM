@@ -1,0 +1,19 @@
+[Unit]
+Description=KronosKVM read-only recovery HTTP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=10001
+Group=20
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/serve-recovery-http.py
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

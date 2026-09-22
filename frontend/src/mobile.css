@@ -1,0 +1,74 @@
+/* Compact layout also covers phones held in landscape. */
+@media (max-width: 760px), (max-width: 1024px) and (pointer: coarse) {
+  .sidebar { transform: translateX(-100%); width: 224px; overflow-y: auto; z-index: 30; }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.compact { width: 224px; }
+  .sidebar.compact .side-link span:last-child, .sidebar.compact .sidebar-version { display: initial; }
+  .sidebar-toggle { display: none; }
+  .app-content, .sidebar.compact + .app-content { margin-left: 0; }
+  .mobile-menu { display: block; min-width: 44px; min-height: 44px; }
+  .topbar { min-height: 60px; padding: 6px 10px; gap: 6px; }
+  .header-brand, .user-button, .badge { display: none; }
+  .search { flex: 1; width: auto; min-width: 0; }
+  .theme-switcher button { min-width: 36px; min-height: 40px; }
+  .theme-switcher button span { display: none; }
+  main { width: calc(100% - 20px); padding-top: 16px; }
+  .workspace-grid, .detail-grid, .storage-summary, .network-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .workspace-card, .panel, .session-strip, .detail-section { min-width: 0; }
+  .session-cards { flex-wrap: wrap; }
+  .session-card { flex: 1 1 185px; min-width: 0; max-width: 100%; }
+  .service-card { flex-wrap: wrap; min-width: 0; }
+  .service-card small { overflow-wrap: anywhere; }
+  .panel-heading, .section-title, .settings-group-heading, .tasks-summary { flex-wrap: wrap; gap: 10px; }
+  .heading-actions { flex-wrap: wrap; }
+  .statusbar, .sidebar.compact + .app-content .statusbar { left: 0; padding-inline: 10px; }
+  .statusbar span:last-child { display: none; }
+  input, select, textarea { font-size: 16px !important; }
+  .modal { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .terminal-window, .terminal-window.maximized {
+    inset: 64px 4px 42px !important;
+    width: auto !important; height: auto !important;
+    min-width: 0; min-height: 0; max-height: calc(100dvh - 106px);
+    resize: none; grid-template-columns: minmax(0, 1fr);
+  }
+  .terminal-window .terminal-titlebar { padding: 6px 8px; gap: 6px; cursor: default; }
+  .terminal-heading strong { font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .terminal-heading > div { min-width: 0; }
+  .terminal-heading span { display: none; }
+  .terminal-controls { flex-shrink: 0; }
+  .terminal-controls button { width: 40px; height: 40px; }
+  .terminal-maximize { display: none; }
+  .terminal-footer { flex-wrap: wrap; padding: 5px 7px; gap: 5px; }
+  .terminal { padding: 10px; }
+  .video-window { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+  .kvm-toolbar, .video-footer-tools {
+    flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0;
+    overscroll-behavior-x: contain; scrollbar-width: thin;
+  }
+  .kvm-toolbar { padding: 3px 6px; }
+  .kvm-toolbar button, .video-footer-tools button { flex: 0 0 auto; min-height: 40px; white-space: nowrap; }
+  .kvm-footer { display: block; min-height: 0; }
+  .kvm-footer-state { flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; }
+  .video-frame-status { font-size: .6rem; }
+  .video-window .media-activity { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .video-keyboard {
+    left: 4px !important; right: 4px !important; top: auto !important; bottom: 42px;
+    width: auto; max-height: min(55dvh, 350px); background: #0c1914;
+  }
+  .keyboard-heading { position: sticky; top: 0; left: 0; background: #13231c; flex-wrap: wrap; }
+  .keyboard-row { justify-content: flex-start; width: max-content; min-width: 100%; }
+  .keyboard-key { min-width: 44px; height: 44px; flex-shrink: 0; }
+  .keyboard-hide, .keyboard-release { min-height: 40px; min-width: 40px; }
+  .virtual-media-drawer { top: 96px; width: 100%; max-height: calc(100% - 100px); }
+  .terminal-window.minimized { inset: auto 4px 42px !important; width: min(300px, calc(100vw - 8px)) !important; max-height: 52px; }
+  .video-window.minimized > :not(.terminal-titlebar) { display: none; }
+  .video-window:fullscreen { inset: 0 !important; height: 100dvh !important; max-height: 100dvh; }
+}
+@media (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
+  .terminal-window:not(.minimized), .terminal-window.maximized { inset: 0 !important; max-height: 100dvh; border-radius: 0; }
+  .kvm-footer { display: flex; flex-wrap: nowrap; align-items: center; }
+  .video-footer-tools { flex: 1; }
+  .kvm-footer-state { flex: 0 0 auto; margin: 0; }
+  .kvm-footer-state .video-frame-status, .kvm-footer-state .video-resolution { display: none; }
+  .video-keyboard { bottom: 0; max-height: 70dvh; }
+}

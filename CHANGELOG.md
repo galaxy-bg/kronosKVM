@@ -2,6 +2,51 @@
 
 ## Unreleased
 
+- Add confirmed Force Eject controls for target-locked virtual media; preserve
+  backing-file protection after failed eject and block overwrite while in use.
+- Show sampled virtual-media read activity, speed, last-read time and USB
+  disconnection in KVM and Storage, with unavailable telemetry distinguished from idle.
+- Mount oversized hybrid ISOs as read-only USB disks to avoid the Linux gadget
+  CD-ROM size limit; Ubuntu boot and OS installation start verified on hardware.
+- Browse published Recovery files per service and keep FTP/TFTP/HTTP disabled by default.
+- Show USB copy byte progress in Tasks and Background tasks using a shared task ID;
+  Copy & Mount displays a separate mounting phase and waits for the requested ISO.
+- Restore standalone Storage navigation with Recovery shortcuts to Internal/External storage.
+
+- Add checkbox-based multi-file publication with Select all, per-file results and
+  retry selection for files that could not be published.
+
+- Fix Background tasks rendering and completion for service actions; automatically
+  dismiss successful service entries and reconcile results from the task endpoint.
+- Wrap Recovery file URLs and actions; clarify that the publication folder is optional.
+
+- Consolidate staging uploads, USB imports, published files, transfer controls and
+  logs under Recovery; show service Ethernet link state and current DHCP leases.
+- Add read-only anonymous FTP on the recovery network, with passive/active
+  transfers and Start/Stop/Restart controls alongside TFTP and HTTP.
+
+- Add Service Port Recovery folders, staging moves, shared quota and SHA256 checks.
+- Add on-demand read-only TFTP/HTTP services with Start/Stop/Restart and transfer logs.
+- Refresh host service status/logs automatically and expose them in the Logs view.
+- Add Virtual Media watcher restart and logs to Services.
+
+- Add read-only External Storage browsing, downloads, copy-to-stage and Copy & Mount.
+- Account for active uploads in available staging capacity; show insufficient-space
+  reasons before external copies while retaining the 32 GiB quota and 10 GiB reserve.
+- Fix virtual-media eject to clear the backing file and report host helper errors.
+- Preserve accumulated mouse movement, add adjustable sensitivity (default 0.2x),
+  and reduce video pipe buffering.
+- Improve snapshot and browser recording cleanup, format selection and size/time limits.
+  **Known issue:** the operator still reports frozen video recordings after the latest
+  fresh-JPEG recording change; recording is not validated as working. MP4 depends on
+  browser MediaRecorder support, with WebM fallback.
+
+
+- Fix direct-HDMI capture compatibility on the two-lane X630 using a persistent
+  EDID that prefers 720p60 and retains 1080p30 and legacy PC modes. Document
+  source-PC restart requirements for BIOS, PS5 HDCP setup, and pending device
+  compatibility tests.
+
 - Establish the prototype repository, documentation and FastAPI skeleton.
 - Add read-only local and remote hardware inventory tooling.
 - Add idempotent base OS preparation and current-release update workflows.

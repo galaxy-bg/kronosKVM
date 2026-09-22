@@ -1,5 +1,112 @@
 # Implementation Log
 
+> Historical log: early entries describe the retired CM4 prototype. The active
+> Raspberry Pi 4 and X630 design is documented in [Hardware](hardware.md).
+
+## 2026-09-16 — Storage workflow follow-ups
+
+- Restored Storage as a separate menu for uploads, ISO mount/eject and external
+  USB browsing; Recovery links to it and retains publication, services and logs.
+- Added multi-file publication and Browse Files links, and corrected service-task
+  rendering/completion in the floating task panel.
+- Diagnosed the user's Ubuntu USB import as a running copy (69% at inspection),
+  then verified all 6,482,409,472 bytes copied and the requested ISO attached.
+- Correlated external import and middleware task IDs, exposed byte progress, and
+  added Background task copy/mount phases without resetting the mounted gadget.
+- Validation: 58 local tests passed with the local reserve override, including
+  actual import byte-progress propagation into the global task record.
+
+## 2026-09-16 — Unified Recovery and FTP
+
+- Replaced separate Storage/Service Port navigation with one Recovery workspace;
+  reused existing upload, staging and external USB components in that view.
+- Added FTP (anonymous, read-only, TCP 21, passive ports 30000–30010), same-page
+  service controls and logs, and a timestamped DHCP/link snapshot refreshed by
+  the existing host status timer. Expired leases are excluded; leases are not
+  presented as online-device detection.
+- Deployed to `192.168.1.112`. All 56 local tests pass with the existing local
+  reserve override. Chrome verified upload, source selection refresh, publication,
+  SHA256, FTP Start, in-page logs and unpublish without JavaScript errors.
+- Live FTP validation passed listing, active and passive byte-equal downloads,
+  denied uploads, denied path escape, checksum and completed-transfer log checks.
+  Generated files were removed. No target firmware flashing was performed.
+- API/web source and images were backed up before deployment. FTP was left active
+  after validation; download services remain on-demand, disabled at boot.
+
+## 2026-09-15 — Service Port Recovery
+
+- Deployed shared Recovery file publication, folder paths and SHA256 checks to
+  InfraBox at `192.168.1.112`. Recovery files count toward the staging quota.
+- Added independent read-only TFTP and HTTP host services on the recovery network,
+  Start/Stop/Restart controls, and automatic five-second status/journal refresh.
+- Verified 54 local tests (1 GiB reserve override only for local tests), shell and
+  JavaScript syntax, and live stage/publish/restore, shared quota, SHA256, service
+  start/stop, HTTP byte equality and multi-block TFTP byte equality. Verified both
+  transfer logs through the API; removed the generated validation file.
+- Verified HTTP rejects writes, traversal and directory listing. This was an
+  appliance-local transfer test; actual target firmware flashing was not attempted.
+- Both download services are running after validation, but remain disabled at boot
+  for on-demand use. FTP and incoming uploads are deferred. HTTP has no Range resume.
+- API and web containers are healthy. Pre-deployment source archive is under
+  `/var/tmp/infrabox-recovery-backup.*`; prior images have `before-recovery` tags.
+
+## 2026-09-12 — External storage and KVM session updates
+
+- Deployed external USB mounting/browsing and staging copy/mount actions to the active
+  appliance. Verified exFAT media inventory and directory access.
+- Corrected executable permissions on host action scripts and the zero-byte eject
+  write; verified repeated attach/eject cycles against the actual gadget backing file.
+- Added active-copy capacity accounting, preflight checks and single-line storage actions.
+- Confirmed HDMI input at 1920x1080p30 after the source PC restarted.
+- Replaced discarded mouse events with accumulated movement and adjustable sensitivity;
+  reduced default sensitivity to 0.2x after operator feedback.
+- Snapshot was confirmed working by the operator. Recording remains unresolved:
+  the timer advances but output appears frozen. Fresh JPEG frame delivery was verified
+  on the appliance, but the operator still reports the recording problem. Do not
+  describe browser video recording as fixed. MP4 support remains browser-dependent.
+- Resume with an actual browser recording reproduction and inspect the downloaded
+  file for multiple frames, duration and codec; mock lifecycle tests are insufficient.
+- Validation: 44 tests pass with a 1 GiB reserve override for the local test environment
+  (the Mac has less than the production 10 GiB reserve free). Appliance reserve stays
+  at 10 GiB. Existing repository lint findings remain; see the pull request.
+
+## 2026-09-07 — Direct HDMI compatibility
+
+- Reached the active appliance at its new DHCP address, `192.168.1.107`.
+- Diagnosed stable 1080p60 HDMI input with no captured frames: the generic
+  EDID advertised a mode requiring more CSI lanes than the two configured.
+- Added `config/edid/infrabox-compat.hex`, preferring 720p60 and retaining
+  lower-bandwidth HDMI and legacy PC modes, and deployed it with the capture
+  startup script. Previous live settings were backed up at
+  `/var/tmp/kdx-capture-backup.EKC5JD` on the appliance.
+- Confirmed the profile remained loaded after an appliance restart.
+- HDMI reconnection alone did not change the BIOS output. After restarting
+  the source PC with HDMI attached, the operator confirmed video was restored.
+  No post-confirmation measurement of the negotiated mode was taken.
+- Validation: EDID conformity PASS in edid-decode (with a multiple-native-timing
+  warning), profile checksum/mode regression test passed, and shell syntax checked.
+- Older VGA PC regression and PS5 hardware validation are pending. PS5 capture
+  requires HDCP disabled at the source; EDID cannot force noncompliant sources
+  or fixed-output converters to choose a supported mode.
+
+## Active appliance migration — August 2026
+
+- Migrated the prototype to the four-host-port appliance platform with a
+  dedicated USB-C DWC2 device controller.
+- Assigned the two black USB 2.0 ports to Console 1 and Console 2, and the two
+  blue USB 3.0 ports to Service USB and External Storage.
+- Enabled HDMI-to-CSI capture on `/dev/video0` and validated browser video.
+- Replaced the unstable three-interface HID gadget with a boot keyboard and
+  BIOS-compatible relative mouse.
+- Added the open development AP `KronosDX-iKVM` at `192.168.34.100`, while
+  retaining Ethernet as the primary upstream and management path.
+- Added a 32 GiB internal staging allocation, concurrent background uploads,
+  cancellation, progress reporting and incomplete-fragment cleanup.
+- Added structured application logs, temporary console/KVM session logs and
+  safe host-mediated reboot/power-off controls.
+- Kept hardware model names out of the operator UI; service documentation owns
+  board- and bridge-specific details.
+
 ## 2026-07-16
 
 - Created the public GitHub repository and initial prototype.
@@ -247,3 +354,67 @@
   retains non-root dialout permissions and does not use privileged mode.
 - Added a persistent, password-free network connection registry for SSH,
   Telnet, RDP, VNC and Web URL profiles with native-client launch actions.
+
+### 2026-09-16 — Large Ubuntu ISO virtual-media boot
+
+The target returned to BIOS with Ubuntu 26.04.1 desktop mounted. Host kernel logs
+confirmed CD-ROM gadget truncation (`using only first 1151999 blocks`) for the
+6,482,409,472-byte image. The host mount helper now selects read-only disk mode
+for oversized ISOs with a valid bounded MBR partition (and GPT signature for a
+protective MBR), rejecting oversized optical-only images before ejecting existing
+media. Small ISOs retain CD-ROM mode. Five focused tests cover the size boundary,
+Ubuntu-sized hybrid images, rejection and IMG mode. Deployed helper to .112 and
+reattached Ubuntu: API reports attached/disk, configfs cdrom=0 and ro=1. Target
+boot was subsequently confirmed by the operator, who started Ubuntu installation.
+
+### 2026-09-16 — Virtual media activity indicator
+
+Added a read-only host sampler to the existing service-status refresh, API
+telemetry, and indicators in KVM and Storage. Uses gadget worker logical read
+bytes rather than physical disk I/O so cache hits remain visible. Handles idle,
+disconnected, unavailable/stale data and counter resets without implying OS
+installation progress. Local tests cover cached reads and these transitions.
+Live rollout completed after operator approval. API and web rebuilt; Ubuntu
+remained attached as a read-only disk. Live sampling observed approximately
+8 MB/s reads followed by idle. Browser checks passed for Storage and KVM
+indicators, activity states and usable video layout without target HID input.
+
+### 2026-09-16 — Locked media recovery
+
+The target rejected normal eject with EBUSY and retained a deleted Ubuntu backing
+file despite a fresh upload. Operator requested force after restart did not help.
+Forced eject released the stale file; reattached Ubuntu in disk mode and observed
+reads. Added explicit force=true API request, host forced_eject handling, and
+confirmed Force Eject controls in Storage/KVM even when the file is missing.
+Failed helper operations preserve the real backing filename; delete, publish
+and overwrite guards now protect it on error as well as attached state.
+
+### 2026-09-18 — Missing gadget after boot / systemd ordering cycle
+
+Live .112 had no configfs USB gadget or HID devices, while Docker auto-restarted
+the UI. Current-boot journal explicitly reported the virtual-media path ordering
+cycle through containers, Docker/basic.target and paths.target; containers never
+started, so its gadget ExecStartPre never ran. Removed After=containers from the
+.path unit (the triggered .service retains its ordering). systemd-analyze verify
+passes on-device. After a user-side reboot/reconnection, containers and gadget
+started automatically, confirming the boot fix. A read-only RHEL ISO mount was
+verified in both API and configfs. New gadget initialization now clears stale
+status from the previous boot.
+Added Start/Stop controls for the Virtual Media request watcher; stopping it does
+not eject media or interrupt an already running helper. Start/Restart repairs a
+missing gadget without rebuilding an existing one. Requests are rejected while
+the watcher reports inactive/failed, preventing silent deferred mount requests.
+Virtual Media logs now include container startup. 68 tests passed. Device clock
+was incorrect (Aug 9), so diagnostic evidence was collected with journalctl -b.
+Live Stop/Start test passed: Stop retained the mounted image, API rejected eject
+with 409 while stopped, Start resumed processing, and normal test-media eject
+succeeded. Watcher restored to active after testing.
+
+### 2026-09-18 — Internal Storage SHA256
+
+Added on-demand SHA256 action alongside each Internal Storage file, copyable
+result dialog, and optional case-insensitive reference comparison. Chunked server
+reads track byte progress in Tasks and serialize hash work. Descriptor and path
+identity/size/timestamps must remain unchanged, otherwise no hash is returned.
+Tests cover known digests, empty/multi-chunk data, symlink rejection, concurrency
+limit and replacement during hashing. Suite: 73 passed.

@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch Remote Assist requests
+
+[Path]
+PathExists=/var/lib/kronoskvm/state/remote-assist-request.json
+Unit=kronoskvm-remote-assist-action.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Restore Remote Assist startup preference
+After=NetworkManager.service
+Before=kronoskvm-remote-assist-status.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/remote-assist-host.py --boot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+.services-panel { margin-bottom: 14px; }
+.services-summary { display: flex; justify-content: space-between; gap: 20px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.services-summary strong { font-size: .76rem; }
+.services-summary small { color: var(--muted); font-size: .63rem; }
+.service-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 18px; }
+.service-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); }
+.service-card strong, .service-card p, .service-card small { display: block; }
+.service-card strong { font-size: .76rem; }
+.service-card p { margin: 4px 0; color: var(--muted); font-size: .65rem; }
+.service-card small { color: var(--muted); font: .59rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+.service-card-actions { display: grid; justify-items: end; gap: 8px; }
+.service-card-actions button { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); font-size: .63rem; font-weight: 750; cursor: pointer; }
+.service-card-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.service-log-viewer { margin: 0 18px 18px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: #07140f; color: #b8f1d2; }
+.service-log-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #294238; background: #0d2118; }
+.service-log-heading strong, .service-log-heading small { display: block; }
+.service-log-heading small { margin-top: 3px; color: #89aa9a; font-size: .58rem; }
+.service-log-heading button { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; cursor: pointer; }
+.service-log-viewer pre { max-height: 420px; margin: 0; padding: 13px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: .63rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (max-width: 760px) { .service-cards { grid-template-columns: 1fr; } }
