@@ -8,7 +8,7 @@ a 64 GB microSD card.
 
 The installation provides:
 
-- Docker and systemd-managed KronosKVM containers
+- Docker and systemd-managed KDX InfraBox containers
 - native Ethernet plus the permanent Wi-Fi management AP
 - DWC2 peripheral mode on USB-C
 - TC358743/X630 device-tree overlay and capture initialization

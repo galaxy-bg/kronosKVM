@@ -1,6 +1,6 @@
 # Containerization
 
-KronosKVM uses a hybrid container architecture.
+KDX InfraBox uses a hybrid container architecture.
 
 ## Containerized application plane
 
@@ -61,7 +61,7 @@ sudo ./scripts/rollback-containers.sh
 The management AP and SSH are independent of application containers.
 
 Docker is configured without its default bridge, iptables management, IP
-forwarding or masquerading. KronosKVM containers currently use host networking
+forwarding or masquerading. KDX InfraBox containers currently use host networking
 only, so Docker must not alter the isolated AP/customer-network policy.
 
 Image builds use host networking only while resolving and downloading build

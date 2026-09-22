@@ -6,7 +6,7 @@ KronosDX retains all rights until an explicit permanent license is selected.
 
 ## D-002 — Independent architecture
 
-PiKVM may be studied as a technical reference, but KronosKVM keeps independent
+PiKVM may be studied as a technical reference, but KDX InfraBox keeps independent
 identity, configuration, API, service layout, hardware abstraction and UI.
 
 ## D-003 — FastAPI control plane
