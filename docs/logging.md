@@ -1,6 +1,6 @@
-# KronosKVM logging
+# KDX InfraBox logging
 
-KronosKVM writes structured JSON application and audit events to both:
+KDX InfraBox writes structured JSON application and audit events to both:
 
 - `/var/log/kronoskvm/application.jsonl`
 - the `kronoskvm-api` container's journald stream

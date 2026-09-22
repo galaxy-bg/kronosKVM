@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Standardize current product documentation on **KDX InfraBox — Infrastructure
+  in a Box**; retain the historical `kronosKVM` repository and `kronoskvm-*`
+  technical identifiers for compatibility.
+- Document implemented HTTPS, Remote Assist, USB WAN and installation limits.
+- Add WireGuard Remote Assist configuration, connection control, startup
+  preference, handshake/traffic status and private VPN access address.
+- Add phone USB WAN and External Storage / WAN status with USB IP/gateway and
+  separate VPN information.
+- Improve mobile KVM layouts and add a footer Caps Lock control.
+- Add internal Storage SHA256 verification and virtual-media boot/watcher fixes.
+
 - Add confirmed Force Eject controls for target-locked virtual media; preserve
   backing-file protection after failed eject and block overwrite while in use.
 - Show sampled virtual-media read activity, speed, last-read time and USB

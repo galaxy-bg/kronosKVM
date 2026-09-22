@@ -1,6 +1,6 @@
 # Architecture
 
-KronosKVM is an independent modular appliance. PiKVM is a technical reference,
+KDX InfraBox is an independent modular appliance. PiKVM is a technical reference,
 not a source-tree template.
 
 Planned services:

@@ -1,6 +1,6 @@
 # Serial Console
 
-KronosKVM supports browser serial sessions for Cisco, Aruba, HPE Comware,
+KDX InfraBox supports browser serial sessions for Cisco, Aruba, HPE Comware,
 Ruijie, Zyxel, Linux and generic console devices. The default profile is auto
 baud with 8N1 and no flow control; common rates from 9600 through 115200 are
 available manually.

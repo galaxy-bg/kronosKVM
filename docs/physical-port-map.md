@@ -7,7 +7,7 @@ USB-C DWC2 controller in device mode.
 |---|---|---|
 | Black USB-A 2.0 #1 | Console 1 | `1-1.3` |
 | Black USB-A 2.0 #2 | Console 2 | `1-1.4` |
-| Blue USB-A 3.0 #1 | External Storage | `1-1.1` at USB 2 speed, `2-1` at SuperSpeed |
+| Blue USB-A 3.0 #1 | External Storage / WAN | `1-1.1` at USB 2 speed, `2-1` at SuperSpeed |
 | Blue USB-A 3.0 #2 | Service USB / optional USB Ethernet | `1-1.2` at USB 2 speed, `2-2` at SuperSpeed |
 | USB-C | KVM OTG | UDC `fe980000.usb` |
 | CSI-2 | X630 video | `/dev/video0` |
@@ -19,3 +19,15 @@ path. That does not make the physical socket a USB 2-only port.
 The console mappings were verified by moving the PL2303 adapter between the
 black sockets. Console identity should prefer `/dev/serial/by-id` when a serial
 number is present; topology is the physical-role fallback.
+
+## Storage / WAN and VPN status
+
+The first blue port accepts either a USB drive or supported phone USB tethering.
+In the dashboard it is labelled **External Storage / WAN**. Click its state
+badge or **Status** action to read the USB device, IP, gateway and network
+interface. The same dialog shows the independent VPN state, configured VPN IP,
+preferred uplink and last handshake. A VPN may use native Ethernet while no
+USB device is attached.
+
+The second blue port remains Service/Recovery. Moving a USB-RJ45 adapter to
+Storage/WAN is not yet a qualified WAN workflow; see [USB WAN](usb-wan.md).

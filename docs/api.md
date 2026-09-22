@@ -1,4 +1,4 @@
-# KronosKVM API
+# KDX InfraBox API
 
 The API listens on `127.0.0.1:8000` and is exposed through the Nginx management
 gateway. Mutating routes are scoped to application functions; there is no
@@ -28,6 +28,7 @@ arbitrary shell endpoint.
 - `PUT /api/v1/storage/files/{filename}` — stream a raw file upload
 - `GET /api/v1/storage/files/{filename}` — download a staged file
 - `DELETE /api/v1/storage/files/{filename}` — delete a staged file
+- `POST /api/v1/storage/checksum/{filename}` — calculate SHA256 with task progress
 - `GET /api/v1/storage/tasks` — background task state
 - `DELETE /api/v1/storage/tasks/{task_id}` — request cancellation
 - `GET /api/v1/storage/virtual-media` — attached/ejected media state
@@ -58,6 +59,17 @@ session ends.
 Power requests are written as an exact action marker in `/state`. A root-owned
 systemd path/service pair accepts only `reboot` and `poweroff`; the API container
 does not receive systemd, DBus, Docker-socket or general root access.
+
+## Remote Assist
+
+- `GET /api/v1/remote-assist` — sanitized WAN, VPN, handshake and access-address status
+- `PUT /api/v1/remote-assist/profile` — validated profile fields or WireGuard configuration import
+- `POST /api/v1/remote-assist/enable` and `/disable` — queue connection control
+- `POST /api/v1/remote-assist/boot-on` and `/boot-off` — startup preference
+
+Mutations return 202 when accepted; the host result is published through the
+status endpoint. Private/preshared keys are not returned. See
+[Remote Assist](remote-assist.md) for the supported configuration subset.
 
 ## Operations
 
