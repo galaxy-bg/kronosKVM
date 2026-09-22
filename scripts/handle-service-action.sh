@@ -61,7 +61,7 @@ write_status() {
         temporary="${state_dir}/.service-log-${id}.tmp"
         local log_units=(-u "${unit}")
         if [[ "${id}" == virtual_media ]]; then
-            log_units+=(-u kronoskvm-virtual-media-action.service)
+            log_units+=(-u kronoskvm-virtual-media-action.service -u kronoskvm-containers.service)
         fi
         journalctl "${log_units[@]}" -n 100 --no-pager -o short-iso >"${temporary}" 2>/dev/null || true
         chown 10001:20 "${temporary}"
@@ -76,7 +76,22 @@ write_status() {
 
 successful=true
 error=""
-if [[ "${action}" == restart ]]; then
+if [[ "${service}" == virtual_media && ( "${action}" == start || "${action}" == restart ) ]]; then
+    if [[ ! -d /sys/kernel/config/usb_gadget/kronoskvm/functions/mass_storage.usb0/lun.0 ]]; then
+        if ! /opt/kronoskvm/scripts/setup-hid-gadget.sh; then
+            successful=false
+            error="USB gadget initialization failed"
+        fi
+        if [[ ! -d /sys/kernel/config/usb_gadget/kronoskvm/functions/mass_storage.usb0/lun.0 ]]; then
+            successful=false
+            error="USB device controller or mass-storage gadget is unavailable"
+        fi
+    fi
+    if [[ "${successful}" == true ]] && ! systemctl "${action}" "$(unit_for virtual_media)"; then
+        successful=false
+        error="Virtual media watcher action failed"
+    fi
+elif [[ "${action}" == restart ]]; then
     if [[ "${service}" == management_ap ]]; then
         if ! nmcli connection up KronosDX-iKVM; then
             successful=false
@@ -91,7 +106,7 @@ if [[ "${action}" == restart ]]; then
         successful=false
         error="Rejected service"
     fi
-elif [[ "${action}" == start || "${action}" == stop ]] && [[ "${service}" == tftp || "${service}" == recovery_http || "${service}" == recovery_ftp ]]; then
+elif [[ "${action}" == start || "${action}" == stop ]] && [[ "${service}" == tftp || "${service}" == recovery_http || "${service}" == recovery_ftp || "${service}" == virtual_media ]]; then
     if ! systemctl "${action}" "$(unit_for "${service}")"; then
         successful=false
         error="Recovery service action failed"

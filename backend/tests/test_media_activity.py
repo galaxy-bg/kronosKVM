@@ -67,3 +67,15 @@ def test_force_eject_is_explicit_and_normal_eject_remains_default(tmp_path, monk
     assert virtual_media.REQUEST_PATH.read_text().splitlines()[0] == 'eject'
     assert client.delete('/api/v1/storage/virtual-media?force=true').status_code == 202
     assert virtual_media.REQUEST_PATH.read_text().splitlines()[0] == 'force_eject'
+
+
+def test_stopped_watcher_rejects_request_without_queuing(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    monkeypatch.setattr(virtual_media, 'STATE_PATH', tmp_path)
+    monkeypatch.setattr(virtual_media, 'REQUEST_PATH', tmp_path / 'virtual-media-action')
+    (tmp_path / 'service-status.json').write_text(json.dumps({
+        'services': {'virtual_media': {'state': 'inactive'}}}))
+    response = TestClient(app).delete('/api/v1/storage/virtual-media')
+    assert response.status_code == 409
+    assert not virtual_media.REQUEST_PATH.exists()

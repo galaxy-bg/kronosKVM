@@ -53,3 +53,20 @@ configfs `forced_eject`; it does not reboot the appliance or reset the HID gadge
 Mount the desired image afterward. The button remains available if the old image
 was deleted. Failed operations retain the actual backing filename so deletion,
 publication and overwrite remain blocked until the medium is released.
+
+Services → Virtual Media supports Start, Stop and Restart. Stop pauses new
+mount/eject processing, retaining attached media and any action already running.
+Start/Restart also initializes a missing USB gadget; an existing gadget is left
+intact. Use Eject/Force Eject to release an image, not service Stop.
+
+The action .path must not be ordered after application containers: path units
+precede paths.target/basic.target by default, while containers depend on normal
+services. Put application ordering on the triggered .service instead, to avoid
+a boot cycle that leaves Docker's auto-started UI running without its USB gadget.
+
+Internal Storage files have a **SHA256** action. Calculation runs on the appliance
+with bounded memory and byte progress in Tasks; only one checksum calculation
+runs at a time. The result dialog supports copy and comparison with a trusted
+publisher's 64-character SHA256. A hash alone is not an integrity verdict.
+Files replaced or modified during calculation are rejected; calculate again after
+copy/upload completes. Closing the dialog does not cancel a running calculation.

@@ -24,6 +24,13 @@ from backend.app.services.virtual_media import (
 router = APIRouter(prefix="/api/v1/storage", tags=["storage"])
 
 
+@router.post("/checksum/{filename}")
+def calculate_checksum(filename: str, request: Request) -> dict:
+    from backend.app.services.checksum import checksum
+
+    return checksum(filename, getattr(request.state, "task_id", None))
+
+
 @router.get("", response_model=StagingStorage)
 def list_storage() -> StagingStorage:
     return staging_info()

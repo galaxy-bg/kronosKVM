@@ -1,0 +1,9 @@
+[Unit]
+Description=Apply Remote Assist settings
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/remote-assist-host.py --action
+UMask=0077
+TimeoutStartSec=90

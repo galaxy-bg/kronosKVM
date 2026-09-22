@@ -1,0 +1,8 @@
+[Unit]
+Description=Publish Remote Assist status
+After=NetworkManager.service kronoskvm-remote-assist-boot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/remote-assist-host.py
+UMask=0077

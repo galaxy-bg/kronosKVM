@@ -11,6 +11,7 @@ from backend.app.api.hid import router as hid_router
 from backend.app.api.logs import router as logs_router
 from backend.app.api.network_settings import router as network_settings_router
 from backend.app.api.recovery import router as recovery_router
+from backend.app.api.remote_assist import router as remote_assist_router
 from backend.app.api.routes import router
 from backend.app.api.serial import router as serial_router
 from backend.app.api.services import router as services_router
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     application.include_router(ssh_router)
     application.include_router(storage_router)
     application.include_router(recovery_router)
+    application.include_router(remote_assist_router)
     application.include_router(external_storage_router)
     application.include_router(tasks_router)
     application.include_router(video_router)

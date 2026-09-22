@@ -225,31 +225,119 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
+async function getPhysicalPortInventory() {
+  const [inventory, remote] = await Promise.all([
+    getJson("/api/v1/hardware/ports"),
+    getJson("/api/v1/remote-assist").catch(() => null),
+  ]);
+  const shared = inventory.ports.find((port) => port.id === "expansion_usb");
+  if (!shared) return inventory;
+  shared.name = "External Storage / WAN";
+  shared.physical_label = "USB-A 3.0 · Storage / WAN";
+  const fresh = remote?.installed && !remote.stale && Date.now() / 1000 - remote.updated_at < 30;
+  const wan = fresh && shared.connected ? remote.wan?.[0] : null;
+  if (wan && !shared.network_interface) {
+    shared.mode = "wan";
+    shared.network_interface = wan.interface;
+    shared.addresses = (wan.address || "").split(/[\s,;]+/).filter(Boolean);
+    shared.gateway = wan.gateway || null;
+    shared.status = shared.addresses.length ? "usb_wan_ready" : "waiting_for_ip";
+  }
+  shared.vpn = {
+    state: fresh ? remote.state : "unavailable",
+    address: remote?.profile?.address || null,
+    uplink: fresh ? remote.uplink : null,
+    lastHandshake: fresh ? remote.last_handshake : null,
+  };
+  return inventory;
+}
+
+function portVpnLabel(vpn) {
+  const states = {connected: "Connected", off: "Off", waiting_handshake: "Waiting for handshake",
+    disconnected: "Disconnected", setup_required: "Setup required", unavailable: "Status unavailable",
+    stop_failed: "Could not stop"};
+  return states[vpn.state] || "Unknown";
+}
+
+async function showPortStatus(portId) {
+  let dialog = document.querySelector("#physical-port-status");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "physical-port-status";
+    dialog.className = "physical-port-status";
+    dialog.setAttribute("aria-labelledby", "physical-port-status-title");
+    dialog.innerHTML = `<header><h2 id="physical-port-status-title">Port status</h2><button type="button" data-close>Close</button></header><div data-details aria-live="polite"></div><button type="button" data-refresh>Refresh</button>`;
+    document.body.appendChild(dialog);
+    dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-refresh]").addEventListener("click", () => showPortStatus(dialog.dataset.portId));
+  }
+  dialog.dataset.portId = portId;
+  const request = String(Number(dialog.dataset.request || 0) + 1);
+  dialog.dataset.request = request;
+  const content = dialog.querySelector("[data-details]");
+  const refresh = dialog.querySelector("[data-refresh]");
+  content.textContent = "Reading current port status…";
+  refresh.disabled = true;
+  if (!dialog.open) dialog.showModal();
+  try {
+    const inventory = await getPhysicalPortInventory();
+    if (dialog.dataset.request !== request) return;
+    const port = inventory.ports.find((item) => item.id === portId);
+    if (!port) throw new Error("Port is unavailable");
+    document.querySelector("#physical-port-status-title").textContent = `${port.name} · Status`;
+    const rows = [
+      ["Device", port.device_name || "No device connected"],
+      ["Mode", port.mode === "wan" ? "USB WAN" : port.mode === "storage" ? "USB Storage" : port.mode || "—"],
+      ["State", port.status.replaceAll("_", " ")],
+      ["Physical port", port.physical_label],
+    ];
+    if (port.network_interface) rows.push(
+      ["Network interface", port.network_interface],
+      ["IP address", port.addresses?.join(", ") || "Waiting for DHCP"],
+      ["Gateway", port.gateway || "Not assigned"],
+    );
+    if (port.vpn) rows.push(
+      ["VPN state", portVpnLabel(port.vpn)],
+      ["VPN IP (configured)", port.vpn.address || "Not configured"],
+      ["Preferred uplink", port.vpn.uplink || "Unavailable"],
+      ["Last handshake", port.vpn.lastHandshake ? new Date(port.vpn.lastHandshake * 1000).toLocaleString() : "No current handshake"],
+    );
+    content.innerHTML = `<dl>${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl>${port.mode === "wan" ? "<p>IP assignment does not verify internet access. VPN settings are in Remote Assist.</p>" : ""}`;
+  } catch (error) {
+    if (dialog.dataset.request === request) content.textContent = `Status unavailable: ${error.message}`;
+  } finally {
+    if (dialog.dataset.request === request) refresh.disabled = false;
+  }
+}
+
 function renderPorts(inventory) {
   document.querySelector("#ports").innerHTML = inventory.ports.map((port) => {
     const connected = port.connected;
     const isConsole = port.id === "console_1" || port.id === "console_2";
-    const statusClass = ["setup_pending", "waiting_for_gpio_power"].includes(port.status)
+    const statusClass = ["setup_pending", "waiting_for_gpio_power", "waiting_for_ip"].includes(port.status)
       ? "pending-state"
       : connected ? "" : "disconnected-state";
     const detail = port.device_name ||
       [port.physical_label, port.usb_path].filter(Boolean).join(" · ");
+    const networkDetail = port.network_interface
+      ? [`Interface: ${port.network_interface}`, `IP: ${port.addresses?.join(", ") || "Waiting for DHCP"}`, `Gateway: ${port.gateway || "—"}`].join(" · ")
+      : "";
     const connectionAction = connected ? "Disconnect" : "Connect";
     const displayStatus = isConsole && connected ? "adapter connected" : port.status.replaceAll("_", " ");
     return `<tr>
       <td data-label="Port"><div class="port-name"><span class="port-icon">${portIcons[port.id] || "IO"}</span><strong>${escapeHtml(port.name)}</strong></div></td>
       <td data-label="Interface"><span class="interface-label">${escapeHtml(port.physical_label)}</span>${port.usb_path ? `<code>${escapeHtml(port.usb_path)}</code>` : ""}</td>
-      <td data-label="Connected device" class="device-cell">${escapeHtml(detail || "No device detected")}</td>
-      <td data-label="State"><span class="port-state ${statusClass}">${escapeHtml(displayStatus)}</span></td>
+      <td data-label="Connected device" class="device-cell">${escapeHtml(detail || "No device detected")}${networkDetail ? `<code>${escapeHtml(networkDetail)}</code>` : ""}</td>
+      <td data-label="State"><button type="button" class="port-state port-status-action ${statusClass}" data-port-id="${escapeHtml(port.id)}" aria-label="Show ${escapeHtml(port.name)} status">${escapeHtml(displayStatus)}</button>${port.vpn ? `<code>VPN: ${escapeHtml(portVpnLabel(port.vpn))}${port.vpn.address ? ` · ${escapeHtml(port.vpn.address)}` : ""}</code>` : ""}${port.mode === "wan" ? `<code>${escapeHtml(port.addresses?.join(", ") || "Waiting for IP")}</code>` : ""}</td>
       <td data-label="Actions"><details class="action-menu">
         <summary aria-label="Open actions for ${escapeHtml(port.name)}" title="Actions">⋯</summary>
         <div class="action-menu-list" role="menu">
           <button class="config-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
             data-device="${escapeHtml(port.serial_device || "")}" ${isConsole ? "" : "disabled"}>⚙ Config</button>
-          <button class="menu-action" type="button" role="menuitem"
-            data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}`)}">◎ Status</button>
-          ${port.id === "expansion_usb" ? `<button class="storage-action" type="button" role="menuitem">Open Storage</button>` : ""}
+          <button class="port-status-action" type="button" role="menuitem" data-port-id="${escapeHtml(port.id)}"
+            data-message="${escapeHtml(`${port.name}: ${port.status}${port.device_name ? ` — ${port.device_name}` : ""}${networkDetail ? ` — ${networkDetail}` : ""}`)}">◎ Status</button>
+          ${port.id === "expansion_usb" ? `<button class="storage-action" type="button" role="menuitem" data-target-view="storage">Open Storage</button><button class="storage-action" type="button" role="menuitem" data-target-view="remote-assist">WAN / VPN · Remote Assist</button>` : ""}
           ${isConsole ? `<button class="connect-action" type="button" role="menuitem"
             data-port-id="${escapeHtml(port.id)}" data-port-name="${escapeHtml(port.name)}"
             data-device="${escapeHtml(port.serial_device || "")}" ${port.console_available ? "" : "disabled"}>→ Connect</button>
@@ -268,8 +356,14 @@ function renderPorts(inventory) {
     </tr>`;
   }).join("");
 
+  document.querySelectorAll(".port-status-action").forEach((button) => {
+    button.addEventListener("click", () => {
+      button.closest("details")?.removeAttribute("open");
+      showPortStatus(button.dataset.portId);
+    });
+  });
   document.querySelectorAll(".storage-action").forEach((button) => {
-    button.addEventListener("click", () => document.querySelector('.side-link[data-view="storage"]').click());
+    button.addEventListener("click", () => document.querySelector(`.side-link[data-view="${button.dataset.targetView || "storage"}"]`).click());
   });
   document.querySelectorAll(".menu-action").forEach((button) => {
     button.addEventListener("click", () => {
@@ -534,7 +628,7 @@ function renderStorage(storage) {
     const mediaAction = mounted
       ? `<button class="eject-media" type="button">Eject</button>`
       : mountable ? `<button class="mount-media" type="button" data-filename="${escapeHtml(file.name)}">Mount</button>` : "";
-    return `<tr><td><div class="file-name"><i>${escapeHtml(extension)}</i><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}${mounted ? " · Mounted" : ""}</span></div></td><td>${escapeHtml(file.media_type)}</td><td>${formatBytes(file.size_bytes)}</td><td>${new Date(file.modified_at).toLocaleString()}</td><td><div class="file-actions">${mediaAction}<a href="/api/v1/storage/files/${encodeURIComponent(file.name)}" download>Download</a><button class="delete-file" type="button" data-filename="${escapeHtml(file.name)}" ${mounted ? "disabled" : ""}>Delete</button></div></td></tr>`;
+    return `<tr><td><div class="file-name"><i>${escapeHtml(extension)}</i><span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}${mounted ? " · Mounted" : ""}</span></div></td><td>${escapeHtml(file.media_type)}</td><td>${formatBytes(file.size_bytes)}</td><td>${new Date(file.modified_at).toLocaleString()}</td><td><div class="file-actions">${mediaAction}<button type="button" data-storage-checksum="${escapeHtml(file.name)}">SHA256</button><a href="/api/v1/storage/files/${encodeURIComponent(file.name)}" download>Download</a><button class="delete-file" type="button" data-filename="${escapeHtml(file.name)}" ${mounted ? "disabled" : ""}>Delete</button></div></td></tr>`;
   }).join("");
   document.querySelectorAll(".delete-file").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -589,7 +683,11 @@ async function loadExternalStorage() {
   const message = document.querySelector("#external-message");
   const body = document.querySelector("#external-files");
   try {
-    const inventory = await getJson("/api/v1/external-storage");
+    const [inventory, ports] = await Promise.all([
+      getJson("/api/v1/external-storage"),
+      getPhysicalPortInventory().catch(() => ({ports: []})),
+    ]);
+    const wan = ports.ports.find((port) => port.id === "expansion_usb" && port.mode === "wan");
     if (request !== externalRequest) return;
     const volumes = inventory.devices;
     const selection = document.querySelector("#external-volume");
@@ -610,11 +708,16 @@ async function loadExternalStorage() {
       ? `${formatBytes(volume.used_bytes)} / ${formatBytes(volume.total_bytes)} · ${formatBytes(volume.free_bytes)} free`
       : "";
     message.textContent = ready ? "Files are accessible. The original USB contents are preserved."
-      : volume?.message || (inventory.status === "unavailable" ? "USB mount service is unavailable. Check the external storage service on the appliance." : "Insert a USB drive into the External Storage port. Supported formats: exFAT, FAT and ext4; volumes mount automatically.");
+      : volume?.message || (inventory.status === "unavailable" ? "USB mount service is unavailable. Check the external storage service on the appliance." : "Insert a USB drive into the Storage / WAN port, or connect a phone with USB tethering enabled. Supported formats: exFAT, FAT and ext4; volumes mount automatically.");
+    if (wan && !volume) {
+      badge.textContent = wan.status === "usb_wan_ready" ? "USB WAN · IP assigned" : "USB WAN · Waiting for IP";
+      badge.className = `badge ${wan.status === "usb_wan_ready" ? "ready" : "pending"}`;
+      message.textContent = `${wan.device_name || "USB network device"} · ${wan.network_interface} · IP: ${wan.addresses.join(", ") || "Waiting for DHCP"} · Gateway: ${wan.gateway || "—"}. VPN settings are in Remote Assist.`;
+    }
     document.querySelector("#external-path").textContent = `/${externalPath}`;
     document.querySelector("#external-up").disabled = !ready || !externalPath || externalImportRunning;
     if (!ready) {
-      body.innerHTML = '<tr><td colspan="3" class="loading-cell">No readable USB volume available.</td></tr>';
+      body.innerHTML = `<tr><td colspan="3" class="loading-cell">${wan ? 'Port is in USB WAN mode.' : 'No readable USB volume available.'}</td></tr>`;
       return;
     }
     const listing = await getJson(`/api/v1/external-storage/${encodeURIComponent(externalDevice)}/files?path=${encodeURIComponent(externalPath)}`);
@@ -864,7 +967,7 @@ function openPortConsole(portId) {
 async function loadPorts(attempt = 0) {
   window.clearTimeout(portRetryTimer);
   try {
-    renderPorts(await getJson("/api/v1/hardware/ports"));
+    renderPorts(await getPhysicalPortInventory());
   } catch (error) {
     document.querySelector("#ports").innerHTML =
       `<tr><td colspan="5" class="loading-cell">Port status unavailable${attempt < 3 ? "; retrying…" : ". Use Refresh to try again."}</td></tr>`;
@@ -948,10 +1051,12 @@ function focusTerminal(element) {
   element.style.zIndex = terminalZIndex;
 }
 
+const compactLayout = window.matchMedia("(max-width: 760px), (max-width: 1024px) and (pointer: coarse)");
+
 function enableTerminalDrag(element) {
   const handle = element.querySelector(".terminal-titlebar");
   handle.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("button") || element.classList.contains("maximized")) return;
+    if (compactLayout.matches || event.target.closest("button") || element.classList.contains("maximized")) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const startLeft = element.offsetLeft;
@@ -1423,7 +1528,7 @@ function openVideoWindow() {
     <div class="video-stage"><img class="video-frame" tabindex="0" draggable="false" alt="KDX InfraBox target video"></div>
     <aside class="virtual-media-drawer" hidden><div><strong>Virtual media</strong><button type="button" class="force-media-eject">Force Eject</button><button type="button" class="media-close">×</button></div><p>ISO and IMG files from staging storage</p><div class="virtual-media-files">Loading staged media…</div></aside>
     <div class="video-keyboard" hidden><div class="keyboard-heading terminal-titlebar"><span>Raw HID · US physical layout</span><div><button type="button" class="keyboard-release">Release all keys</button><button type="button" class="keyboard-hide" aria-label="Close keyboard">×</button></div></div>${screenKeyboardMarkup()}</div>
-    <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;
+    <footer class="terminal-footer kvm-footer"><div class="video-footer-tools"><button type="button" class="kvm-modifier" data-modifier="4">Alt</button><button type="button" class="kvm-modifier" data-modifier="2">Shift</button><button type="button" class="kvm-modifier" data-modifier="1">Ctrl</button><button type="button" class="kvm-caps-lock" title="Toggle Caps Lock on the target computer">Caps Lock</button><button type="button" class="kvm-hotkey-cad">Ctrl Alt Del</button><button type="button" class="keep-awake-toggle active">◉ Keep awake</button></div><div class="kvm-footer-state"><span class="video-resolution">—</span><span class="video-frame-status">Loading video…</span><span class="terminal-connection connecting"><i></i><b>Connecting HID</b></span></div></footer>`;
   document.querySelector("#terminal-layer").appendChild(element);
   loadVirtualMediaStatus();
   const image = element.querySelector(".video-frame");
@@ -1510,7 +1615,8 @@ function openVideoWindow() {
     pressedKeys.clear();
     physicalModifiers = 0;
     stickyModifiers = 0;
-    element.querySelectorAll(".keyboard-key.modifier").forEach((key) => key.classList.remove("active"));
+    keyboard.querySelectorAll(".keyboard-key.modifier").forEach((key) => key.classList.remove("active"));
+    element.querySelectorAll(".kvm-modifier").forEach((key) => key.classList.remove("active"));
     sendKeyboardReport();
   };
   image.addEventListener("keydown", (event) => {
@@ -1697,6 +1803,17 @@ function openVideoWindow() {
       sendKeyboardReport();
     });
   });
+  element.querySelector(".kvm-caps-lock").addEventListener("click", () => {
+    if (socket?.readyState !== WebSocket.OPEN) {
+      showToast("HID is disconnected; wait for reconnection");
+      return;
+    }
+    releaseAllKeys();
+    image.focus();
+    // Send a complete tap; the target owns the Caps Lock state.
+    sendHid({ type: "keyboard", modifiers: 0, keys: [hidKeyCodes.CapsLock] });
+    sendKeyboardReport();
+  });
   element.querySelector(".kvm-hotkey-cad").addEventListener("click", () => {
     sendHid({ type: "keyboard", modifiers: 5, keys: [hidKeyCodes.Delete] });
     window.setTimeout(releaseAllKeys, 90);
@@ -1851,7 +1968,7 @@ function openVideoWindow() {
   const viewModes = ["fit", "stretch", "actual"];
   const viewLabels = { fit: "Fit", stretch: "Stretch", actual: "1:1" };
   let viewMode = localStorage.getItem("kronoskvm.video-view");
-  if (!viewModes.includes(viewMode)) viewMode = "fit";
+  if (compactLayout.matches || !viewModes.includes(viewMode)) viewMode = "fit";
   const renderViewMode = () => {
     viewModes.forEach((mode) => element.classList.toggle(`view-${mode}`, mode === viewMode));
     toolbarButton("view").textContent = `▣ View: ${viewLabels[viewMode]}`;
@@ -1868,7 +1985,7 @@ function openVideoWindow() {
   let aspectLocked = false;
   let adjustingAspect = false;
   const applyAspectRatio = () => {
-    if (!aspectLocked || adjustingAspect || element.classList.contains("maximized")) return;
+    if (compactLayout.matches || !aspectLocked || adjustingAspect || element.classList.contains("maximized")) return;
     adjustingAspect = true;
     const chromeHeight = element.querySelector(".terminal-titlebar").offsetHeight
       + element.querySelector(".kvm-toolbar").offsetHeight
@@ -2236,6 +2353,11 @@ if (localStorage.getItem("kronoskvm.sidebar.compact") === "true") {
 }
 document.querySelector("#mobile-menu").addEventListener("click", () => {
   document.querySelector("#sidebar").classList.toggle("mobile-open");
+});
+document.addEventListener("pointerdown", (event) => {
+  if (compactLayout.matches && !event.target.closest("#sidebar, #mobile-menu")) {
+    document.querySelector("#sidebar").classList.remove("mobile-open");
+  }
 });
 function showView(view) {
   const sections = [...document.querySelectorAll("[data-view-section]")];
@@ -2698,4 +2820,46 @@ document.addEventListener("click", async (event) => {
   try { await setVirtualMedia(null, true); }
   catch (error) { showToast(`Force eject failed: ${error.message}`); }
   finally { button.disabled = false; }
+});
+
+let checksumBusy = false;
+const checksumDialog = document.querySelector("#storage-checksum-dialog");
+const checksumValue = document.querySelector("#storage-checksum-value");
+const checksumExpected = document.querySelector("#storage-checksum-expected");
+function compareChecksum() {
+  const expected = checksumExpected.value.trim().toLowerCase();
+  const result = document.querySelector("#storage-checksum-match");
+  result.textContent = !expected ? "Paste the publisher's SHA256 to verify this file."
+    : !/^[a-f0-9]{64}$/.test(expected) ? "Enter a valid 64-character SHA256."
+    : !checksumValue.value ? "Waiting for checksum…"
+    : expected === checksumValue.value ? "✓ Match — SHA256 values are identical."
+    : "Mismatch — the file differs from this reference checksum.";
+}
+checksumExpected.addEventListener("input", compareChecksum);
+document.querySelector("#storage-checksum-close").addEventListener("click", () => checksumDialog.close());
+document.querySelector("#storage-checksum-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(checksumValue.value); showToast("SHA256 copied"); }
+  catch { checksumValue.focus(); checksumValue.select(); showToast("Select and copy the SHA256 manually"); }
+});
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-storage-checksum]");
+  if (!button) return;
+  if (checksumBusy) { checksumDialog.showModal(); return; }
+  checksumBusy = true;
+  const filename = button.dataset.storageChecksum;
+  document.querySelector("#storage-checksum-name").textContent = filename;
+  const status = document.querySelector("#storage-checksum-status");
+  const copy = document.querySelector("#storage-checksum-copy");
+  checksumValue.value = ""; checksumExpected.value = ""; copy.disabled = true;
+  status.textContent = "Calculating SHA256… Large images may take several minutes. Progress is shown in Tasks. Closing this window does not cancel calculation.";
+  compareChecksum(); checksumDialog.showModal();
+  try {
+    const response = await fetch(`/api/v1/storage/checksum/${encodeURIComponent(filename)}`, { method: "POST" });
+    const value = await response.json();
+    if (!response.ok) throw new Error(value.detail || `HTTP ${response.status}`);
+    checksumValue.value = value.sha256; copy.disabled = false;
+    status.textContent = `SHA256 calculated · ${formatBytes(value.size_bytes)}. Compare with a trusted reference to verify integrity.`;
+    compareChecksum();
+  } catch (error) { status.textContent = `Checksum failed: ${error.message}`; }
+  finally { checksumBusy = false; loadTasks(); }
 });

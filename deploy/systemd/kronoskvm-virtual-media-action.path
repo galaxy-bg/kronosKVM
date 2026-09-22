@@ -1,6 +1,5 @@
 [Unit]
 Description=Watch for approved KronosKVM virtual media actions
-After=kronoskvm-containers.service
 
 [Path]
 PathExists=/var/lib/kronoskvm/state/virtual-media-action

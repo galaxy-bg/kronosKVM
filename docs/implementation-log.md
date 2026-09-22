@@ -388,3 +388,33 @@ reads. Added explicit force=true API request, host forced_eject handling, and
 confirmed Force Eject controls in Storage/KVM even when the file is missing.
 Failed helper operations preserve the real backing filename; delete, publish
 and overwrite guards now protect it on error as well as attached state.
+
+### 2026-09-18 — Missing gadget after boot / systemd ordering cycle
+
+Live .112 had no configfs USB gadget or HID devices, while Docker auto-restarted
+the UI. Current-boot journal explicitly reported the virtual-media path ordering
+cycle through containers, Docker/basic.target and paths.target; containers never
+started, so its gadget ExecStartPre never ran. Removed After=containers from the
+.path unit (the triggered .service retains its ordering). systemd-analyze verify
+passes on-device. After a user-side reboot/reconnection, containers and gadget
+started automatically, confirming the boot fix. A read-only RHEL ISO mount was
+verified in both API and configfs. New gadget initialization now clears stale
+status from the previous boot.
+Added Start/Stop controls for the Virtual Media request watcher; stopping it does
+not eject media or interrupt an already running helper. Start/Restart repairs a
+missing gadget without rebuilding an existing one. Requests are rejected while
+the watcher reports inactive/failed, preventing silent deferred mount requests.
+Virtual Media logs now include container startup. 68 tests passed. Device clock
+was incorrect (Aug 9), so diagnostic evidence was collected with journalctl -b.
+Live Stop/Start test passed: Stop retained the mounted image, API rejected eject
+with 409 while stopped, Start resumed processing, and normal test-media eject
+succeeded. Watcher restored to active after testing.
+
+### 2026-09-18 — Internal Storage SHA256
+
+Added on-demand SHA256 action alongside each Internal Storage file, copyable
+result dialog, and optional case-insensitive reference comparison. Chunked server
+reads track byte progress in Tasks and serialize hash work. Descriptor and path
+identity/size/timestamps must remain unchanged, otherwise no hash is returned.
+Tests cover known digests, empty/multi-chunk data, symlink rejection, concurrency
+limit and replacement during hashing. Suite: 73 passed.

@@ -53,6 +53,13 @@ def virtual_media_status() -> VirtualMediaStatus:
 
 def _stage_action(action: str, filename: str = "") -> VirtualMediaStatus:
     try:
+        service_state = json.loads((STATE_PATH / "service-status.json").read_text())
+        watcher = service_state.get("services", {}).get("virtual_media", {})
+        if watcher.get("state") in {"inactive", "failed", "not_installed"}:
+            raise HTTPException(status_code=409, detail="Start Virtual Media in Services before mounting or ejecting")
+    except (OSError, ValueError, TypeError):
+        pass
+    try:
         STATE_PATH.mkdir(parents=True, exist_ok=True)
         temporary = STATE_PATH / ".virtual-media-action.tmp"
         temporary.write_text(f"{action}\n{filename}\n", encoding="utf-8")

@@ -84,3 +84,11 @@ ln -sfn "${gadget}/functions/mass_storage.usb0" "${gadget}/configs/c.1/mass_stor
 printf '%s' "${udc}" >"${gadget}/UDC"
 chmod 0660 /dev/hidg0 /dev/hidg1
 chgrp dialout /dev/hidg0 /dev/hidg1
+
+# This branch creates a new empty LUN; discard status left by the previous boot.
+state_dir=/var/lib/kronoskvm/state
+install -d -m 0750 -o 10001 -g 20 "${state_dir}"
+printf 'status=ejected\nfilename=\nmedia_type=\nmessage=USB virtual media ready; no image mounted\n' >"${state_dir}/.virtual-media-status.setup"
+chown 10001:20 "${state_dir}/.virtual-media-status.setup"
+chmod 0640 "${state_dir}/.virtual-media-status.setup"
+mv -f "${state_dir}/.virtual-media-status.setup" "${state_dir}/virtual-media-status"

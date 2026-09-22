@@ -6,8 +6,10 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KDX InfraBox</title>
   <link rel="icon" href="/infrabox-logo-transparent.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.45-storage2.css">
+  <link rel="stylesheet" href="/styles-0.3.45-storage2.css?v=storage-wan-vpn-3">
   <link rel="stylesheet" href="/services.css">
+  <link rel="stylesheet" href="/remote-assist.css?v=1">
+  <link rel="stylesheet" href="/mobile.css?v=storage-wan-vpn-3">
 </head>
 <body>
   <div id="startup-splash" class="startup-splash" hidden>
@@ -28,6 +30,7 @@
         <button class="side-link" type="button" data-view="sessions"><span class="nav-icon">⌘</span><span>Sessions</span></button>
         <button class="side-link" type="button" data-view="storage"><span class="nav-icon">▤</span><span>Storage</span></button>
         <button class="side-link" type="button" data-view="recovery"><span class="nav-icon">⇩</span><span>Recovery</span></button>
+        <button class="side-link" type="button" data-view="remote-assist"><span class="nav-icon">⇄</span><span>Remote Assist</span></button>
         <button class="side-link" type="button" data-view="tasks"><span class="nav-icon">✓</span><span>Tasks</span></button>
         <button class="side-link" type="button" data-view="services"><span class="nav-icon">◫</span><span>Services</span></button>
         <button class="side-link" type="button" data-view="logs"><span class="nav-icon">☷</span><span>Logs</span></button>
@@ -71,7 +74,7 @@
           <div class="storage-content">
             <p>Server: <strong>192.168.34.100</strong> · Available on the service port and recovery Wi-Fi. Management Ethernet uses its own IP; use this recovery address on the target device.</p>
             <div id="recovery-network" class="recovery-network" aria-live="polite">Checking service port and DHCP leases…</div>
-            <div class="recovery-shortcuts"><button type="button" data-recovery-jump="storage-panel">Open Storage · Upload / Mount</button><button type="button" data-recovery-jump="external-storage-panel">Open External Storage</button><button type="button" data-recovery-jump="recovery-publish">2 · Publish files</button><button type="button" data-recovery-jump="recovery-service-cards">3 · Start a service</button><button type="button" data-recovery-jump="recovery-log-panel">Transfer logs</button></div>
+            <div class="recovery-shortcuts"><button type="button" data-recovery-jump="storage-panel">Open Storage · Upload / Mount</button><button type="button" data-recovery-jump="external-storage-panel">Open Storage / WAN</button><button type="button" data-recovery-jump="recovery-publish">2 · Publish files</button><button type="button" data-recovery-jump="recovery-service-cards">3 · Start a service</button><button type="button" data-recovery-jump="recovery-log-panel">Transfer logs</button></div>
             <h3>Transfer services</h3><div id="recovery-service-cards" class="service-cards">Loading services…</div>
             <details class="recovery-connection-settings"><summary>Connection settings</summary><p>FTP: port 21 · User <code>anonymous</code> · Any password (for example <code>recovery@</code>) · Passive ports 30000–30010.<br>TFTP: UDP port 69 · No login.<br>HTTP: port 8080 · No login.<br>All services provide read-only downloads of published files. Start them when needed; after reboot they remain stopped.</p></details>
             <h3>Published files</h3><p>Upload files or copy from USB in Storage, then select the staged files here. Publishing moves it without making a duplicate. Enter a folder such as hpe or cisco, or leave it empty to publish at the root.</p>
@@ -98,7 +101,7 @@
         </section>
 
         <section id="external-storage-panel" class="panel" data-view-section="storage" hidden>
-          <div class="panel-heading"><div><h2>External Storage</h2><p>Browse USB files, download or copy and mount installation media</p></div><div class="heading-actions"><span id="external-storage-state" class="badge pending">Checking…</span><button id="external-refresh" type="button" aria-label="Refresh external storage">↻</button></div></div>
+          <div class="panel-heading"><div><h2>Storage / WAN</h2><p>USB drive file access or phone internet sharing · VPN settings in Remote Assist</p></div><div class="heading-actions"><span id="external-storage-state" class="badge pending">Checking…</span><button id="external-refresh" type="button" aria-label="Refresh Storage / WAN">↻</button></div></div>
           <div class="storage-content">
             <div class="external-toolbar"><label>USB volume <select id="external-volume" aria-label="USB volume"></select></label><span id="external-capacity" class="muted"></span></div>
             <p id="external-stage-space" class="muted" aria-live="polite">Checking internal staging space…</p>
@@ -162,6 +165,7 @@
           <div class="panel-heading collapse-heading"><div><h2>Session logs</h2><p>Temporary Console 1/2, SSH and KVM session files</p></div><div class="heading-actions"><span class="verified-label">RAM only</span><button id="session-logs-refresh" class="session-refresh" type="button" aria-label="Refresh session logs">↻</button><button class="collapse-button" type="button" aria-expanded="false" aria-label="Expand Session logs">⌃</button></div></div>
           <div class="collapsible-content logs-content"><div class="staged-logs"><div class="staged-logs-heading"><strong>Downloadable session files</strong><small>Cleared when the appliance or API restarts</small></div><div id="session-log-files" class="staged-log-files"><span class="muted">No staged session logs</span></div></div></div>
         </section>
+        <section id="remote-assist-panel" class="panel" data-view-section="remote-assist" hidden></section>
       </main>
 
       <footer class="statusbar"><span class="footer-copyright">© <time id="copyright-year">2026</time> KronosDX. All rights reserved.</span><span><b id="footer-address">192.168.34.100</b> · Version 0.3.45</span></footer>
@@ -194,6 +198,15 @@
     <p id="recovery-browser-message" role="status"></p>
     <div class="storage-table-wrap"><table class="storage-table"><thead><tr><th>Name / address</th><th>Size</th><th>Actions</th></tr></thead><tbody id="recovery-browser-files"></tbody></table></div>
   </dialog>
-  <script src="/app-0.3.45-live-record.js" defer></script>
+  <dialog id="storage-checksum-dialog" class="storage-checksum-dialog">
+    <div class="panel-heading"><strong>File checksum · SHA256</strong><button id="storage-checksum-close" type="button">Close</button></div>
+    <p id="storage-checksum-name"></p><p id="storage-checksum-status" role="status"></p>
+    <label>Calculated SHA256<textarea id="storage-checksum-value" readonly rows="3"></textarea></label>
+    <button id="storage-checksum-copy" type="button" disabled>Copy SHA256</button>
+    <label>Reference SHA256<input id="storage-checksum-expected" type="text" autocomplete="off" spellcheck="false" placeholder="Paste the original SHA256"></label>
+    <p id="storage-checksum-match" role="status"></p>
+  </dialog>
+  <script src="/app-0.3.45-live-record.js?v=storage-wan-vpn-3" defer></script>
+  <script src="/remote-assist.js?v=1" defer></script>
 </body>
 </html>

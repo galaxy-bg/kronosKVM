@@ -91,7 +91,7 @@ def test_recovery_counts_against_upload_quota(pool, monkeypatch):
 def test_only_recovery_services_can_start_and_stop(pool, monkeypatch):
     monkeypatch.setattr(services, "STATE_PATH", pool)
     monkeypatch.setattr(services, "REQUEST_PATH", pool / "service-action")
-    for service in ("tftp", "recovery_http", "recovery_ftp"):
+    for service in ("tftp", "recovery_http", "recovery_ftp", "virtual_media"):
         for action in ("start", "stop"):
             assert client.post(f"/api/v1/services/{service}/{action}").status_code == 202
             assert f"service={service}\naction={action}\n" in services.REQUEST_PATH.read_text()

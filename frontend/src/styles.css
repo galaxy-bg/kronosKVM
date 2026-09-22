@@ -235,7 +235,7 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .kvm-footer { min-height: 56px; }
 .kvm-footer-state { display: flex; align-items: center; gap: 9px; }
 .video-resolution { color: #a9bcb4; font-size: .63rem; white-space: nowrap; }
-.kvm-modifier, .kvm-hotkey-cad { min-width: 42px; padding: 6px 9px; border: 1px solid #3c5248; border-radius: 999px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
+.kvm-modifier, .kvm-hotkey-cad, .kvm-caps-lock { min-width: 42px; padding: 6px 9px; border: 1px solid #3c5248; border-radius: 999px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
 .kvm-modifier.active { border-color: #40d294; background: #24513e; color: #72e7b8; }
 .keyboard-release, .keep-awake-toggle { padding: 6px 9px; border: 1px solid #3c5248; border-radius: 6px; background: #223029; color: #d9e5df; font-size: .64rem; font-weight: 700; cursor: pointer; }
 .keep-awake-toggle.active { border-color: #31775c; color: #62d7a7; }
@@ -338,3 +338,21 @@ h1 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.045em; line
 .media-activity[data-state="reading"] { color: #23834d; font-weight: 600; }
 .media-activity[data-state="disconnected"], .media-activity[data-state="error"] { color: #c94736; }
 .media-activity[data-state="unknown"], .media-activity[data-state="unavailable"] { color: #a46b16; }
+
+.port-state.port-status-action { border: 0; cursor: pointer; font: inherit; font-size: .59rem; font-weight: 750; }
+.port-state.port-status-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.physical-port-status { width: min(540px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); }
+.physical-port-status::backdrop { background: #0008; }
+.physical-port-status header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.physical-port-status h2 { margin: 0; font-size: 1rem; }
+.physical-port-status button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-2); cursor: pointer; }
+.physical-port-status dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; margin: 22px 0; font-size: .85rem; }
+.physical-port-status dt { color: var(--muted); }
+.physical-port-status dd { margin: 0; overflow-wrap: anywhere; }
+.physical-port-status p { color: var(--muted); font-size: .78rem; }
+
+.storage-checksum-dialog { width: min(620px, 90vw); border: 1px solid #cadbd4; border-radius: 12px; padding: 20px; }
+.storage-checksum-dialog::backdrop { background: #0008; }
+.storage-checksum-dialog label { display: block; margin: 16px 0 8px; }
+.storage-checksum-dialog textarea, .storage-checksum-dialog input { box-sizing: border-box; display: block; width: 100%; margin-top: 8px; padding: 10px; font-family: monospace; }
+#storage-checksum-name { overflow-wrap: anywhere; }
