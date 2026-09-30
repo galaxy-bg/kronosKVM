@@ -67,7 +67,7 @@ run install -m 0644 \
 if [[ ! -s /etc/kronoskvm/tls/kdx-infrabox.crt || ! -s /etc/kronoskvm/tls/kdx-infrabox.key ]]; then
     run openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 \
         -subj /CN=kdx-infrabox \
-        -addext subjectAltName=DNS:kdx-infrabox,IP:192.168.34.100 \
+        -addext subjectAltName=DNS:kdx-infrabox,DNS:kdx-infrabox.local,IP:192.168.34.100 \
         -keyout /etc/kronoskvm/tls/kdx-infrabox.key \
         -out /etc/kronoskvm/tls/kdx-infrabox.crt
     run chmod 0600 /etc/kronoskvm/tls/kdx-infrabox.key

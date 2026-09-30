@@ -13,12 +13,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend/app/hardwa
 from keypad import PINS, KeyScanner, MainMenu, RemoteAssistClient  # noqa: E402
 
 
+def lcd_available():
+    """SPI has no reliable panel-presence detection; require explicit provisioning."""
+    return (
+        Path("/etc/kronoskvm/lcd.enabled").is_file()
+        and Path("/opt/infrabox-lcd/lib/LCD_1inch8.py").is_file()
+        and Path("/dev/spidev0.0").exists()
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--test-buttons", action="store_true")
     parser.add_argument("--lcd", action="store_true", help="Use the installed 160x128 SPI LCD")
     parser.add_argument("--output", type=Path, help="Atomic JSON output for the LCD renderer")
     args = parser.parse_args()
+    if args.lcd and not args.test_buttons and not lcd_available():
+        print("LCD disabled or unavailable; skipping LCD and keypad", flush=True)
+        return
     from gpiozero import Button
 
     buttons = {}

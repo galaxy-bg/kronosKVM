@@ -1,3 +1,4 @@
+const UI_REFRESH_MS = 10000;
 const startupSplash = document.querySelector("#startup-splash");
 const startupShell = document.querySelector(".app-shell");
 let startupFinished = false;
@@ -2199,10 +2200,17 @@ function bindNetworkSettingsForms() {
   });
 }
 
-async function loadNetworkSettings() {
+let networkSettingsDirty = false;
+document.querySelector("#network-settings").addEventListener("input", () => { networkSettingsDirty = true; });
+document.querySelector("#network-settings").addEventListener("change", () => { networkSettingsDirty = true; });
+async function loadNetworkSettings(background = false) {
+  background = background === true;
   const container = document.querySelector("#network-settings");
   try {
+    if (background && (networkSettingsDirty || container.contains(document.activeElement))) return;
     const response = await getJson("/api/v1/network/settings");
+    if (background && (networkSettingsDirty || container.contains(document.activeElement))) return;
+    networkSettingsDirty = false;
     if (!response.interfaces.length) {
       container.innerHTML = '<span class="muted">No configurable Ethernet interface detected.</span>';
       return;
@@ -2215,6 +2223,7 @@ async function loadNetworkSettings() {
       </form>`).join("");
     bindNetworkSettingsForms();
   } catch (error) {
+    if (background) return;
     container.innerHTML = '<span class="muted">Network settings are unavailable.</span>';
   }
 }
@@ -2290,11 +2299,7 @@ async function restartManagedService(button) {
 
 async function load() {
   const health = document.querySelector("#health");
-  loadPorts();
-  loadStorage();
-  loadConnections();
-  loadVideoStatus();
-  loadTasks();
+  await Promise.allSettled([loadPorts(), loadStorage(), loadConnections(), loadVideoStatus(), loadTasks()]);
   const results = await Promise.allSettled([
     getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
@@ -2567,7 +2572,7 @@ document.addEventListener("click", (event) => {
   });
 });
 Promise.allSettled([load(), startupMinimum]).then(dismissStartupSplash);
-window.setInterval(loadTasks, 3000);
+window.setInterval(() => { if (!document.hidden) loadTasks(); }, 3000);
 window.setInterval(() => {
   if (!document.hidden) loadVirtualMediaStatus();
 }, 3000);
@@ -2582,9 +2587,7 @@ document.querySelector("#external-up").addEventListener("click", () => {
   externalPath = externalPath.split("/").slice(0, -1).join("/");
   loadExternalStorage();
 });
-window.setInterval(() => {
-  if (!document.querySelector("#external-storage-panel").hidden && !externalImportRunning) loadExternalStorage();
-}, 5000);
+
 
 
 async function loadRecovery() {
@@ -2655,15 +2658,6 @@ document.querySelector("#recovery-files").addEventListener("click", async (event
   } catch (error) { message.textContent = error.message; }
   finally { button.disabled = false; }
 });
-let serviceRefreshRunning = false;
-window.setInterval(async () => {
-  if (document.hidden || document.querySelector("#services-panel").hidden || serviceRefreshRunning) return;
-  serviceRefreshRunning = true;
-  try {
-    await loadManagedServices();
-    if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) await loadServiceLogs(selectedServiceLog, true);
-  } finally { serviceRefreshRunning = false; }
-}, 5000);
 
 
 function updateRecoverySources(files) {
@@ -2706,12 +2700,32 @@ function openRecoveryLog(service) {
   loadRecoveryLog();
   document.querySelector("#recovery-log-panel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
+async function loadRecoveryHistory() {
+  const target = document.querySelector("#recovery-history");
+  try {
+    const { entries } = await getJson("/api/v1/recovery/network/history");
+    target.innerHTML = `<table class="storage-table"><thead><tr><th>Observed</th><th>Device</th><th>IP address</th><th>MAC</th></tr></thead><tbody>${entries.slice(0, 100).map((entry) => `<tr><td>${escapeHtml(new Date(entry.observed_at * 1000).toLocaleString())}</td><td>${escapeHtml(entry.hostname)}</td><td>${escapeHtml(entry.ip)}</td><td>${escapeHtml(entry.mac)}</td></tr>`).join("") || '<tr><td colspan="4">No saved observations</td></tr>'}</tbody></table><p>${entries.length} saved observations. Showing latest 100; Save log exports all.</p>`;
+  } catch (error) { target.textContent = "History unavailable: " + error.message; }
+}
+document.querySelector("#recovery-history-clear").addEventListener("click", async (event) => {
+  if (!window.confirm("Clear saved device history? Save the log first if needed. Active DHCP leases and connections will remain unchanged.")) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  const status = document.querySelector("#recovery-history-status");
+  try {
+    const response = await fetch("/api/v1/recovery/network/history", { method: "DELETE" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    status.textContent = "History cleared. New or changed leases will be recorded automatically.";
+    await loadRecoveryHistory();
+  } catch (error) { status.textContent = "Clear failed: " + error.message; }
+  finally { button.disabled = false; }
+});
 let recoveryMonitoring = false;
 async function loadRecoveryMonitoring() {
   if (recoveryMonitoring) return;
   recoveryMonitoring = true;
   try {
-    const results = await Promise.allSettled([getJson("/api/v1/services"), getJson("/api/v1/recovery/network"), loadRecoveryLog()]);
+    const results = await Promise.allSettled([getJson("/api/v1/services"), getJson("/api/v1/recovery/network"), loadRecoveryLog(), loadRecoveryHistory()]);
     if (results[0].status === "fulfilled") {
       const payload = results[0].value;
       renderServiceCards({ ...payload, services: payload.services.filter((service) => ["tftp", "recovery_http", "recovery_ftp"].includes(service.id)) }, "#recovery-service-cards");
@@ -2731,9 +2745,30 @@ document.querySelectorAll("[data-recovery-jump]").forEach((button) => button.add
   if (target.classList.contains("collapsible")) setCollapsed(target, false);
   target.scrollIntoView({ behavior: "smooth", block: "start" });
 }));
-window.setInterval(() => {
-  if (!document.hidden && !document.querySelector("#recovery-panel").hidden) loadRecoveryMonitoring();
-}, 5000);
+let uiRefreshRunning = false;
+async function refreshVisibleView() {
+  if (document.hidden || uiRefreshRunning) return;
+  uiRefreshRunning = true;
+  try {
+    const view = document.querySelector(".side-link.active[data-view]")?.dataset.view || "dashboard";
+    const jobs = [];
+    if (["dashboard", "sessions"].includes(view)) jobs.push(load());
+    if (view === "storage") jobs.push(loadStorage(), loadExternalStorage());
+    if (view === "recovery") {
+      jobs.push(loadRecoveryMonitoring());
+      if (!recoveryPublishRunning) jobs.push(loadRecovery());
+    }
+    if (view === "settings") jobs.push(loadNetworkSettings(true));
+    if (view === "logs") jobs.push(loadLogs(), loadSessionLogs());
+    if (view === "services") {
+      jobs.push(loadManagedServices());
+      if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) jobs.push(loadServiceLogs(selectedServiceLog, true));
+    }
+    await Promise.allSettled(jobs);
+  } finally { uiRefreshRunning = false; }
+}
+window.setInterval(refreshVisibleView, UI_REFRESH_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshVisibleView(); });
 
 
 let recoveryBrowserFiles = [];

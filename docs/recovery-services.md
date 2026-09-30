@@ -100,3 +100,24 @@ Each file is processed separately. Successful files remain published even if
 another file fails (for example, a filename collision or mounted ISO). The screen
 shows one result per file; failed files remain staged and selected for correction
 and retry. Existing files are not overwritten.
+
+## Device history
+
+The Recovery page retains DHCP observations on the appliance even when no browser
+is open. The host service-status sampler records new or changed leases roughly
+every five seconds in `/var/lib/kronoskvm/state/recovery-history.sqlite3`.
+History survives restarts and retains the latest 5,000 observations. It is a
+sampled lease history, not proof of reachability or a complete DHCP packet log.
+
+Expand **Device history** for the latest 100 entries. **Save log (CSV)** downloads
+all retained entries, including observation and lease-expiration timestamps.
+**Clear history** requires confirmation and deletes only saved observations;
+it never changes dnsmasq leases or interrupts clients. Unchanged leases are not
+immediately re-added after clearing; new, renewed, changed, or reappearing leases
+are recorded. Save before clearing if a site-installation record is needed.
+
+Visible UI views refresh every 10 seconds, pausing in hidden browser tabs.
+Network settings with unsaved edits are preserved. Task and media activity retain
+their 3-second updates; KVM video continues streaming independently.
+CSV exports use UTF-8 with BOM and UTC timestamps; spreadsheet formula-like
+device names are escaped.

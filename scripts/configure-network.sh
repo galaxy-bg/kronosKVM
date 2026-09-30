@@ -145,9 +145,9 @@ listen-address=127.0.0.1,${AP_ADDRESS}
 dhcp-range=192.168.34.150,192.168.34.220,255.255.255.0,12h
 dhcp-option=option:dns-server,${AP_ADDRESS}
 dhcp-authoritative
-domain=kronoskvm.local
-local=/kronoskvm.local/
-address=/kronoskvm.local/${AP_ADDRESS}
+domain=kdx-infrabox.local
+local=/kdx-infrabox.local/
+address=/kdx-infrabox.local/${AP_ADDRESS}
 EOF
 
 run systemctl unmask hostapd.service

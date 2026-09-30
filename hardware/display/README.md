@@ -48,6 +48,14 @@ with the LCD/keypad service stopped. This prints key names and never calls the A
 The host needs gpiozero, Pillow, spidev and numpy (already installed on .102).
 
 Copy the keypad/renderer Python files into the corresponding checkout paths.
+LCD operation is opt-in: only on a physically equipped appliance, create
+`/etc/kronoskvm/lcd.enabled` with `sudo touch /etc/kronoskvm/lcd.enabled`.
+Without this file, the vendor driver, or `/dev/spidev0.0`, the service is skipped
+and the runner exits before importing GPIO/LCD dependencies or touching GPIO.
+SPI device presence does not prove that a display is attached: remove the marker
+before removing the panel. Leave it absent on headless appliances such as .112.
+The optional service does not restart on failure and must not be a required
+dependency of the application or boot target.
 Install `deploy/systemd/infrabox-lcd-keypad.conf` as
 `/etc/systemd/system/infrabox-lcd.service.d/keypad.conf`, then run
 `sudo systemctl daemon-reload` and `sudo systemctl restart infrabox-lcd`.

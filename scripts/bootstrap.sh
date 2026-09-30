@@ -17,6 +17,7 @@ Prepare the non-network KronosKVM base operating-system layout:
 - create /etc, /var/lib, /var/log, /run and /opt directories
 - preserve Europe/Istanbul timezone and active NTP configuration
 - install tmpfiles and journald retention configuration
+- set the shared appliance hostname to kdx-infrabox
 
 This script does not install packages, upgrade the OS, change networking,
 configure a firewall, install services, edit boot files or reboot.
@@ -75,6 +76,23 @@ if (( EUID != 0 )); then
 fi
 
 log_info "Preparing KronosKVM base OS layout (dry_run=${DRY_RUN})"
+
+run hostnamectl set-hostname kdx-infrabox
+if [[ -d /etc/cloud/cloud.cfg.d ]]; then
+    write_if_changed /etc/cloud/cloud.cfg.d/99-kdx-infrabox-hostname.cfg 0644 root root <<'EOF'
+preserve_hostname: true
+manage_etc_hosts: false
+EOF
+fi
+if "${DRY_RUN}"; then
+    log_info "Would set the local hostname entry in /etc/hosts to kdx-infrabox"
+else
+    hosts_content="$(awk '$1 != "127.0.1.1" {print}' /etc/hosts)"
+    write_if_changed /etc/hosts 0644 root root <<EOF
+${hosts_content}
+127.0.1.1 kdx-infrabox
+EOF
+fi
 
 if ! getent group kronoskvm >/dev/null; then
     run groupadd --system kronoskvm

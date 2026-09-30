@@ -1,15 +1,20 @@
 """Manage the shared, read-only recovery publication directory."""
+import csv
 import hashlib
+import io
 import json
 import os
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
+from backend.app.hardware.recovery_history import history
 from backend.app.services import storage
 from backend.app.services.virtual_media import virtual_media_status
 
@@ -17,6 +22,42 @@ router = APIRouter(prefix="/api/v1/recovery", tags=["recovery"])
 LOCK = threading.Lock()
 ADDRESS = "192.168.34.100"
 NETWORK_STATE = Path(os.environ.get("KRONOSKVM_STATE_PATH", "/state")) / "recovery-network.json"
+
+
+@router.get("/network/history")
+def network_history():
+    return {"entries": history(NETWORK_STATE.with_name("recovery-history.sqlite3"))}
+
+
+@router.get("/network/history/download")
+def download_network_history():
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["Observed (UTC)", "Device", "IP address", "MAC", "Lease expires (UTC)"])
+
+    def timestamp(value):
+        return datetime.fromtimestamp(value, timezone.utc).isoformat() if value else "Permanent"
+
+    def safe_cell(value):
+        value = str(value)
+        return "'" + value if value.lstrip().startswith(("=", "+", "-", "@")) else value
+
+    for entry in network_history()["entries"]:
+        writer.writerow([
+            timestamp(entry["observed_at"]), safe_cell(entry["hostname"]),
+            safe_cell(entry["ip"]), safe_cell(entry["mac"]),
+            timestamp(entry.get("expires_at", 0)),
+        ])
+    return Response(
+        "\ufeff" + output.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="recovery-device-history.csv"'},
+    )
+
+
+@router.delete("/network/history")
+def clear_network_history():
+    history(NETWORK_STATE.with_name("recovery-history.sqlite3"), clear=True)
+    return {"status": "cleared"}
 
 
 class PublishFile(BaseModel):
