@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add confirmed SSH Start/Stop controls that persist across reboot and disable
+  socket activation when SSH is stopped.
+- Record second-appliance installation results and remaining hardware checks.
+- Fix project lint checks while retaining Python 3.9 runtime annotations.
+
+- Correct current hardware documentation: the RTC/power-control board is installed.
+
 - Standardize current product documentation on **KDX InfraBox — Infrastructure
   in a Box**; retain the historical `kronosKVM` repository and `kronoskvm-*`
   technical identifiers for compatibility.

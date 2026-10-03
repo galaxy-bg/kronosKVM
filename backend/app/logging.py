@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-
 _STANDARD_FIELDS = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
 
 

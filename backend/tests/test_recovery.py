@@ -159,7 +159,8 @@ def test_failed_eject_still_protects_backing_file(pool, monkeypatch):
 
     path = pool / 'ubuntu.iso'
     path.write_bytes(b'iso')
-    state = lambda: VirtualMediaStatus(status='error', filename=path.name)
+    def state():
+        return VirtualMediaStatus(status='error', filename=path.name)
     monkeypatch.setattr(recovery, 'virtual_media_status', state)
     monkeypatch.setattr(virtual_media, 'virtual_media_status', state)
     assert client.post('/api/v1/recovery/files', json={'filename': path.name}).status_code == 409
@@ -168,3 +169,22 @@ def test_failed_eject_still_protects_backing_file(pool, monkeypatch):
         storage.delete_staged_file(path.name)
     assert error.value.status_code == 409
     assert path.read_bytes() == b'iso'
+
+
+def test_ssh_control_requires_confirmation(pool, monkeypatch):
+    monkeypatch.setattr(services, "STATE_PATH", pool)
+    monkeypatch.setattr(services, "REQUEST_PATH", pool / "service-action")
+    for action in ("start", "stop"):
+        assert client.post(f"/api/v1/services/ssh/{action}").status_code == 400
+        assert client.post(
+            f"/api/v1/services/ssh/{action}", json={"confirmed": False}
+        ).status_code == 400
+        assert not services.REQUEST_PATH.exists()
+        assert client.post(
+            f"/api/v1/services/ssh/{action}", json={"confirmed": True}
+        ).status_code == 202
+        assert f"service=ssh\naction={action}\n" in services.REQUEST_PATH.read_text()
+        services.REQUEST_PATH.unlink()
+    assert client.post(
+        "/api/v1/services/ssh/restart", json={"confirmed": True}
+    ).status_code == 400

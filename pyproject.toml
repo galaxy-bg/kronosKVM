@@ -36,3 +36,7 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.pyupgrade]
+# FastAPI/Pydantic evaluate annotations at runtime; keep Python 3.9 support.
+keep-runtime-typing = true

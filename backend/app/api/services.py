@@ -1,8 +1,8 @@
 import json
 import os
 import re
-import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -22,8 +22,18 @@ CATALOG = (
     ("management_ap", "Wi-Fi Management AP", "KDX InfraBox recovery access point", True),
     ("dnsmasq", "DHCP and DNS", "Management AP address services", True),
     ("networkmanager", "Network Manager", "Ethernet and Wi-Fi configuration", False),
-    ("ssh", "SSH Management", "Secure host administration", True),
-    ("virtual_media", "Virtual Media (ISO/IMG)", "Mount/eject request watcher; Stop keeps the current image attached", True),
+    (
+        "ssh",
+        "SSH Management",
+        "Host CLI access · Start/Stop persists after reboot; existing sessions may remain open",
+        False,
+    ),
+    (
+        "virtual_media",
+        "Virtual Media (ISO/IMG)",
+        "Mount/eject request watcher; Stop keeps the current image attached",
+        True,
+    ),
     ("wittypi", "Witty Pi", "RTC and power-management daemon", True),
     ("recovery_ftp", "FTP Recovery", "Read-only anonymous FTP · TCP 21", True),
     ("tftp", "TFTP Recovery", "Read-only firmware transfer · UDP 69", True),
@@ -102,7 +112,8 @@ def service_list() -> dict:
                 "description": description,
                 "state": state.get("state", "unknown"),
                 "detail": state.get("detail"),
-                "controllable": service_id in {"tftp", "recovery_http", "recovery_ftp", "virtual_media"}
+                "controllable": service_id
+                in {"ssh", "tftp", "recovery_http", "recovery_ftp", "virtual_media"}
                 and state.get("state") != "not_installed",
                 "restartable": restartable and state.get("state") != "not_installed",
             }
@@ -120,7 +131,12 @@ def service_logs(service_id: str) -> dict:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-100:]
     except OSError:
         lines = []
-    return {"service": service_id, "name": allowed[service_id][1], "lines": lines, "count": len(lines)}
+    return {
+        "service": service_id,
+        "name": allowed[service_id][1],
+        "lines": lines,
+        "count": len(lines),
+    }
 
 
 @router.post("/refresh", status_code=status.HTTP_202_ACCEPTED)
@@ -132,7 +148,9 @@ def refresh_services() -> dict:
 def restart_service(service_id: str, value: ServiceAction) -> dict:
     allowed = {item[0]: item for item in CATALOG if item[3]}
     if service_id not in allowed:
-        raise HTTPException(status_code=400, detail="Service is unavailable or restart is protected")
+        raise HTTPException(
+            status_code=400, detail="Service is unavailable or restart is protected"
+        )
     if not value.confirmed:
         raise HTTPException(status_code=400, detail="Explicit confirmation is required")
     return {
@@ -142,7 +160,19 @@ def restart_service(service_id: str, value: ServiceAction) -> dict:
 
 
 @router.post("/{service_id}/{action}", status_code=status.HTTP_202_ACCEPTED)
-def control_recovery_service(service_id: str, action: str) -> dict:
-    if service_id not in {"tftp", "recovery_http", "recovery_ftp", "virtual_media"} or action not in {"start", "stop"}:
+def control_recovery_service(
+    service_id: str,
+    action: str,
+    value: Optional[ServiceAction] = None,
+) -> dict:
+    if service_id not in {
+        "ssh",
+        "tftp",
+        "recovery_http",
+        "recovery_ftp",
+        "virtual_media",
+    } or action not in {"start", "stop"}:
         raise HTTPException(status_code=400, detail="Unsupported service action")
+    if service_id == "ssh" and (value is None or not value.confirmed):
+        raise HTTPException(status_code=400, detail="Explicit confirmation is required")
     return {"accepted": True, "task": _queue(service_id, action, f"{action} {service_id}")}

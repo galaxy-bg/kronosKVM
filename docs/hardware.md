@@ -12,10 +12,10 @@ is retired and is not the current deployment target.
 - X630/TC358743 on CSI-2 for HDMI capture
 - Two USB serial-console adapters supported on the black USB 2.0 ports
 - Internal 32 GiB staging allocation on the root filesystem
+- RTC and managed power-control board (installed)
 
 ## Pending modules
 
-- RTC and managed power-control board
 - Final isolated appliance power input
 - Enclosure and labelled service/storage ports
 - Optional USB Ethernet adapter on the Service USB 3.0 port

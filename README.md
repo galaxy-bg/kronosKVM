@@ -33,7 +33,7 @@ Product descriptor: **Infrastructure in a Box**.
 - Native Ethernet for customer/development access
 - Integrated Wi-Fi management AP at `192.168.34.100/24`
 - Debian GNU/Linux 13 with Raspberry Pi kernel `6.18.34+rpt-rpi-v8`
-- GPIO 5V prototype power; RTC/power-control board pending
+- GPIO 5V prototype power; RTC/power-control board installed
 
 Ethernet DHCP and VPN addresses are installation-specific. Use the current
 Dashboard and Remote Assist status rather than an address from a historical log.
@@ -100,7 +100,7 @@ backfeed protection. During prototype testing the most reliable sequence is:
 2. power the target computer;
 3. attach the USB-C OTG data cable.
 
-The final RTC/power board must provide proper isolation or controlled power
+The installed RTC/power board must provide proper isolation or controlled power
 sequencing between the appliance supply and target USB VBUS. A plain cut-VBUS
 cable is not automatically suitable because DWC2 may require VBUS sensing.
 
@@ -227,10 +227,10 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 
 ## Current limitations
 
-- RTC/power-control board is not installed.
 - HTTPS is implemented; per-user web authentication is not.
 - Video recording remains unresolved; do not treat it as validated.
-- A clean-OS installation on a second appliance is the next reproducibility check.
+- [Second-appliance clean installation](docs/second-appliance-install.md) passed
+  management-plane checks; end-to-end HDMI/HID, RTC and VPN validation remain pending.
 - Remote Assist currently supports one private-IPv4 peer profile; public web
   access, multiple customer profiles and automatic WAN health failover are pending.
 - Power-off cannot restart the GPIO-powered prototype without cycling power.

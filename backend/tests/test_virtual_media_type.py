@@ -1,9 +1,8 @@
 import importlib.util
-from pathlib import Path
 import struct
+from pathlib import Path
 
 import pytest
-
 
 spec = importlib.util.spec_from_file_location(
     "media_type", Path(__file__).resolve().parents[2] / "scripts/detect-virtual-media-type.py"
@@ -13,7 +12,9 @@ spec.loader.exec_module(media_type)
 LIMIT = media_type.CDROM_SECTOR_LIMIT * 2048
 
 
-@pytest.mark.parametrize("size,expected", [(LIMIT - 1, "cdrom"), (LIMIT, "disk"), (6482409472, "disk")])
+@pytest.mark.parametrize(
+    "size,expected", [(LIMIT - 1, "cdrom"), (LIMIT, "disk"), (6482409472, "disk")]
+)
 def test_hybrid_iso_boundary(tmp_path, size, expected):
     path = tmp_path / "ubuntu.iso"
     header = bytearray(1024)

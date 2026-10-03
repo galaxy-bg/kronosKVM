@@ -76,7 +76,23 @@ write_status() {
 
 successful=true
 error=""
-if [[ "${service}" == virtual_media && ( "${action}" == start || "${action}" == restart ) ]]; then
+if [[ "${service}" == ssh && ( "${action}" == start || "${action}" == stop ) ]]; then
+    # Disable socket activation too, otherwise an incoming connection can reopen SSH.
+    if systemctl cat ssh.socket >/dev/null 2>&1; then
+        if ! systemctl disable --now ssh.socket; then
+            successful=false
+            error="SSH socket disable failed"
+        fi
+    fi
+    if [[ "${successful}" == true ]]; then
+        operation=disable
+        [[ "${action}" == start ]] && operation=enable
+        if ! systemctl "${operation}" --now ssh.service; then
+            successful=false
+            error="SSH service action failed"
+        fi
+    fi
+elif [[ "${service}" == virtual_media && ( "${action}" == start || "${action}" == restart ) ]]; then
     if [[ ! -d /sys/kernel/config/usb_gadget/kronoskvm/functions/mass_storage.usb0/lun.0 ]]; then
         if ! /opt/kronoskvm/scripts/setup-hid-gadget.sh; then
             successful=false

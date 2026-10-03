@@ -2237,8 +2237,12 @@ function renderServiceCards(payload, target = "#service-cards") {
   }).join("");
   document.querySelector("#services-state").innerHTML = `<i></i> ${payload.updated_at ? `Updated ${escapeHtml(new Date(payload.updated_at).toLocaleTimeString())}` : "Status pending"}`;
   container.querySelectorAll("[data-recovery-service]").forEach((button) => button.addEventListener("click", async () => {
+    const ssh = button.dataset.recoveryService === "ssh";
+    if (ssh && !window.confirm(button.dataset.action === "stop"
+      ? "Disable SSH now and after reboot? New CLI connections will be blocked; existing sessions may remain open. You can enable SSH again from this web page."
+      : "Enable SSH now and at boot for host CLI access?")) return;
     button.disabled = true;
-    try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`); }
+    try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`, ssh ? { confirmed: true } : {}); }
     catch (error) { showToast(error.message); button.disabled = false; }
   }));
   container.querySelectorAll("[data-recovery-browse]").forEach((link) => link.addEventListener("click", (event) => {

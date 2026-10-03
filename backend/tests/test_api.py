@@ -32,9 +32,7 @@ def test_mutations_create_logged_tasks() -> None:
     assert response.status_code == 400
     task_id = response.headers["x-kronos-task-id"]
     task = next(
-        item
-        for item in client.get("/api/v1/tasks").json()["tasks"]
-        if item["id"] == task_id
+        item for item in client.get("/api/v1/tasks").json()["tasks"] if item["id"] == task_id
     )
     assert task["status"] == "failed"
     assert task["error"] == "HTTP 400"
@@ -97,9 +95,7 @@ def test_system_endpoints() -> None:
         assert response.status_code == 200
 
 
-def test_power_action_requires_confirmation_and_stages_request(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_power_action_requires_confirmation_and_stages_request(tmp_path: Path, monkeypatch) -> None:
     from backend.app.api import routes
 
     action_path = tmp_path / "power-action"
@@ -179,7 +175,9 @@ def test_service_status_and_restart_request(tmp_path: Path, monkeypatch) -> None
 
     listing = client.get("/api/v1/services")
     assert listing.status_code == 200
-    management_ap = next(item for item in listing.json()["services"] if item["id"] == "management_ap")
+    management_ap = next(
+        item for item in listing.json()["services"] if item["id"] == "management_ap"
+    )
     assert management_ap["state"] == "active"
     assert management_ap["restartable"] is True
 
@@ -199,7 +197,9 @@ def test_service_status_and_restart_request(tmp_path: Path, monkeypatch) -> None
     denied = client.post("/api/v1/services/networkmanager/restart", json={"confirmed": True})
     assert denied.status_code == 400
 
-    (tmp_path / "service-log-dnsmasq.log").write_text("DHCPDISCOVER\nDHCPACK 192.168.34.156\n", encoding="utf-8")
+    (tmp_path / "service-log-dnsmasq.log").write_text(
+        "DHCPDISCOVER\nDHCPACK 192.168.34.156\n", encoding="utf-8"
+    )
     logs = client.get("/api/v1/services/dnsmasq/logs")
     assert logs.status_code == 200
     assert logs.json()["lines"] == ["DHCPDISCOVER", "DHCPACK 192.168.34.156"]
@@ -331,17 +331,26 @@ def test_connection_profile_lifecycle(tmp_path: Path, monkeypatch) -> None:
 def test_staging_capacity_accounts_for_active_copies(tmp_path, monkeypatch):
     from collections import namedtuple
 
-    usage = namedtuple('usage', 'total used free')
-    monkeypatch.setattr(storage_service, 'STORAGE_PATH', tmp_path)
-    monkeypatch.setattr(storage_service, 'REQUIRE_MARKER', False)
-    monkeypatch.setattr(storage_service, 'STORAGE_CAPACITY_BYTES', 1000)
-    monkeypatch.setattr(storage_service, 'MIN_FREE_BYTES', 100)
-    monkeypatch.setattr(storage_service.shutil, 'disk_usage', lambda _: usage(2000, 1500, 500))
-    monkeypatch.setattr(storage_service, 'UPLOAD_TASKS', {
-        'copy': {'name': 'other.iso', 'status': 'running', 'bytes_total': 300, 'bytes_done': 100},
-    })
-    assert client.get('/api/v1/storage').json()['free_bytes'] == 200
-    result = client.put('/api/v1/storage/files/too-large.iso', content=b'x' * 201)
+    usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr(storage_service, "REQUIRE_MARKER", False)
+    monkeypatch.setattr(storage_service, "STORAGE_CAPACITY_BYTES", 1000)
+    monkeypatch.setattr(storage_service, "MIN_FREE_BYTES", 100)
+    monkeypatch.setattr(storage_service.shutil, "disk_usage", lambda _: usage(2000, 1500, 500))
+    monkeypatch.setattr(
+        storage_service,
+        "UPLOAD_TASKS",
+        {
+            "copy": {
+                "name": "other.iso",
+                "status": "running",
+                "bytes_total": 300,
+                "bytes_done": 100,
+            },
+        },
+    )
+    assert client.get("/api/v1/storage").json()["free_bytes"] == 200
+    result = client.put("/api/v1/storage/files/too-large.iso", content=b"x" * 201)
     assert result.status_code == 507
     assert list(tmp_path.iterdir()) == []
 
@@ -349,11 +358,11 @@ def test_staging_capacity_accounts_for_active_copies(tmp_path, monkeypatch):
 def test_latest_video_frame_rejects_stale_cache(monkeypatch):
     from backend.app.api import video
 
-    monkeypatch.setattr(video, '_latest_frame', b'\xff\xd8test\xff\xd9')
-    monkeypatch.setattr(video, '_latest_frame_at', video.time.monotonic())
-    response = client.get('/api/v1/video/latest.jpg')
+    monkeypatch.setattr(video, "_latest_frame", b"\xff\xd8test\xff\xd9")
+    monkeypatch.setattr(video, "_latest_frame_at", video.time.monotonic())
+    response = client.get("/api/v1/video/latest.jpg")
     assert response.status_code == 200
-    assert response.content == b'\xff\xd8test\xff\xd9'
-    assert response.headers['content-type'] == 'image/jpeg'
-    monkeypatch.setattr(video, '_latest_frame_at', video.time.monotonic() - 4)
-    assert client.get('/api/v1/video/latest.jpg').status_code == 503
+    assert response.content == b"\xff\xd8test\xff\xd9"
+    assert response.headers["content-type"] == "image/jpeg"
+    monkeypatch.setattr(video, "_latest_frame_at", video.time.monotonic() - 4)
+    assert client.get("/api/v1/video/latest.jpg").status_code == 503

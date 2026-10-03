@@ -58,6 +58,7 @@ def test_api_rejects_stale_or_wrong_image(tmp_path, monkeypatch):
 
 def test_force_eject_is_explicit_and_normal_eject_remains_default(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from backend.app.main import app
 
     monkeypatch.setattr(virtual_media, 'STATE_PATH', tmp_path)
@@ -71,6 +72,7 @@ def test_force_eject_is_explicit_and_normal_eject_remains_default(tmp_path, monk
 
 def test_stopped_watcher_rejects_request_without_queuing(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from backend.app.main import app
     monkeypatch.setattr(virtual_media, 'STATE_PATH', tmp_path)
     monkeypatch.setattr(virtual_media, 'REQUEST_PATH', tmp_path / 'virtual-media-action')

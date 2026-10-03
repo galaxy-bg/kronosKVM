@@ -15,3 +15,12 @@
   path is verified before restarting either network side.
 - Operational status output must never read or display passphrases, passwords,
   tokens, proxy credentials or private keys.
+
+## SSH management switch
+
+Services → SSH Management provides confirmed Start/Stop actions. Stop disables
+both `ssh.socket` and `ssh.service`, including boot activation. Start leaves
+socket activation disabled and enables/starts `ssh.service`. Existing SSH sessions
+may survive Stop (`KillMode=process`); it blocks new logins, not session revocation.
+The web management plane and Remote Assist remain available to re-enable SSH.
+This switch does not replace management-network access controls or web authentication.
