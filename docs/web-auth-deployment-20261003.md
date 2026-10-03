@@ -60,3 +60,20 @@ is enabled; `kronosdx` has a shell and the recovery service user has nologin.
 A shared default web administrator does not establish zero trust or separate
 customer permissions from owner administration. Identifying customer host access
 and defining separate web permissions is required before claiming OS isolation.
+
+## UI deployment — 2026-10-04
+
+Deployed the UI changes from commit `a846265` to `192.168.31.185`. Removed the
+topbar API badge and grouped **Change password** and **Sign out** under the
+**admin** menu. Only the web container was recreated; the API was left running.
+
+- Backup: `/var/backups/kronoskvm/pre-admin-menu-20261004.RZ8Ixi/frontend.tar.gz`.
+- Previous web image: `kronoskvm-web:pre-admin-menu-a846265`.
+- Deployed web image: `kronoskvm-web:admin-menu-a846265` (also tagged `:dev`).
+- Nginx configuration passed validation; HTTPS serves the new admin menu without
+  the API badge. Served auth/dashboard JavaScript hashes match the local files.
+- Gateway health returned `ok`; anonymous system API requests still returned 401.
+
+For rollback, restore the frontend backup under `/opt/kronoskvm`, tag the previous
+web image as `kronoskvm-web:dev`, then run
+`sudo docker-compose -f /opt/kronoskvm/compose.yaml up --detach --no-deps web`.
