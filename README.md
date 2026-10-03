@@ -216,8 +216,9 @@ authentication and an approved wireless security policy.
 ## Administrator login and password recovery
 
 On a fresh installation, sign in over HTTPS with username `admin` and password
-`ChangeMe`. Password replacement is optional; use the **admin** button to change
-it later. A new password must contain at least 12 characters.
+`ChangeMe`. Password replacement is optional; open **admin → Change password** to
+change it later. Use **admin → Sign out** to end the session. A new password must
+contain at least 12 characters.
 
 If the password is forgotten, connect to the appliance through SSH or its local
 console and run:

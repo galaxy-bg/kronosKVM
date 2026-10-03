@@ -2302,25 +2302,13 @@ async function restartManagedService(button) {
 }
 
 async function load() {
-  const health = document.querySelector("#health");
   await Promise.allSettled([loadPorts(), loadStorage(), loadConnections(), loadVideoStatus(), loadTasks()]);
   const results = await Promise.allSettled([
-    getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
     getJson("/api/v1/system/network"),
     getJson("/api/v1/hid/status"),
   ]);
-  const [healthResult, systemResult, networkResult, hidResult] = results;
-
-  if (healthResult.status === "fulfilled") {
-    const healthData = healthResult.value;
-    health.textContent = `API ${text(healthData.status)}`;
-    health.className = "badge ready";
-  } else {
-    health.textContent = "API unavailable";
-    health.className = "badge error";
-    console.error(healthResult.reason);
-  }
+  const [systemResult, networkResult, hidResult] = results;
 
   try {
     renderServices(hidResult.status === "fulfilled" ? hidResult.value : null);

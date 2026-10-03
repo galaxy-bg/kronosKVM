@@ -6,8 +6,8 @@ the default account can open the dashboard immediately. If changed, the new
 password must have at least 12 characters. A shared default password is not a
 zero-trust access policy and does not restrict host OS access.
 
-Use the **admin** button to change the password later, or **Sign out** to end the
-session. Password changes revoke all previous sessions. Open consoles are
+Open the **admin** menu and select **Change password** to change the password
+later, or **Sign out** to end the session. Password changes revoke all previous sessions. Open consoles are
 revoked within five seconds of logout or password change. Sessions expire after
 30 minutes without authenticated requests and after eight hours in total.
 Automatic UI polling counts as activity. Restarting the API signs out everyone.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove the topbar API health badge and group password changes and sign out
+  under the admin menu, including on mobile.
+
 - Add a host-root-only web administrator reset command restoring admin / ChangeMe
   with optional password replacement and invalidation of current sessions.
 

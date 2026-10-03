@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/services.css">
   <link rel="stylesheet" href="/remote-assist.css?v=1">
   <link rel="stylesheet" href="/mobile.css?v=ssh-control-1">
-  <link rel="stylesheet" href="/auth.css?v=1">
+  <link rel="stylesheet" href="/auth.css?v=2">
 </head>
 <body>
   <section id="auth-panel" class="auth-panel" aria-labelledby="auth-brand">
@@ -76,9 +76,13 @@
             <button type="button" data-theme-choice="light" aria-pressed="true">☀ <span>Light</span></button>
             <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
           </div>
-          <span id="health" class="badge pending"><i></i> Checking API</span>
-          <button id="auth-change-password" class="user-button" type="button" aria-label="Change admin password">◎ <span>admin</span></button>
-          <button id="auth-logout" class="user-button" type="button">Sign out</button>
+          <div class="admin-account">
+            <button id="auth-admin-toggle" class="user-button" type="button" aria-expanded="false" aria-controls="auth-admin-menu">◎ <span>admin</span> ▾</button>
+            <div id="auth-admin-menu" class="admin-account-menu" hidden>
+              <button id="auth-change-password" type="button">Change password</button>
+              <button id="auth-logout" type="button">Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -237,6 +241,6 @@
     <label>Reference SHA256<input id="storage-checksum-expected" type="text" autocomplete="off" spellcheck="false" placeholder="Paste the original SHA256"></label>
     <p id="storage-checksum-match" role="status"></p>
   </dialog>
-  <script src="/auth.js?v=1" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
+  <script src="/auth.js?v=2" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
 </body>
 </html>

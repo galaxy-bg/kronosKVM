@@ -56,7 +56,7 @@
     panel.hidden = true;
     shell.hidden = false;
     try {
-      await script('/app-0.3.45-live-record.js?v=admin-auth-1');
+      await script('/app-0.3.45-live-record.js?v=admin-menu-2');
       await script('/remote-assist.js?v=admin-auth-1');
     } catch (error) {
       shell.hidden = true;
@@ -92,6 +92,29 @@
       passwordForm.reset();
       location.replace('/');
     });
+  });
+  const account = document.querySelector('.admin-account');
+  const accountToggle = document.querySelector('#auth-admin-toggle');
+  const accountMenu = document.querySelector('#auth-admin-menu');
+  function closeAccountMenu() {
+    accountMenu.hidden = true;
+    accountToggle.setAttribute('aria-expanded', 'false');
+  }
+  accountToggle.addEventListener('click', () => {
+    accountMenu.hidden = !accountMenu.hidden;
+    accountToggle.setAttribute('aria-expanded', String(!accountMenu.hidden));
+  });
+  document.addEventListener('click', (event) => {
+    if (!account.contains(event.target)) closeAccountMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !accountMenu.hidden) {
+      closeAccountMenu();
+      accountToggle.focus();
+    }
+  });
+  account.addEventListener('focusout', (event) => {
+    if (!account.contains(event.relatedTarget)) closeAccountMenu();
   });
   document.querySelector('#auth-logout').addEventListener('click', async () => {
     try { await api('logout', {}); location.replace('/'); }
