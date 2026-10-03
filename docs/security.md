@@ -24,3 +24,10 @@ socket activation disabled and enables/starts `ssh.service`. Existing SSH sessio
 may survive Stop (`KillMode=process`); it blocks new logins, not session revocation.
 The web management plane and Remote Assist remain available to re-enable SSH.
 This switch does not replace management-network access controls or web authentication.
+
+## Web sign in
+
+Management access requires a single-admin session; replacing the initial
+password is optional. See [web authentication](web-authentication.md) for HTTPS, cookie,
+CSRF, session lifetime and host-access recovery details. Recovery download
+services and host SSH use separate access policies.

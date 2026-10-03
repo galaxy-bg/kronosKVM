@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a host-root-only web administrator reset command restoring admin / ChangeMe
+  with optional password replacement and invalidation of current sessions.
+
+- Add HTTPS admin sign in with optional default-password replacement, secure
+  cookies, RAM-only sessions, login throttling and API/WebSocket protection.
+
 - Add confirmed SSH Start/Stop controls that persist across reboot and disable
   socket activation when SSH is stopped.
 - Record second-appliance installation results and remaining hardware checks.

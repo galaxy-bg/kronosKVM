@@ -10,8 +10,31 @@
   <link rel="stylesheet" href="/services.css">
   <link rel="stylesheet" href="/remote-assist.css?v=1">
   <link rel="stylesheet" href="/mobile.css?v=ssh-control-1">
+  <link rel="stylesheet" href="/auth.css?v=1">
 </head>
 <body>
+  <section id="auth-panel" class="auth-panel" aria-labelledby="auth-brand">
+    <div class="auth-card">
+      <img src="/infrabox-logo-transparent.png" width="96" height="96" alt="">
+      <h1 id="auth-brand">KDX InfraBox</h1>
+      <p>Infrastructure in a Box</p>
+      <h2 id="auth-title">Admin sign in</h2>
+      <form id="auth-login">
+        <label>Username<input id="auth-username" name="username" autocomplete="username" required maxlength="80" value="admin"></label>
+        <label>Password<input id="auth-login-password" name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <form id="auth-password" hidden>
+        <label>Current password<input id="auth-current-password" type="password" autocomplete="current-password" required maxlength="256"></label>
+        <label>New password<input id="auth-new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="256"></label>
+        <label>Confirm new password<input id="auth-confirm-password" type="password" autocomplete="new-password" required minlength="12" maxlength="256"></label>
+        <small>Use at least 12 characters. Choose a password you do not use elsewhere.</small>
+        <button type="submit">Save password</button>
+        <a id="auth-password-cancel" href="/" hidden>Back to dashboard</a>
+      </form>
+      <p id="auth-message" role="status" aria-live="polite">Checking session…</p>
+    </div>
+  </section>
   <div id="startup-splash" class="startup-splash" hidden>
     <div class="startup-brand">
       <img src="/infrabox-logo-transparent.png" width="144" height="144" alt="">
@@ -23,7 +46,7 @@
     </div>
     <div class="startup-caption"><p>Portable Access <span>·</span> Recovery <span>·</span> Diagnostics</p><p class="startup-powered">Powered by <strong>KronosDX</strong></p></div>
   </div>
-  <div class="app-shell">
+  <div class="app-shell" hidden>
     <aside id="sidebar" class="sidebar">
       <nav class="side-nav" aria-label="Main navigation">
         <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
@@ -54,7 +77,8 @@
             <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
           </div>
           <span id="health" class="badge pending"><i></i> Checking API</span>
-          <button class="user-button" type="button" aria-label="Current user">◎ <span>admin</span></button>
+          <button id="auth-change-password" class="user-button" type="button" aria-label="Change admin password">◎ <span>admin</span></button>
+          <button id="auth-logout" class="user-button" type="button">Sign out</button>
         </div>
       </header>
 
@@ -213,7 +237,6 @@
     <label>Reference SHA256<input id="storage-checksum-expected" type="text" autocomplete="off" spellcheck="false" placeholder="Paste the original SHA256"></label>
     <p id="storage-checksum-match" role="status"></p>
   </dialog>
-  <script src="/app-0.3.45-live-record.js?v=ssh-control-1" defer></script>
-  <script src="/remote-assist.js?v=1" defer></script>
+  <script src="/auth.js?v=1" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
 </body>
 </html>

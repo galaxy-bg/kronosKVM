@@ -18,9 +18,9 @@ point.
 
 Product descriptor: **Infrastructure in a Box**.
 
-> HTTPS is implemented. Per-user web authentication and a production access
-> policy are still pending. Remote Assist provides VPN connectivity, not a
-> separate web login or public access gateway.
+> HTTPS and single-admin web authentication are implemented. First login is
+> `admin` / `ChangeMe`; password replacement is optional. A production
+> access policy remains pending. Remote Assist provides VPN connectivity.
 
 ## Current prototype
 
@@ -213,6 +213,27 @@ during development. HTTPS uses the appliance certificate; trust/hostname handlin
 must be configured for each installation. Production builds still require user
 authentication and an approved wireless security policy.
 
+## Administrator login and password recovery
+
+On a fresh installation, sign in over HTTPS with username `admin` and password
+`ChangeMe`. Password replacement is optional; use the **admin** button to change
+it later. A new password must contain at least 12 characters.
+
+If the password is forgotten, connect to the appliance through SSH or its local
+console and run:
+
+```sh
+sudo /usr/local/sbin/infrabox-reset-admin
+```
+
+Type `RESET` to confirm. This restores `admin` / `ChangeMe` and disconnects all
+web sessions and consoles. For an explicitly confirmed noninteractive reset,
+use `sudo /usr/local/sbin/infrabox-reset-admin --yes`. A previously changed
+password remains in effect until changed again or explicitly reset.
+
+See [web authentication](docs/web-authentication.md) for installation, session
+and recovery details.
+
 ## Security notes
 
 - Never commit passwords, private keys, Wi-Fi secrets or customer data.
@@ -223,11 +244,12 @@ authentication and an approved wireless security policy.
   actions.
 - Keep USB virtual media read-only by default.
 
-See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
+See [web authentication](docs/web-authentication.md), [SECURITY.md](SECURITY.md)
+and [docs/security.md](docs/security.md).
 
 ## Current limitations
 
-- HTTPS is implemented; per-user web authentication is not.
+- Single-admin authentication is implemented; multiple users and roles are pending.
 - Video recording remains unresolved; do not treat it as validated.
 - [Second-appliance clean installation](docs/second-appliance-install.md) passed
   management-plane checks; end-to-end HDMI/HID, RTC and VPN validation remain pending.

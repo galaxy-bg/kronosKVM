@@ -1,10 +1,13 @@
 import logging
+import os
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from backend.app.api.auth import router as auth_router
 from backend.app.api.connections import router as connections_router
 from backend.app.api.external_storage import router as external_storage_router
 from backend.app.api.hid import router as hid_router
@@ -21,6 +24,7 @@ from backend.app.api.storage import router as storage_router
 from backend.app.api.tasks import router as tasks_router
 from backend.app.api.video import router as video_router
 from backend.app.logging import audit, configure_logging
+from backend.app.security.auth import AuthMiddleware, AuthStore
 from backend.app.services.storage import cleanup_incomplete_uploads
 from backend.app.services.tasks import finish_task, start_task
 
@@ -46,7 +50,9 @@ def create_app() -> FastAPI:
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         started = time.monotonic()
         task = None
-        task_owned_path = request.url.path.startswith(("/api/v1/tasks", "/api/v1/services"))
+        task_owned_path = request.url.path.startswith(
+            ("/api/v1/tasks", "/api/v1/services", "/api/v1/auth")
+        )
         if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not task_owned_path:
             requested_task_id = request.headers.get("x-kronos-task-id")
             if requested_task_id:
@@ -105,6 +111,16 @@ def create_app() -> FastAPI:
             )
         return response
 
+    application.state.auth = AuthStore(
+        Path(
+            os.environ.get(
+                "KRONOSKVM_AUTH_PATH",
+                "/state/web-auth.json",
+            )
+        )
+    )
+    application.add_middleware(AuthMiddleware, store=application.state.auth)
+    application.include_router(auth_router)
     application.include_router(router)
     application.include_router(connections_router)
     application.include_router(serial_router)

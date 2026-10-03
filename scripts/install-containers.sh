@@ -47,6 +47,9 @@ command -v docker-compose >/dev/null
 run install -m 0755 \
     "${PROJECT_DIR}/scripts/kronoskvm" \
     /usr/local/bin/kronoskvm
+run install -m 0755 \
+    "${PROJECT_DIR}/scripts/reset-web-admin.py" \
+    /usr/local/sbin/infrabox-reset-admin
 run chmod 0755 \
     "${PROJECT_DIR}/scripts/start-containers.sh" \
     "${PROJECT_DIR}/scripts/stop-containers.sh" \
