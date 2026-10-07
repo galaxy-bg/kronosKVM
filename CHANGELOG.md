@@ -11,7 +11,8 @@
 - Implement appliance-side browser Telnet/RDP/VNC sessions with a local guacd
   gateway, session-only credentials and existing administrator authentication.
   ARM64 Telnet/VNC fixture tests passed; deployed to the second appliance on
-  2026-10-04. First-appliance deployment and real RDP target validation remain pending.
+  2026-10-04 and the first appliance on 2026-10-07. Real RDP target validation
+  remains pending.
 
 - Remove the topbar API health badge and group password changes and sign out
   under the admin menu, including on mobile.

@@ -63,8 +63,9 @@ configuration.
 ## Validation — 2026-10-04
 
 This implementation was deployed to the second appliance at `192.168.1.107`
-on 2026-10-04. Deployment to the first prototype remains pending. See the
-[second-appliance update record](second-appliance-update-20261004.md).
+on 2026-10-04 and the first prototype at `192.168.31.185` on 2026-10-07. See the
+[second-appliance update record](second-appliance-update-20261004.md) and
+[first-appliance update record](first-appliance-update-20261007.md).
 
 - Local tests exercise framing, UTF-8 fragmentation, guacd argument ordering,
   gateway cleanup, limits, invalid profiles, TLS defaults and authenticated
