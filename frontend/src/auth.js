@@ -56,7 +56,7 @@
     panel.hidden = true;
     shell.hidden = false;
     try {
-      await script('/app-0.3.45-live-record.js?v=admin-menu-2');
+      await script('/app-0.3.45-live-record.js?v=browser-connections-1');
       await script('/remote-assist.js?v=admin-auth-1');
     } catch (error) {
       shell.hidden = true;

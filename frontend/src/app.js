@@ -422,14 +422,9 @@ const connectionDefaults = {
 };
 
 function connectionUri(profile) {
-  const user = profile.username ? `${encodeURIComponent(profile.username)}@` : "";
-  if (profile.type === "web") {
-    const scheme = profile.port === 443 ? "https" : "http";
-    const defaultPort = (scheme === "https" && profile.port === 443) || (scheme === "http" && profile.port === 80);
-    return `${scheme}://${profile.host}${defaultPort ? "" : `:${profile.port}`}${profile.path || "/"}`;
-  }
-  if (profile.type === "rdp") return `rdp://full%20address=s:${profile.host}:${profile.port}`;
-  return `${profile.type}://${user}${profile.host}:${profile.port}`;
+  const scheme = profile.port === 443 ? "https" : "http";
+  const defaultPort = (scheme === "https" && profile.port === 443) || (scheme === "http" && profile.port === 80);
+  return `${scheme}://${profile.host}${defaultPort ? "" : `:${profile.port}`}${profile.path || "/"}`;
 }
 
 function launchConnection(profile) {
@@ -437,9 +432,11 @@ function launchConnection(profile) {
     openSshTerminal(profile);
     return;
   }
-  const uri = connectionUri(profile);
-  if (profile.type === "web") window.open(uri, "_blank", "noopener,noreferrer");
-  else window.location.href = uri;
+  if (["telnet", "rdp", "vnc"].includes(profile.type)) {
+    window.InfraBoxRemote.open(profile);
+    return;
+  }
+  if (profile.type === "web") window.open(connectionUri(profile), "_blank", "noopener,noreferrer");
 }
 
 function renderConnections(profiles) {

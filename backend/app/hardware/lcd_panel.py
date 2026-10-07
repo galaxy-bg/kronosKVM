@@ -1,6 +1,7 @@
 """Renderer for the appliance's installed 160x128 Waveshare-compatible SPI LCD."""
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -18,11 +19,15 @@ class LCDPanel:
         self.small = ImageFont.truetype(font_path, 9)
         self.brand = ImageFont.truetype(font_path, 15)
         self.lcd = lcd
+        backlight = os.environ.get("KRONOSKVM_LCD_BL_PIN")
+        self.backlight_pin = int(backlight) if backlight is not None else None
         if self.lcd is None:
             sys.path.insert(0, driver_path)
             from lib.LCD_1inch8 import LCD_1inch8
 
-            self.lcd = LCD_1inch8(spi_freq=4000000, rst=27, dc=25, bl=None)
+            self.lcd = LCD_1inch8(spi_freq=4000000, rst=27, dc=25, bl=self.backlight_pin)
+            if self.backlight_pin is not None:
+                self.lcd.bl_DutyCycle(0)
             self.lcd.Init()
         self.ip = "LAN yok"
         self.next_network = 0
@@ -45,6 +50,9 @@ class LCDPanel:
         draw.text((80, 96), "Booting...", font=self.font, fill="#53dca5", anchor="mt")
         draw.rounded_rectangle((46, 115, 114, 118), radius=1, fill="#087f5b")
         self.lcd.ShowImage(canvas)
+        if self.backlight_pin is not None:
+            # Init clears the panel; expose it only after the complete logo frame.
+            self.lcd.bl_DutyCycle(100)
         return canvas
 
     def fit(self, draw, text, width, font=None):
@@ -57,6 +65,14 @@ class LCDPanel:
         return text + "…"
 
     def show(self, menu):
+        # Feedback is display-only. Power actions belong to the dedicated GPIO service.
+        try:
+            status = json.loads(Path("/run/kronoskvm-power-button/status.json").read_text())
+            age = time.time() - float(status["updated_at"])
+            if status.get("pressed") is True and 0 <= age <= 2:
+                return self.show_power_button(status)
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
         if time.monotonic() >= self.next_network:
             self.next_network = time.monotonic() + 10
             try:
@@ -116,5 +132,23 @@ class LCDPanel:
             footer += "  BACK: Geri"
         draw.text((5, 114), self.fit(draw, footer, 150, self.small),
                   font=self.small, fill="#a5c5ba")
+        self.lcd.ShowImage(canvas)
+        return canvas
+
+    def show_power_button(self, status):
+        canvas = self.image.new("RGB", (160, 128), "#101b24")
+        draw = self.draw.Draw(canvas)
+        action = status.get("action")
+        title = {"reboot": "Restart", "poweroff": "Power off"}.get(action, "Power button")
+        draw.text((80, 12), title, font=self.brand, fill="white", anchor="mt")
+        draw.text((80, 40), "Birak: yeniden baslat" if action == "reboot" else
+                  "Birak: guvenli kapat" if action == "poweroff" else "Basili tut...",
+                  font=self.small, fill="#53dca5", anchor="mt")
+        duration = max(0, float(status.get("held_seconds", 0)))
+        draw.text((80, 64), f"{duration:.1f} s", font=self.brand, fill="white", anchor="mt")
+        draw.rectangle((10, 90, 150, 96), fill="#2f4940")
+        draw.rectangle((10, 90, 10 + int(140 * min(duration / 5, 1)), 96), fill="#087f5b")
+        draw.text((80, 106), "2s: Restart / 5s: Kapat", font=self.small,
+                  fill="#a5c5ba", anchor="mt")
         self.lcd.ShowImage(canvas)
         return canvas

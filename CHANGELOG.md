@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Add opt-in LCD backlight control on BCM24 and local-filesystem boot ordering.
+  Record the remaining initial cold-start flash on the second appliance.
+- Preserve the separate-GPIO power-button prototype and release-only gesture
+  tests. The selected Witty onboard-button integration is not deployed and
+  requires MCU firmware work; see `docs/power-button.md`.
+
+- Implement appliance-side browser Telnet/RDP/VNC sessions with a local guacd
+  gateway, session-only credentials and existing administrator authentication.
+  ARM64 Telnet/VNC fixture tests passed; deployed to the second appliance on
+  2026-10-04. First-appliance deployment and real RDP target validation remain pending.
+
 - Remove the topbar API health badge and group password changes and sign out
   under the admin menu, including on mobile.
 

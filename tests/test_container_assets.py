@@ -4,6 +4,19 @@ from pathlib import Path
 import yaml
 
 
+def test_remote_gateway_listens_only_on_host_loopback():
+    compose = yaml.safe_load(Path("compose.yaml").read_text(encoding="utf-8"))
+    gateway = compose["services"]["guacd"]
+    assert gateway["network_mode"] == "host"
+    assert "ports" not in gateway
+    assert gateway["command"] == ["-f", "-b", "127.0.0.1", "-l", "4822", "-L", "warning"]
+    assert gateway["read_only"] is True
+    assert gateway["cap_drop"] == ["ALL"]
+    assert "@sha256:" in gateway["image"]
+    runner = Path("scripts/start-containers.sh").read_text(encoding="utf-8")
+    assert runner.index("--no-deps guacd") < runner.index("docker run --detach")
+
+
 def test_compose_api_is_hardened_and_localhost_only() -> None:
     compose = yaml.safe_load(Path("compose.yaml").read_text(encoding="utf-8"))
     api = compose["services"]["api"]

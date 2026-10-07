@@ -1,5 +1,8 @@
 # Second appliance installation
 
+For the latest application deployment, see the
+[2026-10-04 update record](second-appliance-update-20261004.md).
+
 ## Target and source
 
 The second appliance was provisioned on 2026-09-26 from a clean Raspberry Pi OS

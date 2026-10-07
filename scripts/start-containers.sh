@@ -4,6 +4,8 @@ set -Eeuo pipefail
 cd /opt/kronoskvm
 version="${KRONOSKVM_VERSION:-dev}"
 
+docker-compose -f compose.yaml up --detach --no-deps guacd
+
 docker rm --force kronoskvm-api >/dev/null 2>&1 || true
 docker run --detach \
     --name kronoskvm-api \

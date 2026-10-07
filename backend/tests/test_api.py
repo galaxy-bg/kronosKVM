@@ -223,6 +223,12 @@ def test_capture_requires_video_zero(tmp_path: Path) -> None:
 
 
 def test_staging_storage_file_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    from collections import namedtuple
+
+    usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(
+        storage_service.shutil, "disk_usage", lambda _: usage(100 * 1024**3, 0, 100 * 1024**3)
+    )
     monkeypatch.setattr(storage_service, "STORAGE_PATH", tmp_path / "staging")
     monkeypatch.setattr(storage_service, "REQUIRE_MARKER", True)
     storage_service.STORAGE_PATH.mkdir()

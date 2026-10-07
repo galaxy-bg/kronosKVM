@@ -2,7 +2,7 @@
 
 The appliance at 192.168.1.102 uses a 160x128 SPI LCD, driven by
 `/opt/infrabox-lcd/lib/LCD_1inch8.py`. Reset is BCM27, DC BCM25,
-SPI bus/device 0/0 at 4 MHz, with no software backlight pin.
+SPI bus/device 0/0 at 4 MHz. Backlight control is opt-in per appliance.
 
 ## Four-button local control
 
@@ -25,6 +25,28 @@ screen. The first screen is a scrollable main menu matching the web UI:
 Dashboard, Sessions, Storage, Recovery, Remote Assist, Tasks, Services, Logs,
 Settings. Four rows are visible; a green highlight, arrow and position counter
 identify the selected item. Up/down moves selection, OK opens, Back returns.
+
+For an earlier splash, the base LCD service must not retain
+`After=network.target`; replace that dependency with
+`After=local-fs.target systemd-modules-load.service`. A drop-in cannot remove
+the base unit's existing ordering dependencies. The display still cannot draw
+before Linux initializes SPI.
+
+## Backlight on the second appliance
+
+On `192.168.1.107`, BL is wired to physical pin 18, which is **BCM24**, not
+BCM18. Install `deploy/systemd/infrabox-lcd-backlight-bcm24.conf` as
+`/etc/systemd/system/infrabox-lcd.service.d/backlight.conf` only on this wiring.
+It sets `KRONOSKVM_LCD_BL_PIN=24` and drives BL low after the service stops.
+The driver holds active-high BL off during initialization and switches it on
+only after the splash frame has been written. Appliances without the environment
+setting keep their previous unmanaged backlight behavior.
+
+Add `gpio=24=op,dl` under `[all]` in `/boot/firmware/config.txt` to drive BL low
+when firmware processes the configuration. This takes effect on the next boot.
+It cannot control the interval between initial power and firmware execution;
+eliminating even that initial flash may require a hardware pull-down/control
+circuit. See [Raspberry Pi GPIO boot configuration](https://www.raspberrypi.com/documentation/computers/config_txt.html).
 Detail pages show live API summaries and scroll with up/down; OK refreshes.
 Sessions shows saved profile information (not a live session count); Settings
 shows network information. These summary pages do not modify settings.

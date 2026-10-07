@@ -14,6 +14,7 @@ from backend.app.api.hid import router as hid_router
 from backend.app.api.logs import router as logs_router
 from backend.app.api.network_settings import router as network_settings_router
 from backend.app.api.recovery import router as recovery_router
+from backend.app.api.remote import router as remote_router
 from backend.app.api.remote_assist import router as remote_assist_router
 from backend.app.api.routes import router
 from backend.app.api.serial import router as serial_router
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     )
     application.add_middleware(AuthMiddleware, store=application.state.auth)
     application.include_router(auth_router)
+    application.include_router(remote_router)
     application.include_router(router)
     application.include_router(connections_router)
     application.include_router(serial_router)

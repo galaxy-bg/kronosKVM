@@ -127,6 +127,11 @@ See [architecture](docs/architecture.md),
 [containerization](docs/containerization.md), [API](docs/api.md),
 [logging](docs/logging.md) and [security](docs/security.md).
 
+Telnet, RDP and VNC now have an in-browser gateway implementation, with target
+connections made by the appliance. This update is deployed to the second
+appliance; deployment to the first prototype and real RDP target validation remain pending. See
+[browser connections](docs/browser-connections.md) for setup and test coverage.
+
 ## Repository layout
 
 - `backend/` — FastAPI API, hardware adapters and tests

@@ -165,7 +165,9 @@ def test_failed_login_is_rate_limited(client):
     assert response.headers["retry-after"] == "60"
 
 
-@pytest.mark.parametrize("path", ["/api/v1/hid/ws", "/api/v1/ssh/ws", "/api/v1/serial/ws"])
+@pytest.mark.parametrize(
+    "path", ["/api/v1/hid/ws", "/api/v1/ssh/ws", "/api/v1/serial/ws", "/api/v1/remote/ws"]
+)
 def test_websocket_requires_session(client, path):
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("wss://testserver" + path):
@@ -180,6 +182,19 @@ def test_websocket_requires_same_origin_and_revokes_on_logout(client):
         ):
             pytest.fail("Cross-origin console accepted")
     with client.websocket_connect("wss://testserver/api/v1/hid/ws") as socket:
+        assert client.post("/api/v1/auth/logout", json={}).status_code == 200
+        with pytest.raises(WebSocketDisconnect):
+            socket.receive_text()
+
+
+def test_remote_websocket_rejects_cross_origin_and_revokes_pending_login(client):
+    login(client)
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect(
+            "wss://testserver/api/v1/remote/ws", headers={"Origin": "https://evil.example"}
+        ):
+            pytest.fail("Cross-origin remote session accepted")
+    with client.websocket_connect("wss://testserver/api/v1/remote/ws") as socket:
         assert client.post("/api/v1/auth/logout", json={}).status_code == 200
         with pytest.raises(WebSocketDisconnect):
             socket.receive_text()

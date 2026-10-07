@@ -44,6 +44,9 @@ arbitrary shell endpoint.
 - `POST /api/v1/connections` — create a password-free connection profile
 - `PUT /api/v1/connections/{id}` — update a connection profile
 - `DELETE /api/v1/connections/{id}` — delete a connection profile
+- `WS /api/v1/remote/ws` — authenticated appliance-side Telnet/RDP/VNC tunnel;
+  the first JSON body selects a saved profile and supplies session credentials,
+  followed by Guacamole protocol instructions. See [browser connections](browser-connections.md).
 - `POST /api/v1/serial/locks`
 - `DELETE /api/v1/serial/locks/{device_name}`
 
