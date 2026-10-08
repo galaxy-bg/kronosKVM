@@ -33,7 +33,10 @@ pause; a generation guard prevents late frames from changing a stopped window.
 Closing the KVM window aborts the fetch and releases its Blob URL. Capture
 settings and the backend streaming API are unchanged.
 
-Deployed to the second appliance (`192.168.1.107`). Live Chrome verified
+Deployed to both appliances; the
+[first-box update record](first-appliance-update-20261008.md) records its
+pending real-target image check. On the second appliance (`192.168.1.107`),
+live Chrome verified
 1024×768 decoded Blob display, HID connection, a stable paused image and resumed
 frame updates, without page errors. Parser tests cover all multipart split
 positions, one-byte chunks, multiple frames, buffer limits, decode-before-paint

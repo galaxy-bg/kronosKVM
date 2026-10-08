@@ -38,8 +38,10 @@ still reject traffic. Runtime status refreshes every 20 seconds.
 
 ## Deployment and validation — 2026-10-08
 
-Installed on the second appliance, `192.168.1.107`; the first appliance has not
-received this feature. No OS reboot/update was performed.
+Installed on the second appliance, `192.168.1.107`, and subsequently on the
+first appliance, `192.168.31.185`. See the
+[first-box update record](first-appliance-update-20261008.md) for its disabled
+initial policy and preserved local DNS. No OS reboot/update was performed.
 
 - Application/private-state backup:
   `/var/backups/kronoskvm/pre-ap-access-update-20261008.NnuSNL`.
