@@ -10,6 +10,9 @@ The product is **KDX InfraBox**. The GitHub repository remains
 `kronoskvm-*` service names and `/opt/kronoskvm` paths are retained for
 compatibility. See [product naming](docs/product-naming.md).
 
+Hostname and Wi-Fi AP names use the last eight Raspberry Pi serial characters;
+the full serial is retained as the device identity. See [device identity and migration](docs/device-identity.md).
+
 KDX InfraBox is a portable, browser-managed IP-KVM and infrastructure-access
 appliance developed by KronosDX. The current prototype combines HDMI capture,
 USB keyboard and mouse emulation, two serial-console ports, staging storage,
@@ -213,10 +216,14 @@ https://192.168.34.100
 ```
 
 Ethernet access uses the DHCP address assigned by the connected network. The
-management AP SSID for the current prototype is `KronosDX-iKVM` and is open
-during development. HTTPS uses the appliance certificate; trust/hostname handling
-must be configured for each installation. Production builds still require user
-authentication and an approved wireless security policy.
+management AP SSID is `KDX-iKVM-<last 8 serial characters>`; its initial WPA2
+password is `KDX@<last 8 serial characters>!` (lowercase serial suffix on the
+appliance label). Administrators can change it under **Settings → Wi-Fi access
+point**; custom passwords survive reboot. Choose **Standard (2.4 GHz)** or
+**Performance (5 GHz)** in the same section; Standard is the default. See
+[Wi-Fi modes](docs/wifi-modes.md). See [Wi-Fi password](docs/wifi-password.md).
+HTTPS uses the appliance certificate; trust/hostname handling must be configured
+for each installation.
 
 ## Administrator login and password recovery
 

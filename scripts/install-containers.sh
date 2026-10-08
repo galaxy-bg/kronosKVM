@@ -68,9 +68,10 @@ run install -m 0644 \
     /etc/docker/daemon.json
 
 if [[ ! -s /etc/kronoskvm/tls/kdx-infrabox.crt || ! -s /etc/kronoskvm/tls/kdx-infrabox.key ]]; then
+    identity_hostname="$(python3 "${PROJECT_DIR}/scripts/device-identity.py" --field hostname)"
     run openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 3650 \
-        -subj /CN=kdx-infrabox \
-        -addext subjectAltName=DNS:kdx-infrabox,DNS:kdx-infrabox.local,IP:192.168.34.100 \
+        -subj "/CN=${identity_hostname}" \
+        -addext "subjectAltName=DNS:${identity_hostname},DNS:${identity_hostname}.local,DNS:kdx-infrabox,DNS:kdx-infrabox.local,IP:192.168.34.100" \
         -keyout /etc/kronoskvm/tls/kdx-infrabox.key \
         -out /etc/kronoskvm/tls/kdx-infrabox.crt
     run chmod 0600 /etc/kronoskvm/tls/kdx-infrabox.key
@@ -95,6 +96,12 @@ else
         "${INSTALL_DIR}/"
 fi
 
+if "${DRY_RUN}"; then
+    python3 "${PROJECT_DIR}/scripts/device-identity.py" --hostname-only --dry-run
+else
+    python3 "${INSTALL_DIR}/scripts/device-identity.py" --hostname-only
+fi
+
 run chmod 0755 "${INSTALL_DIR}/scripts/prepare-external-storage.sh"
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-external-root.service" \
@@ -109,6 +116,11 @@ run udevadm control --reload-rules
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-containers.service" \
     /etc/systemd/system/kronoskvm-containers.service
+run install -m 0644 "${PROJECT_DIR}/deploy/systemd/kronoskvm-device-identity.service" \
+    /etc/systemd/system/kronoskvm-device-identity.service
+run install -d -m 0755 /etc/systemd/system/kronoskvm-containers.service.d
+run install -m 0644 "${PROJECT_DIR}/deploy/systemd/kronoskvm-containers-identity.conf" \
+    /etc/systemd/system/kronoskvm-containers.service.d/identity.conf
 run install -m 0644 \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-power-action.path" \
     "${PROJECT_DIR}/deploy/systemd/kronoskvm-power-action.service" \
@@ -124,6 +136,7 @@ if ! "${DRY_RUN}"; then
     systemctl enable docker.service
     systemctl restart docker.service
     systemctl daemon-reload
+    systemctl enable kronoskvm-device-identity.service
     systemctl enable --now kronoskvm-external-root.service kronoskvm-external-storage.timer
     systemctl disable --now kronoskvm-api.service || true
     (
@@ -135,6 +148,9 @@ if ! "${DRY_RUN}"; then
     systemctl enable --now kronoskvm-virtual-media-action.path
     systemctl enable --now kronoskvm-network-action.path
     systemctl enable --now kronoskvm-service-action.path
+    # Install security after the serial-based identity has been applied.
+    systemctl start kronoskvm-device-identity.service
+    bash "${INSTALL_DIR}/scripts/install-wifi-password.sh"
     systemctl restart kronoskvm-containers.service
 fi
 

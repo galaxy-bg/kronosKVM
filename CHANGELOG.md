@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Add persistent Standard (2.4 GHz) and Performance (5 GHz) AP modes in Settings,
+  actual radio frequency/width status, and automatic Standard fallback when
+  5 GHz cannot start. Keep SSID, credentials and customer-network routing.
+  Deployed on the first appliance; record user-reported stable connectivity
+  through a wall at approximately ten metres in `docs/wifi-modes.md`.
+
+- Protect the management AP with WPA2/CCMP and initial password
+  `KDX@<last 8 serial characters>!`; add an authenticated Settings password change
+  with persistent custom passwords and activation rollback.
+
+- Restore authenticated browser uploads by sending the same-origin request
+  header on XMLHttpRequest, verified with a throttled 16 MiB upload and SHA256.
+
+- Generate hostname and KDX-iKVM SSID from the last eight Pi serial characters, with
+  boot-time checks, preserved AP settings and rollback. Applied to the first
+  appliance; see `docs/device-identity.md`.
+
 - Buffer and decode complete KVM JPEG frames before display, preserving the
   last good frame during reconnect/pause instead of painting partial MJPEG data.
 

@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh InfraBox Wi-Fi security status
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/wifi-host.py

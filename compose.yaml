@@ -32,7 +32,7 @@ services:
       network: host
     container_name: kronoskvm-api
     network_mode: host
-    hostname: kdx-infrabox
+    hostname: ${KRONOSKVM_HOSTNAME:-kdx-infrabox}
     restart: unless-stopped
     read_only: true
     user: "10001:20"

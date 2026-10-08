@@ -1,0 +1,13 @@
+[Unit]
+Description=Provision persistent InfraBox Wi-Fi password
+Requires=kronoskvm-device-identity.service
+After=NetworkManager.service hostapd.service kronoskvm-device-identity.service
+Before=kronoskvm-containers.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/wifi-host.py --apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

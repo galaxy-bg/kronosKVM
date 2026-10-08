@@ -887,6 +887,7 @@ function runStorageTask(task) {
   request.open("PUT", `/api/v1/storage/files/${encodeURIComponent(task.file.name)}`);
   request.setRequestHeader("Content-Type", task.file.type || "application/octet-stream");
   request.setRequestHeader("X-Kronos-Task-ID", task.id);
+  request.setRequestHeader("X-InfraBox-Request", "1");
   request.upload.addEventListener("progress", (event) => {
     task.loaded = event.loaded;
     task.progress = event.lengthComputable ? Math.round(event.loaded / event.total * 100) : 0;
@@ -2203,6 +2204,91 @@ function bindNetworkSettingsForms() {
 let networkSettingsDirty = false;
 let apAccessDirty = false;
 let apAccessSaving = false;
+const wifiPasswordForm = document.querySelector("#wifi-password-form");
+let wifiPasswordSaving = false;
+let wifiPasswordRequestId = "";
+let wifiModeSaving = false;
+let wifiModeRequestId = "";
+let wifiModeDirty = false;
+const wifiModeForm = document.querySelector("#wifi-mode-form");
+wifiModeForm.addEventListener("change", () => { wifiModeDirty = true; });
+wifiModeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  wifiModeSaving = true;
+  document.querySelector("#wifi-mode-save").disabled = true;
+  const message = document.querySelector("#wifi-mode-message");
+  message.textContent = "Applying Wi-Fi mode… Reconnect Wi-Fi if the connection drops.";
+  try {
+    const response = await fetch("/api/v1/network/wifi", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: document.querySelector("#wifi-mode").value }),
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || "Wi-Fi mode update failed.");
+    wifiModeRequestId = (await response.json()).request_id;
+    wifiModeDirty = false;
+    await loadWifiSettings();
+    window.setTimeout(loadWifiSettings, 3000);
+  } catch (error) {
+    wifiModeSaving = false;
+    message.textContent = error.message;
+    await loadWifiSettings();
+  }
+});
+async function loadWifiSettings() {
+  try {
+    const state = await getJson("/api/v1/network/wifi");
+    const usable = state.installed && !state.stale;
+    document.querySelector("#wifi-identity").textContent = state.ssid ? `SSID: ${state.ssid}` : "";
+    document.querySelector("#wifi-password-mode").textContent = state.default_password ? "Default password in use: KDX@<last 8 serial characters>! (serial is on the appliance label)." : "Custom Wi-Fi password in use.";
+    if (wifiPasswordSaving && !state.pending && state.request_id === wifiPasswordRequestId) {
+      wifiPasswordSaving = false;
+      document.querySelector("#wifi-password-message").textContent = state.error || "Wi-Fi password updated. Reconnect Wi-Fi with the new password.";
+    }
+    if (wifiModeSaving && !state.pending && state.request_id === wifiModeRequestId) {
+      wifiModeSaving = false;
+      document.querySelector("#wifi-mode-message").textContent = state.error || state.notice || "Wi-Fi mode updated. Reconnect Wi-Fi if needed.";
+    }
+    if (!wifiModeDirty && !wifiModeSaving) document.querySelector("#wifi-mode").value = state.mode || "standard";
+    document.querySelector('#wifi-mode option[value="performance"]').disabled = !state.performance_available;
+    document.querySelector("#wifi-mode-active").textContent = state.frequency_mhz ? `Active: ${state.frequency_mhz} MHz · channel ${state.channel} · ${state.width_mhz} MHz width` : "Active frequency unavailable.";
+    for (const id of ["wifi-mode", "wifi-mode-save"]) document.getElementById(id).disabled = !usable || wifiPasswordSaving || wifiModeSaving || state.pending;
+    if (state.notice && !wifiModeSaving) document.querySelector("#wifi-mode-message").textContent = state.notice;
+    const waiting = wifiPasswordSaving || wifiModeSaving || state.pending;
+    document.querySelector("#wifi-state").textContent = !usable ? "Unavailable" : waiting ? "Applying…" : state.secured ? "WPA2 protected" : "Open";
+    document.querySelector("#wifi-state").className = `badge ${usable && state.secured && !waiting ? "ready" : "pending"}`;
+    for (const id of ["wifi-password", "wifi-password-confirm", "wifi-password-save"]) document.getElementById(id).disabled = !usable || wifiPasswordSaving || wifiModeSaving || state.pending;
+    if (state.error && !wifiPasswordSaving) document.querySelector("#wifi-password-message").textContent = state.error;
+  } catch (error) {
+    document.querySelector("#wifi-state").textContent = "Unavailable";
+  }
+}
+wifiPasswordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const password = document.querySelector("#wifi-password").value;
+  const message = document.querySelector("#wifi-password-message");
+  if (password !== document.querySelector("#wifi-password-confirm").value) {
+    message.textContent = "Wi-Fi passwords do not match.";
+    return;
+  }
+  wifiPasswordSaving = true;
+  document.querySelector("#wifi-password-save").disabled = true;
+  message.textContent = "Applying Wi-Fi password… If you are connected over Wi-Fi, reconnect with the new password.";
+  try {
+    const response = await fetch("/api/v1/network/wifi", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || "Wi-Fi password update failed.");
+    wifiPasswordRequestId = (await response.json()).request_id;
+    wifiPasswordForm.reset();
+    await loadWifiSettings();
+    window.setTimeout(loadWifiSettings, 3000);
+  } catch (error) {
+    wifiPasswordSaving = false;
+    message.textContent = error.message;
+    await loadWifiSettings();
+  }
+});
+
 const apAccessForm = document.querySelector("#ap-access-form");
 apAccessForm.addEventListener("input", () => { apAccessDirty = true; });
 
@@ -2429,6 +2515,7 @@ function showView(view) {
   if (view === "settings") {
     loadNetworkSettings();
     loadApAccess();
+    loadWifiSettings();
     document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
@@ -2799,7 +2886,7 @@ async function refreshVisibleView() {
       jobs.push(loadRecoveryMonitoring());
       if (!recoveryPublishRunning) jobs.push(loadRecovery());
     }
-    if (view === "settings") jobs.push(loadNetworkSettings(true), loadApAccess(true));
+    if (view === "settings") jobs.push(loadNetworkSettings(true), loadApAccess(true), loadWifiSettings());
     if (view === "logs") jobs.push(loadLogs(), loadSessionLogs());
     if (view === "services") {
       jobs.push(loadManagedServices());

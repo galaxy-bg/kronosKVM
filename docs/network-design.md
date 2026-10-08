@@ -8,7 +8,9 @@ persistent local management access point at `192.168.34.100/24`.
 - Ethernet interface: `eth0`, DHCP from the connected LAN
 - Ethernet address: DHCP-assigned; read the current address from Dashboard
 - Management AP interface: `wlan0`, joined to `br-recovery` on the active appliance
-- Management SSID: `KronosDX-iKVM`
+- Management SSID: `KDX-iKVM-<last 8 serial characters>` after
+  [identity provisioning](device-identity.md); earlier boxes retain legacy names
+  until migrated.
 - Appliance AP address: `192.168.34.100/24`
 - Recovery bridge: `br-recovery`, combining management Wi-Fi and the configured Service interface
 - No customer-LAN/WAN forwarding or NAT is enabled by Remote Assist
@@ -17,8 +19,9 @@ persistent local management access point at `192.168.34.100/24`.
 - Web UI: HTTP/HTTPS through Ethernet and the management AP; also through the VPN when connected
 - API: localhost only behind Nginx
 
-The AP is intentionally open during prototype development. Production requires
-an approved authentication and wireless-security policy.
+Updated appliances use WPA2/CCMP with initial password
+`KDX@<last 8 serial characters>!`. Administrators can change it in Settings;
+see [Wi-Fi password](wifi-password.md). Unmigrated prototypes may still be open.
 
 ## Operational policy
 

@@ -1,3 +1,4 @@
+import socket
 from pathlib import Path
 from typing import Any, Optional
 
@@ -6,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class SystemConfig(BaseModel):
-    hostname: str = "kdx-infrabox"
+    hostname: str = Field(default_factory=socket.gethostname)
     timezone: str = "Europe/Istanbul"
     data_directory: Path = Path("/var/lib/kronoskvm")
     runtime_directory: Path = Path("/run/kronoskvm")

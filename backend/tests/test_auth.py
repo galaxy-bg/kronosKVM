@@ -1,5 +1,6 @@
 import json
 import stat
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -79,6 +80,23 @@ def activate(client):
     )
     assert response.status_code == 200
     return response
+
+
+def test_authenticated_storage_upload_requires_request_header(client, tmp_path, monkeypatch):
+    from backend.app.services import storage
+
+    monkeypatch.setattr(storage, "STORAGE_PATH", tmp_path / "staging")
+    monkeypatch.setattr(storage, "REQUIRE_MARKER", False)
+    monkeypatch.setattr(storage, "MIN_FREE_BYTES", 0)
+    assert login(client).status_code == 200
+    payload = b"authenticated upload fixture"
+    path = "/api/v1/storage/files/auth-fixture.bin"
+    rejected = client.put(path, content=payload, headers={"X-InfraBox-Request": ""})
+    assert rejected.status_code == 403
+    assert not (storage.STORAGE_PATH / "auth-fixture.bin").exists()
+    accepted = client.put(path, content=payload, headers={"X-InfraBox-Request": "1"})
+    assert accepted.status_code == 200
+    assert (storage.STORAGE_PATH / "auth-fixture.bin").read_bytes() == payload
 
 
 @pytest.mark.parametrize(
@@ -265,3 +283,26 @@ def test_corrupt_credentials_fail_closed_without_resetting_default(client):
     path.write_text(json.dumps({"username": "admin", "hash": "broken"}))
     assert login(client).status_code == 503
     assert json.loads(path.read_text())["hash"] == "broken"
+
+def test_wifi_requires_admin_and_same_origin_marker(tmp_path, monkeypatch):
+    monkeypatch.setenv("KRONOSKVM_AUTH_PATH", str(tmp_path / "auth.json"))
+    from backend.app.api import wifi
+
+    monkeypatch.setattr(wifi, "STATE", tmp_path)
+    (tmp_path / "wifi-status.json").write_text(json.dumps({
+        "installed": True, "updated_at": time.time(),
+    }))
+    client = TestClient(create_app(), base_url="https://testserver")
+    assert client.get("/api/v1/network/wifi").status_code == 401
+    assert client.put("/api/v1/network/wifi", json={
+        "password": "Custom%WiFi!42",
+    }).status_code == 401
+    assert client.post("/api/v1/auth/login", json={
+        "username": "admin", "password": "ChangeMe",
+    }, headers={"X-InfraBox-Request": "1"}).status_code == 200
+    assert client.put("/api/v1/network/wifi", json={
+        "password": "Custom%WiFi!42",
+    }).status_code == 403
+    assert not (tmp_path / "wifi-request.json").exists()
+    assert client.put("/api/v1/network/wifi", json={"password": "Custom%WiFi!42"},
+                      headers={"X-InfraBox-Request": "1"}).status_code == 202

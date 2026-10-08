@@ -5,7 +5,7 @@ BACKUP_ROOT=/var/backups/kronoskvm/network
 AP_ADDRESS=192.168.34.100
 AP_PREFIX=24
 AP_INTERFACE=wlan0
-AP_SSID=kronosKVM
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=false
 
 usage() {
@@ -14,13 +14,12 @@ Usage: configure-network.sh [--dry-run] [--help]
 
 Configure wlan0 as the persistent KronosKVM management access point:
 
-  SSID:       kronosKVM
+  SSID:       KDX-iKVM-<last 8 serial characters>
   Address:    192.168.34.100/24
   DHCP range: 192.168.34.150-192.168.34.220
 
-The WPA passphrase is requested through a hidden interactive prompt and is
-written only to root-readable hostapd configuration. It is never accepted as a
-command-line argument.
+The default WPA passphrase is KDX@<last 8 serial characters>!. Existing protected
+installations keep their password. Change it later in Settings → Wi-Fi access point.
 
 Run only while an independently tested Ethernet SSH path is available.
 This script does not enable routing, NAT or bridging.
@@ -61,6 +60,8 @@ while (( $# > 0 )); do
     shift
 done
 
+AP_SSID="$(python3 "${SCRIPT_DIR}/device-identity.py" --field ap_ssid)"
+
 if (( EUID != 0 )); then
     printf '[ERROR] Run as root.\n' >&2
     exit 1
@@ -77,16 +78,22 @@ for command in hostapd dnsmasq; do
     fi
 done
 
-if ! "${DRY_RUN}"; then
-    read -r -s -p "WPA passphrase for ${AP_SSID}: " AP_PASSPHRASE
-    printf '\n'
-    if (( ${#AP_PASSPHRASE} < 8 || ${#AP_PASSPHRASE} > 63 )); then
-        printf '[ERROR] WPA passphrase must contain 8-63 characters.\n' >&2
-        exit 1
-    fi
-else
-    AP_PASSPHRASE=DRY_RUN_SECRET
-fi
+# Keep an existing legacy custom password when re-provisioning this AP.
+AP_PASSPHRASE="$(python3 - "${SCRIPT_DIR}" <<'PYCODE'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
+from backend.app.services.device_identity import read_identity
+from backend.app.services.wifi_config import default_password
+config = Path('/etc/hostapd/hostapd.conf')
+existing = dict(line.split('=', 1) for line in config.read_text().splitlines()
+                if '=' in line and not line.startswith('#')) if config.exists() else {}
+print(existing.get('wpa_passphrase', default_password(read_identity()['serial'])))
+PYCODE
+)"
+AP_PSK="$(sed -n 's/^wpa_psk=//p' /etc/hostapd/hostapd.conf 2>/dev/null || true)"
+AP_SECURITY="wpa_passphrase=${AP_PASSPHRASE}"
+[[ -z "${AP_PSK}" ]] || AP_SECURITY="wpa_psk=${AP_PSK}"
 
 timestamp="$(date -u '+%Y%m%dT%H%M%SZ')"
 backup_dir="${BACKUP_ROOT}/${timestamp}"
@@ -131,7 +138,7 @@ ignore_broadcast_ssid=0
 wpa=2
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
-wpa_passphrase=${AP_PASSPHRASE}
+${AP_SECURITY}
 EOF
 
 install_content /etc/default/hostapd 0644 <<'EOF'
@@ -159,7 +166,7 @@ run systemctl enable hostapd.service dnsmasq.service
 run systemctl restart hostapd.service dnsmasq.service
 
 if ! "${DRY_RUN}"; then
-    unset AP_PASSPHRASE
+    unset AP_PASSPHRASE AP_PSK AP_SECURITY
     ip address show dev "${AP_INTERFACE}"
     systemctl --no-pager --full status hostapd.service dnsmasq.service
 fi
