@@ -1473,7 +1473,7 @@ function closeVideoWindow() {
   videoWindow.aspectObserver?.disconnect();
   window.clearInterval(videoWindow.resolutionTimer);
   window.clearTimeout(videoWindow.streamRetryTimer);
-  videoWindow.image.src = "";
+  videoWindow.videoStream?.dispose();
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.clearMouseMotion?.();
   videoWindow.mouseMotionAbort?.abort();
@@ -1530,6 +1530,7 @@ function openVideoWindow() {
   document.querySelector("#terminal-layer").appendChild(element);
   loadVirtualMediaStatus();
   const image = element.querySelector(".video-frame");
+  const videoStream = new window.InfraBoxVideo.CompleteVideoStream(image);
   const status = element.querySelector(".video-frame-status");
   const keyboard = element.querySelector(".video-keyboard");
   let playing = true;
@@ -1543,13 +1544,15 @@ function openVideoWindow() {
   let mouseReports = 0;
   const startVideoStream = (message = "Connecting video…", delay = 120) => {
     window.clearTimeout(streamRetryTimer);
-    if (!playing) return;
+    if (!playing || !element.isConnected) return;
     status.textContent = message;
     suppressStreamError = true;
-    image.src = "";
+    videoStream.stop();
     streamRetryTimer = window.setTimeout(() => {
       suppressStreamError = false;
-      if (playing) image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+      if (playing && element.isConnected) videoStream.start(`/api/v1/video/stream.mjpg?t=${Date.now()}`, () => {
+        if (playing && element.isConnected) startVideoStream("Video stream interrupted · reconnecting…", 900);
+      });
     }, delay);
   };
   keyboard.remove();
@@ -1565,7 +1568,7 @@ function openVideoWindow() {
     element.querySelector(".video-resolution").textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
   });
   image.addEventListener("error", () => {
-    if (playing && !suppressStreamError) startVideoStream("Video signal changed · reconnecting…", 900);
+    if (playing && element.isConnected && !suppressStreamError) startVideoStream("Video signal changed · reconnecting…", 900);
   });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const connection = element.querySelector(".terminal-connection");
@@ -1954,7 +1957,7 @@ function openVideoWindow() {
     } else {
       stopRecording();
       window.clearTimeout(streamRetryTimer);
-      image.src = "";
+      videoStream.stop();
       toolbarButton("play").textContent = "▷ Play";
       status.textContent = "Video paused";
     }
@@ -2038,7 +2041,7 @@ function openVideoWindow() {
       if (!videoStatus.signal) {
         signalAvailable = false;
         suppressStreamError = true;
-        image.src = "";
+        videoStream.stop();
         status.textContent = "Waiting for video signal…";
         return;
       }
@@ -2063,7 +2066,7 @@ function openVideoWindow() {
     }
   }, 2000);
   videoWindow = {
-    element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
+    element, image, videoStream, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
     clearMouseMotion, mouseMotionAbort,
     stopRecording, aspectObserver, resolutionTimer,
     startedAt: kvmStartedAt,
@@ -2198,6 +2201,54 @@ function bindNetworkSettingsForms() {
 }
 
 let networkSettingsDirty = false;
+let apAccessDirty = false;
+let apAccessSaving = false;
+const apAccessForm = document.querySelector("#ap-access-form");
+apAccessForm.addEventListener("input", () => { apAccessDirty = true; });
+
+async function loadApAccess(background = false) {
+  try {
+    const state = await getJson("/api/v1/network/ap-access");
+    const usable = state.installed && !state.stale;
+    const badge = document.querySelector("#ap-access-state");
+    badge.textContent = state.pending ? "Applying…" : ({ active: "Enabled", off: "Disabled", "waiting-uplink": "Waiting for Ethernet", failed: "Failed" }[state.state] || "Unavailable");
+    badge.className = `badge ${state.state === "active" ? "ready" : "pending"}`;
+    const disabled = !usable || state.pending || apAccessSaving;
+    for (const id of ["ap-access-enabled", "ap-access-networks", "ap-access-save"]) document.getElementById(id).disabled = disabled;
+    if (!apAccessDirty && !apAccessSaving && (!background || !apAccessForm.contains(document.activeElement))) {
+      document.querySelector("#ap-access-enabled").checked = Boolean(state.enabled);
+      document.querySelector("#ap-access-networks").value = (state.networks || []).join(", ");
+    }
+    if (!apAccessSaving && !apAccessDirty) document.querySelector("#ap-access-message").textContent = state.error || (!usable ? "Customer network access is unavailable." : "");
+  } catch (error) {
+    document.querySelector("#ap-access-state").textContent = "Unavailable";
+    document.querySelector("#ap-access-message").textContent = error.message;
+  }
+}
+
+apAccessForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  apAccessSaving = true;
+  const message = document.querySelector("#ap-access-message");
+  const button = document.querySelector("#ap-access-save");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/v1/network/ap-access", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: document.querySelector("#ap-access-enabled").checked, networks: document.querySelector("#ap-access-networks").value.split(/[,\s]+/).filter(Boolean) }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save access setting");
+    apAccessDirty = false;
+    message.textContent = "Applying access setting… Reconnect Wi-Fi after enabling.";
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    apAccessSaving = false;
+    button.disabled = false;
+    window.setTimeout(() => loadApAccess(), 2000);
+  }
+});
 document.querySelector("#network-settings").addEventListener("input", () => { networkSettingsDirty = true; });
 document.querySelector("#network-settings").addEventListener("change", () => { networkSettingsDirty = true; });
 async function loadNetworkSettings(background = false) {
@@ -2377,6 +2428,7 @@ function showView(view) {
   if (view === "services") loadManagedServices();
   if (view === "settings") {
     loadNetworkSettings();
+    loadApAccess();
     document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
@@ -2747,7 +2799,7 @@ async function refreshVisibleView() {
       jobs.push(loadRecoveryMonitoring());
       if (!recoveryPublishRunning) jobs.push(loadRecovery());
     }
-    if (view === "settings") jobs.push(loadNetworkSettings(true));
+    if (view === "settings") jobs.push(loadNetworkSettings(true), loadApAccess(true));
     if (view === "logs") jobs.push(loadLogs(), loadSessionLogs());
     if (view === "services") {
       jobs.push(loadManagedServices());

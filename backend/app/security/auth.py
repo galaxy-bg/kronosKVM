@@ -18,6 +18,8 @@ from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 
+from backend.app.security.lcd_access import lcd_authenticated
+
 COOKIE = "__Host-infrabox-session"
 SESSION_SECONDS = 8 * 3600
 IDLE_SECONDS = 30 * 60
@@ -176,6 +178,13 @@ class AuthMiddleware:
             return await self.app(scope, receive, send)
         path = scope["path"]
         headers = Headers(scope=scope)
+        if lcd_authenticated(scope, headers):
+            async def local_no_cache(message):
+                if message["type"] == "http.response.start":
+                    message.setdefault("headers", []).append((b"cache-control", b"no-store"))
+                await send(message)
+
+            return await self.app(scope, receive, local_no_cache)
         websocket = scope["type"] == "websocket"
         mutation = scope.get("method") not in {"GET", "HEAD", "OPTIONS"}
         token = HTTPConnection(scope).cookies.get(COOKIE)

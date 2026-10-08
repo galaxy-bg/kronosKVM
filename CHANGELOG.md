@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Buffer and decode complete KVM JPEG frames before display, preserving the
+  last good frame during reconnect/pause instead of painting partial MJPEG data.
+
+- Restore LCD information after web authentication: add a scoped loopback-only
+  LCD identity and show Ethernet/AP IPv4 addresses on the LCD Dashboard.
+  Verified on the second appliance on 2026-10-08.
+
+- Add default-off Settings control for Wi-Fi customer-network IPv4 access,
+  optional CIDR restrictions, Ethernet NAT and Recovery-port isolation.
+  Deployed and tested on the second appliance on 2026-10-08.
+
+- Resolve the management Wi-Fi AP by its NetworkManager UUID and AP mode,
+  fixing false inactive status and restart requests on renamed appliance profiles.
+
 - Add opt-in LCD backlight control on BCM24 and local-filesystem boot ordering.
   Record the remaining initial cold-start flash on the second appliance.
 - Preserve the separate-GPIO power-button prototype and release-only gesture

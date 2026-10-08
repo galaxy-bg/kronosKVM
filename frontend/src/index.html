@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/styles-0.3.45-storage2.css?v=ssh-control-1">
   <link rel="stylesheet" href="/services.css">
   <link rel="stylesheet" href="/remote-assist.css?v=1">
+  <link rel="stylesheet" href="/ap-access.css?v=1">
   <link rel="stylesheet" href="/mobile.css?v=ssh-control-1">
   <link rel="stylesheet" href="/auth.css?v=2">
   <link rel="stylesheet" href="/remote-connections.css?v=1">
@@ -182,6 +183,14 @@
           <div class="panel-heading"><div><h2>Global appliance settings</h2><p>System-wide lifecycle and management controls</p></div><span class="verified-label">Appliance</span></div>
           <div class="settings-group-heading"><div><strong>Network settings</strong><p>Configure DHCP or static IPv4 on Ethernet interfaces. The management AP remains protected.</p></div><button id="network-settings-refresh" class="session-refresh" type="button" aria-label="Refresh network settings">↻</button></div>
           <div id="network-settings" class="network-settings"><span class="muted">Loading network interfaces…</span></div>
+          <div class="settings-group-heading"><div><strong>AP access to customer network</strong><p>Let Wi-Fi laptops reach customer networks through Ethernet. Disabled by default.</p></div><span id="ap-access-state" class="badge pending">Checking…</span></div>
+          <form id="ap-access-form" class="network-settings">
+            <label><input id="ap-access-enabled" type="checkbox" disabled> Enable customer network access</label>
+            <label>Allowed IPv4 networks (optional)<input id="ap-access-networks" type="text" placeholder="192.168.1.0/24, 10.20.0.0/16" disabled></label>
+            <p class="muted">Leave blank to allow all destinations reachable through Ethernet, including internet when available. Applies to Wi-Fi clients; the Recovery port stays blocked. After enabling, reconnect Wi-Fi to receive the gateway and DNS settings.</p>
+            <button id="ap-access-save" type="submit" disabled>Save access setting</button>
+            <p id="ap-access-message" role="status"></p>
+          </form>
           <div class="settings-group-heading"><div><strong>Power controls</strong><p>Restart or safely shut down the appliance.</p></div></div>
           <div class="appliance-controls">
             <article><div><strong>Restart appliance</strong><p>Safely restarts the operating system and all KDX InfraBox services.</p></div><button id="appliance-reboot" type="button">↻ Reboot</button></article>

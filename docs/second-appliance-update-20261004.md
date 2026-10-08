@@ -75,3 +75,45 @@ The firmware setting cannot control the instant before firmware reads config.
 
 Renderer, boot config and prior drop-ins backup:
 `/var/backups/kronoskvm/lcd-backlight-20261004.s0Ipkg`.
+
+## LCD authenticated information recovery — 2026-10-08
+
+The LCD process was running but its anonymous localhost API requests returned
+401 after management authentication was introduced. Installed a dedicated
+root:20, mode-0640 LCD token and rebuilt the API/web images with a loopback-only
+allowlist and proxy header stripping. No administrator password is stored in
+the LCD client. Other API routes, general mutations and WebSockets remain
+protected; only the existing confirmed Remote Assist actions are permitted.
+
+The LCD service restarted and drew the main menu. Its actual client successfully
+read Dashboard, Sessions, Storage, Recovery, Tasks, Services, Logs, Settings and
+Remote Assist. Dashboard rows include `ETH: 192.168.1.107` and
+`AP: 192.168.34.100`. No second LCD driver process was launched. A visual panel
+check is left to the operator; SPI frame writes alone cannot prove panel visibility.
+
+176 tests and lint passed. Previous application/private-state backup:
+`/var/backups/kronoskvm/pre-lcd-update-20261008.y7g3Us`.
+Previous image tags: `kronoskvm-api:pre-lcd-update-20261008` and
+`kronoskvm-web:pre-lcd-update-20261008`; new image tags are
+`kronoskvm-api:lcd-update-20261008` and `kronoskvm-web:lcd-update-20261008`,
+also tagged `:dev`. Existing AP customer-network access stays enabled.
+
+## Authenticated KVM check — 2026-10-08
+
+The initial check found no HDMI cable/+5V detection and no signal at the
+TC358743, while authenticated video/HID status routes returned 200. During the
+check the source became available at 1024×768. An actual HTTPS administrator
+session received the MJPEG stream with HTTP 200; a complete 13,117-byte JPEG
+decoded successfully to 1024×768. Diagnostic administrator sessions were logged
+out. No authentication bypass, video configuration change or target keyboard
+input was required. HID device readiness was reported, but actual keyboard/mouse
+operation was not tested. This confirms authenticated capture delivery; it does
+not validate every source, converter or browser recording mode.
+
+Follow-up visual inspection showed the target server's HPE PXE boot screen,
+including its "No network cable detected" message. This was actual target
+content, not a blank capture frame. Live Chrome subsequently opened the KVM
+window with HTTP 200 streaming, a 1024×768 image, "Live stream · 12 FPS" and
+"HID connected", without page errors. No keyboard/mouse input was sent; visual
+stream delivery and HID connection establishment are verified, while actual
+target input operation remains untested.

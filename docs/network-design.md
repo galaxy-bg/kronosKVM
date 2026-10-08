@@ -12,6 +12,8 @@ persistent local management access point at `192.168.34.100/24`.
 - Appliance AP address: `192.168.34.100/24`
 - Recovery bridge: `br-recovery`, combining management Wi-Fi and the configured Service interface
 - No customer-LAN/WAN forwarding or NAT is enabled by Remote Assist
+- Settings can separately enable opt-in Wi-Fi-to-Ethernet IPv4 forwarding/NAT;
+  see [AP customer-network access](ap-customer-access.md). Fresh installs default off.
 - Web UI: HTTP/HTTPS through Ethernet and the management AP; also through the VPN when connected
 - API: localhost only behind Nginx
 

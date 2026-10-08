@@ -70,6 +70,16 @@ with the LCD/keypad service stopped. This prints key names and never calls the A
 The host needs gpiozero, Pillow, spidev and numpy (already installed on .102).
 
 Copy the keypad/renderer Python files into the corresponding checkout paths.
+The authenticated API also requires the dedicated local LCD identity. After
+installing/rebuilding the API and web images, run
+`sudo bash /opt/kronoskvm/scripts/install-lcd-api-access.sh`, then restart the
+LCD service. The installer creates `/etc/kronoskvm/lcd-api-token` as root:20,
+mode 0640. Never copy this token between appliances or display its contents.
+The API permits only specified information reads and the existing confirmed
+Remote Assist actions over loopback. Nginx strips the LCD header from browser
+requests; admin credentials, general mutations and WebSockets remain protected.
+Dashboard includes Ethernet and AP IPv4 addresses; the menu header shows LAN IP.
+
 LCD operation is opt-in: only on a physically equipped appliance, create
 `/etc/kronoskvm/lcd.enabled` with `sudo touch /etc/kronoskvm/lcd.enabled`.
 Without this file, the vendor driver, or `/dev/spidev0.0`, the service is skipped

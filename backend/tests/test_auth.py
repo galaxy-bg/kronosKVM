@@ -22,6 +22,52 @@ def login(client, password="ChangeMe"):
     return client.post("/api/v1/auth/login", json={"username": "admin", "password": password})
 
 
+def test_lcd_identity_is_local_scoped_and_does_not_open_admin(client, tmp_path, monkeypatch):
+    token_file = tmp_path / "lcd-token"
+    token_file.write_text("a" * 64)
+    monkeypatch.setenv("KRONOSKVM_LCD_TOKEN_PATH", str(token_file))
+    local = TestClient(create_app(), base_url="http://127.0.0.1",
+                       client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
+    response = local.get("/api/v1/system/network")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    for path in ["/api/v1/system/power", "/api/v1/auth/password",
+                 "/api/v1/network/ap-access", "/api/v1/network/settings"]:
+        assert local.post(path, json={}).status_code == 401
+    assert local.get("/api/v1/video/latest.jpg").status_code == 401
+    assert local.get("/api/v1/system/network", headers={
+        "X-Forwarded-For": "192.168.1.102",
+    }).status_code == 401
+    assert local.get("/api/v1/system/network", headers={
+        "X-KDX-LCD-Token": "b" * 64,
+    }).status_code == 401
+    assert client.get("/api/v1/system/network", headers={
+        "X-KDX-LCD-Token": "a" * 64,
+    }).status_code == 401
+    token_file.unlink()
+    assert local.get("/api/v1/system/network").status_code == 401
+
+
+def test_lcd_identity_only_permits_existing_confirmed_remote_actions(
+    client, tmp_path, monkeypatch,
+):
+    from backend.app.api import remote_assist
+
+    token_file = tmp_path / "lcd-token"
+    token_file.write_text("a" * 64)
+    monkeypatch.setenv("KRONOSKVM_LCD_TOKEN_PATH", str(token_file))
+    monkeypatch.setattr(remote_assist, "queue", lambda payload: {"accepted": True})
+    local = TestClient(create_app(), base_url="http://127.0.0.1",
+                       client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
+    for action in ["enable", "disable", "boot-on", "boot-off"]:
+        assert local.post("/api/v1/remote-assist/" + action).status_code == 202
+    assert local.put("/api/v1/remote-assist/profile", json={}).status_code == 401
+    with pytest.raises(WebSocketDisconnect) as error:
+        with local.websocket_connect("/api/v1/remote/ws"):
+            pass
+    assert error.value.code == 4401
+
+
 def activate(client):
     assert login(client).status_code == 200
     response = client.post(

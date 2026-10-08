@@ -144,6 +144,45 @@ def test_main_menu_navigation_and_back_preserve_selection():
     assert menu.selected == 0
 
 
+def test_dashboard_includes_ipv4_addresses_and_preserves_uptime():
+    client = Client()
+    original = client.get
+    client.get = lambda path: {
+        "interfaces": [
+            {"name": "br-recovery", "addresses": ["192.168.34.100/24"]},
+            {"name": "eth0", "addresses": ["192.168.1.107/24", "fe80::1/64"]},
+            {"name": "lo", "addresses": ["127.0.0.1/8"]},
+        ],
+    } if path == "/system/network" else original(path)
+    menu = MainMenu(client)
+    menu.press("ok")
+    assert menu.details[:4] == ["test", "ETH: 192.168.1.107", "AP: 192.168.34.100",
+                                "Uptime: 0h 2m"]
+
+
+def test_lcd_client_uses_dedicated_identity_for_read_and_confirmed_action(tmp_path, monkeypatch):
+    import io
+
+    from backend.app.hardware import keypad
+
+    token = tmp_path / "lcd-token"
+    token.write_text("a" * 64)
+    requests = []
+
+    def open_request(request, timeout):
+        requests.append(request)
+        return io.StringIO('{"ok":true}')
+
+    monkeypatch.setattr(keypad, "urlopen", open_request)
+    client = keypad.RemoteAssistClient(token_path=token)
+    client.get("/system/network")
+    client.action("enable")
+    assert requests[0].get_method() == "GET"
+    assert requests[1].get_method() == "POST"
+    assert requests[1].full_url.endswith("/remote-assist/enable")
+    assert all(request.get_header("X-kdx-lcd-token") == "a" * 64 for request in requests)
+
+
 def test_remote_controls_require_confirmation_inside_section():
     client = Client()
     menu = MainMenu(client)

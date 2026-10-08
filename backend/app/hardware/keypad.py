@@ -2,6 +2,7 @@
 
 import json
 import time
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 PINS = {"up": 5, "down": 6, "ok": 13, "back": 19}
@@ -42,24 +43,30 @@ class KeyScanner:
 
 
 class RemoteAssistClient:
-    def __init__(self, base_url="http://127.0.0.1:8000"):
+    def __init__(self, base_url="http://127.0.0.1:8000",
+                 token_path="/etc/kronoskvm/lcd-api-token"):
         self.base_url = base_url.rstrip("/") + "/api/v1"
         self.url = self.base_url + "/remote-assist"
+        self.token_path = Path(token_path)
+
+    def request(self, path, method="GET"):
+        token = self.token_path.read_text(encoding="ascii").strip()
+        request = Request(self.base_url + path, method=method,
+                          data=b"" if method == "POST" else None,
+                          headers={"X-KDX-LCD-Token": token})
+        with urlopen(request, timeout=2) as response:
+            return json.load(response)
 
     def get(self, path):
-        with urlopen(self.base_url + path, timeout=2) as response:
-            return json.load(response)
+        return self.request(path)
 
     def status(self):
-        with urlopen(self.url, timeout=2) as response:
-            return json.load(response)
+        return self.request("/remote-assist")
 
     def action(self, action):
         if action not in {item[1] for item in ITEMS}:
             raise ValueError("Unsupported keypad action")
-        request = Request(self.url + "/" + action, data=b"", method="POST")
-        with urlopen(request, timeout=2) as response:
-            return json.load(response)
+        return self.request("/remote-assist/" + action, method="POST")
 
 
 class Menu:
@@ -192,6 +199,24 @@ class MainMenu:
             try:
                 value = self.client.get(SECTION_PATHS[self.section])
                 self.details = self.summarize(self.section, value)
+                if self.section == "Dashboard":
+                    try:
+                        network = self.client.get("/system/network")
+                        rows = []
+                        interfaces = sorted(network.get("interfaces", []),
+                                            key=lambda item: item["name"] != "eth0")
+                        for item in interfaces:
+                            if item["name"] == "lo":
+                                continue
+                            label = {"eth0": "ETH", "br-recovery": "AP"}.get(
+                                item["name"], item["name"],
+                            )
+                            rows.extend(f"{label}: {address.split('/')[0]}"
+                                        for address in item.get("addresses", [])
+                                        if ":" not in address)
+                        self.details[1:1] = rows
+                    except (OSError, ValueError, TypeError, KeyError):
+                        self.details.insert(1, "Ag bilgisi alinamadi")
             except (OSError, ValueError, TypeError, KeyError, AttributeError):
                 self.details = ["Durum alinamiyor", "OK: Tekrar dene"]
             self.offset = min(self.offset, max(0, len(self.details) - 4))

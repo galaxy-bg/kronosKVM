@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch approved Wi-Fi customer-network access requests
+
+[Path]
+PathExists=/var/lib/kronoskvm/state/ap-access-request.json
+Unit=kronoskvm-ap-access-action.service
+
+[Install]
+WantedBy=multi-user.target

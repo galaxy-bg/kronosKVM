@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from backend.app.api.ap_access import router as ap_access_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.connections import router as connections_router
 from backend.app.api.external_storage import router as external_storage_router
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     application.include_router(hid_router)
     application.include_router(logs_router)
     application.include_router(network_settings_router)
+    application.include_router(ap_access_router)
     application.include_router(ssh_router)
     application.include_router(storage_router)
     application.include_router(recovery_router)

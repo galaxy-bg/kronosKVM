@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply saved Wi-Fi customer-network access policy
+After=network-online.target dnsmasq.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/ap-access-host.py --apply
+
+[Install]
+WantedBy=multi-user.target

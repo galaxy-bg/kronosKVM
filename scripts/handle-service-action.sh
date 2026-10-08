@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/management-ap.sh"
+
 state_dir=/var/lib/kronoskvm/state
 request="${state_dir}/service-action"
 exec 9>"${state_dir}/.service-action.lock"
@@ -49,8 +51,8 @@ write_status() {
         printf '"%s":{"state":"%s","detail":"%s"}' "${id}" "${state}" "${detail}" >>"${temporary}"
     done
     state=inactive
-    [[ "$(nmcli -g GENERAL.CONNECTION device show wlan0 2>/dev/null || true)" == KronosDX-iKVM ]] && state=active
-    printf ',"management_ap":{"state":"%s","detail":"NetworkManager · KronosDX-iKVM"}' "${state}" >>"${temporary}"
+    if active_management_ap_uuid >/dev/null; then state=active; fi
+    printf ',"management_ap":{"state":"%s","detail":"NetworkManager · wlan0 access point"}' "${state}" >>"${temporary}"
     printf '}}\n' >>"${temporary}"
     chown 10001:20 "${temporary}"
     chmod 0640 "${temporary}"
@@ -109,7 +111,7 @@ elif [[ "${service}" == virtual_media && ( "${action}" == start || "${action}" =
     fi
 elif [[ "${action}" == restart ]]; then
     if [[ "${service}" == management_ap ]]; then
-        if ! nmcli connection up KronosDX-iKVM; then
+        if ! ap_uuid="$(management_ap_uuid)" || ! nmcli connection up uuid "${ap_uuid}"; then
             successful=false
             error="Management AP restart failed"
         fi
