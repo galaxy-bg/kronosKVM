@@ -1,9 +1,8 @@
 """Choose a gadget mode without silently truncating oversized ISO images."""
 
-from pathlib import Path
 import struct
 import sys
-
+from pathlib import Path
 
 CDROM_SECTOR_LIMIT = 256 * 60 * 75
 

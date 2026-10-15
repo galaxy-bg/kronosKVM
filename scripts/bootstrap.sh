@@ -17,6 +17,7 @@ Prepare the non-network KronosKVM base operating-system layout:
 - create /etc, /var/lib, /var/log, /run and /opt directories
 - preserve Europe/Istanbul timezone and active NTP configuration
 - install tmpfiles and journald retention configuration
+- generate the appliance hostname using the last eight Pi serial characters
 
 This script does not install packages, upgrade the OS, change networking,
 configure a firewall, install services, edit boot files or reboot.
@@ -75,6 +76,12 @@ if (( EUID != 0 )); then
 fi
 
 log_info "Preparing KronosKVM base OS layout (dry_run=${DRY_RUN})"
+
+if "${DRY_RUN}"; then
+    python3 "${SCRIPT_DIR}/device-identity.py" --hostname-only --dry-run
+else
+    python3 "${SCRIPT_DIR}/device-identity.py" --hostname-only
+fi
 
 if ! getent group kronoskvm >/dev/null; then
     run groupadd --system kronoskvm

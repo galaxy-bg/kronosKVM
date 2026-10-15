@@ -3,12 +3,15 @@ set -Eeuo pipefail
 
 cd /opt/kronoskvm
 version="${KRONOSKVM_VERSION:-dev}"
+export KRONOSKVM_HOSTNAME="$(hostname)"
+
+docker-compose -f compose.yaml up --detach --no-deps guacd
 
 docker rm --force kronoskvm-api >/dev/null 2>&1 || true
 docker run --detach \
     --name kronoskvm-api \
     --network host \
-    --hostname kdx-infrabox \
+    --hostname "${KRONOSKVM_HOSTNAME}" \
     --restart unless-stopped \
     --read-only \
     --user 10001:20 \

@@ -10,6 +10,9 @@ The product is **KDX InfraBox**. The GitHub repository remains
 `kronoskvm-*` service names and `/opt/kronoskvm` paths are retained for
 compatibility. See [product naming](docs/product-naming.md).
 
+Hostname and Wi-Fi AP names use the last eight Raspberry Pi serial characters;
+the full serial is retained as the device identity. See [device identity and migration](docs/device-identity.md).
+
 KDX InfraBox is a portable, browser-managed IP-KVM and infrastructure-access
 appliance developed by KronosDX. The current prototype combines HDMI capture,
 USB keyboard and mouse emulation, two serial-console ports, staging storage,
@@ -18,9 +21,9 @@ point.
 
 Product descriptor: **Infrastructure in a Box**.
 
-> HTTPS is implemented. Per-user web authentication and a production access
-> policy are still pending. Remote Assist provides VPN connectivity, not a
-> separate web login or public access gateway.
+> HTTPS and single-admin web authentication are implemented. First login is
+> `admin` / `ChangeMe`; password replacement is optional. A production
+> access policy remains pending. Remote Assist provides VPN connectivity.
 
 ## Current prototype
 
@@ -33,7 +36,7 @@ Product descriptor: **Infrastructure in a Box**.
 - Native Ethernet for customer/development access
 - Integrated Wi-Fi management AP at `192.168.34.100/24`
 - Debian GNU/Linux 13 with Raspberry Pi kernel `6.18.34+rpt-rpi-v8`
-- GPIO 5V prototype power; RTC/power-control board pending
+- GPIO 5V prototype power; RTC/power-control board installed
 
 Ethernet DHCP and VPN addresses are installation-specific. Use the current
 Dashboard and Remote Assist status rather than an address from a historical log.
@@ -100,7 +103,7 @@ backfeed protection. During prototype testing the most reliable sequence is:
 2. power the target computer;
 3. attach the USB-C OTG data cable.
 
-The final RTC/power board must provide proper isolation or controlled power
+The installed RTC/power board must provide proper isolation or controlled power
 sequencing between the appliance supply and target USB VBUS. A plain cut-VBUS
 cable is not automatically suitable because DWC2 may require VBUS sensing.
 
@@ -126,6 +129,11 @@ and narrowly scoped device access. No Docker socket is exposed.
 See [architecture](docs/architecture.md),
 [containerization](docs/containerization.md), [API](docs/api.md),
 [logging](docs/logging.md) and [security](docs/security.md).
+
+Telnet, RDP and VNC now have an in-browser gateway implementation, with target
+connections made by the appliance. This update is deployed to the second
+appliance; deployment to the first prototype and real RDP target validation remain pending. See
+[browser connections](docs/browser-connections.md) for setup and test coverage.
 
 ## Repository layout
 
@@ -168,6 +176,11 @@ Ethernet default route disappears; internet-health-based failover is not yet
 implemented. Generic USB-RJ45 WAN adapter support has not been qualified in this
 version. The Service port retains its Recovery role.
 
+Türkçe adım adım: [WireGuard kurulum, kayıt ve IP/endpoint değiştirme kılavuzu](docs/wireguard-kullanim-kilavuzu.md).
+
+See [WireGuard provisioning](docs/wireguard-provisioning.md) for local device key generation,
+approved server registration, Settings integration and rollback.
+
 See [Remote Assist](docs/remote-assist.md), [USB WAN setup and tests](docs/usb-wan.md)
 and [network design](docs/network-design.md).
 
@@ -208,10 +221,36 @@ https://192.168.34.100
 ```
 
 Ethernet access uses the DHCP address assigned by the connected network. The
-management AP SSID for the current prototype is `KronosDX-iKVM` and is open
-during development. HTTPS uses the appliance certificate; trust/hostname handling
-must be configured for each installation. Production builds still require user
-authentication and an approved wireless security policy.
+management AP SSID is `KDX-iKVM-<last 8 serial characters>`; its initial WPA2
+password is `KDX@<last 8 serial characters>!` (lowercase serial suffix on the
+appliance label). Administrators can change it under **Settings → Wi-Fi access
+point**; custom passwords survive reboot. Choose **Standard (2.4 GHz)** or
+**Performance (5 GHz)** in the same section; Standard is the default. See
+[Wi-Fi modes](docs/wifi-modes.md). See [Wi-Fi password](docs/wifi-password.md).
+HTTPS uses the appliance certificate; trust/hostname handling must be configured
+for each installation.
+
+## Administrator login and password recovery
+
+On a fresh installation, sign in over HTTPS with username `admin` and password
+`ChangeMe`. Password replacement is optional; open **admin → Change password** to
+change it later. Use **admin → Sign out** to end the session. A new password must
+contain at least 12 characters.
+
+If the password is forgotten, connect to the appliance through SSH or its local
+console and run:
+
+```sh
+sudo /usr/local/sbin/infrabox-reset-admin
+```
+
+Type `RESET` to confirm. This restores `admin` / `ChangeMe` and disconnects all
+web sessions and consoles. For an explicitly confirmed noninteractive reset,
+use `sudo /usr/local/sbin/infrabox-reset-admin --yes`. A previously changed
+password remains in effect until changed again or explicitly reset.
+
+See [web authentication](docs/web-authentication.md) for installation, session
+and recovery details.
 
 ## Security notes
 
@@ -223,14 +262,15 @@ authentication and an approved wireless security policy.
   actions.
 - Keep USB virtual media read-only by default.
 
-See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
+See [web authentication](docs/web-authentication.md), [SECURITY.md](SECURITY.md)
+and [docs/security.md](docs/security.md).
 
 ## Current limitations
 
-- RTC/power-control board is not installed.
-- HTTPS is implemented; per-user web authentication is not.
+- Single-admin authentication is implemented; multiple users and roles are pending.
 - Video recording remains unresolved; do not treat it as validated.
-- A clean-OS installation on a second appliance is the next reproducibility check.
+- [Second-appliance clean installation](docs/second-appliance-install.md) passed
+  management-plane checks; end-to-end HDMI/HID, RTC and VPN validation remain pending.
 - Remote Assist currently supports one private-IPv4 peer profile; public web
   access, multiple customer profiles and automatic WAN health failover are pending.
 - Power-off cannot restart the GPIO-powered prototype without cycling power.
@@ -240,3 +280,5 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 
 Copyright belongs to KronosDX. Redistribution is not currently authorized; see
 [LICENSE](LICENSE) and [docs/decisions.md](docs/decisions.md).
+
+LCD navigation, button symbols and available actions: [LCD MVP](docs/lcd-mvp.md).

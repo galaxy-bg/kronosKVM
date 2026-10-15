@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import time
 from pathlib import Path
 
@@ -20,10 +20,17 @@ def media_activity(filename: str) -> dict:
         age = time.time() - value["updated_at"]
         if not 0 <= age <= 20 or value.get("filename") != filename:
             return {"state": "unknown"}
-        return {key: value.get(key) for key in (
-            "state", "connected", "updated_at", "read_bytes_per_second",
-            "last_read_at", "observed_bytes",
-        )}
+        return {
+            key: value.get(key)
+            for key in (
+                "state",
+                "connected",
+                "updated_at",
+                "read_bytes_per_second",
+                "last_read_at",
+                "observed_bytes",
+            )
+        }
     except (OSError, ValueError, KeyError, TypeError):
         return {"state": "unknown"}
 
@@ -56,7 +63,10 @@ def _stage_action(action: str, filename: str = "") -> VirtualMediaStatus:
         service_state = json.loads((STATE_PATH / "service-status.json").read_text())
         watcher = service_state.get("services", {}).get("virtual_media", {})
         if watcher.get("state") in {"inactive", "failed", "not_installed"}:
-            raise HTTPException(status_code=409, detail="Start Virtual Media in Services before mounting or ejecting")
+            raise HTTPException(
+                status_code=409,
+                detail="Start Virtual Media in Services before mounting or ejecting",
+            )
     except (OSError, ValueError, TypeError):
         pass
     try:

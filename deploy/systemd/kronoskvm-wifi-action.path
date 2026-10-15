@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch authenticated Wi-Fi password requests
+After=kronoskvm-wifi.service
+
+[Path]
+PathExists=/var/lib/kronoskvm/state/wifi-request.json
+Unit=kronoskvm-wifi-action.service
+
+[Install]
+WantedBy=multi-user.target

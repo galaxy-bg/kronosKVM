@@ -14,6 +14,7 @@ from backend.app.models import (
     StorageInfo,
     SystemInfo,
 )
+from backend.app.services.device_identity import read_identity
 
 
 def _read_text(path: Path, default: str = "") -> str:
@@ -27,9 +28,15 @@ def get_system_info() -> SystemInfo:
     model = _read_text(Path("/proc/device-tree/model"))
     if not model:
         model = _read_text(Path("/run/kronoskvm/device-tree/model"), "unknown")
+    try:
+        serial = read_identity()["serial"]
+    except ValueError:
+        serial = None
     return SystemInfo(
         hostname=socket.gethostname(),
-        model=model,
+        model="Galaxy-RP4" if model.startswith("Raspberry Pi 4") else model,
+        hardware_model=model,
+        serial=serial,
         architecture=platform.machine(),
         kernel=platform.release(),
         uptime_seconds=round(time.monotonic()),

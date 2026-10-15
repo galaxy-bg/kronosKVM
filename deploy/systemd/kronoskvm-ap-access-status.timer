@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Wi-Fi customer-network access status periodically
+
+[Timer]
+OnBootSec=20
+OnUnitActiveSec=20
+Unit=kronoskvm-ap-access-status.service
+
+[Install]
+WantedBy=timers.target

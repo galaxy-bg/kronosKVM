@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh InfraBox Wi-Fi security status
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=20s
+Unit=kronoskvm-wifi-status.service
+
+[Install]
+WantedBy=timers.target

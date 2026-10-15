@@ -23,6 +23,18 @@ spec.loader.exec_module(host)
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def host_files(tmp_path, monkeypatch):
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(host, "PRIVATE", private)
+    monkeypatch.setattr(host, "CONFIG", private / "config.json")
+    monkeypatch.setattr(host, "IDENTITY", private / "identity.json")
+    monkeypatch.setattr(host, "KEYFILE", tmp_path / "profile.nmconnection")
+    monkeypatch.setattr(host, "WG_CONFIG", tmp_path / "wg-kdx.conf")
+    monkeypatch.setattr(host, "PUBLIC_IDENTITY", tmp_path / "wireguard-enrollment.json")
+
+
 @pytest.fixture
 def profile():
     return {

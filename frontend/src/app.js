@@ -1,3 +1,4 @@
+const UI_REFRESH_MS = 10000;
 const startupSplash = document.querySelector("#startup-splash");
 const startupShell = document.querySelector(".app-shell");
 let startupFinished = false;
@@ -154,6 +155,7 @@ function renderSystem(system) {
   document.querySelector("#system").innerHTML = [
     ["Hostname", system.hostname],
     ["Model", system.model],
+    ["Serial number", system.serial || "Unavailable"],
     ["Architecture", system.architecture],
     ["Kernel", system.kernel],
     ["Uptime", `${Math.floor(system.uptime_seconds / 60)} min`],
@@ -421,14 +423,9 @@ const connectionDefaults = {
 };
 
 function connectionUri(profile) {
-  const user = profile.username ? `${encodeURIComponent(profile.username)}@` : "";
-  if (profile.type === "web") {
-    const scheme = profile.port === 443 ? "https" : "http";
-    const defaultPort = (scheme === "https" && profile.port === 443) || (scheme === "http" && profile.port === 80);
-    return `${scheme}://${profile.host}${defaultPort ? "" : `:${profile.port}`}${profile.path || "/"}`;
-  }
-  if (profile.type === "rdp") return `rdp://full%20address=s:${profile.host}:${profile.port}`;
-  return `${profile.type}://${user}${profile.host}:${profile.port}`;
+  const scheme = profile.port === 443 ? "https" : "http";
+  const defaultPort = (scheme === "https" && profile.port === 443) || (scheme === "http" && profile.port === 80);
+  return `${scheme}://${profile.host}${defaultPort ? "" : `:${profile.port}`}${profile.path || "/"}`;
 }
 
 function launchConnection(profile) {
@@ -436,9 +433,11 @@ function launchConnection(profile) {
     openSshTerminal(profile);
     return;
   }
-  const uri = connectionUri(profile);
-  if (profile.type === "web") window.open(uri, "_blank", "noopener,noreferrer");
-  else window.location.href = uri;
+  if (["telnet", "rdp", "vnc"].includes(profile.type)) {
+    window.InfraBoxRemote.open(profile);
+    return;
+  }
+  if (profile.type === "web") window.open(connectionUri(profile), "_blank", "noopener,noreferrer");
 }
 
 function renderConnections(profiles) {
@@ -889,6 +888,7 @@ function runStorageTask(task) {
   request.open("PUT", `/api/v1/storage/files/${encodeURIComponent(task.file.name)}`);
   request.setRequestHeader("Content-Type", task.file.type || "application/octet-stream");
   request.setRequestHeader("X-Kronos-Task-ID", task.id);
+  request.setRequestHeader("X-InfraBox-Request", "1");
   request.upload.addEventListener("progress", (event) => {
     task.loaded = event.loaded;
     task.progress = event.lengthComputable ? Math.round(event.loaded / event.total * 100) : 0;
@@ -1475,7 +1475,7 @@ function closeVideoWindow() {
   videoWindow.aspectObserver?.disconnect();
   window.clearInterval(videoWindow.resolutionTimer);
   window.clearTimeout(videoWindow.streamRetryTimer);
-  videoWindow.image.src = "";
+  videoWindow.videoStream?.dispose();
   window.clearInterval(videoWindow.keepAwakeTimer);
   videoWindow.clearMouseMotion?.();
   videoWindow.mouseMotionAbort?.abort();
@@ -1532,6 +1532,7 @@ function openVideoWindow() {
   document.querySelector("#terminal-layer").appendChild(element);
   loadVirtualMediaStatus();
   const image = element.querySelector(".video-frame");
+  const videoStream = new window.InfraBoxVideo.CompleteVideoStream(image);
   const status = element.querySelector(".video-frame-status");
   const keyboard = element.querySelector(".video-keyboard");
   let playing = true;
@@ -1545,13 +1546,15 @@ function openVideoWindow() {
   let mouseReports = 0;
   const startVideoStream = (message = "Connecting video…", delay = 120) => {
     window.clearTimeout(streamRetryTimer);
-    if (!playing) return;
+    if (!playing || !element.isConnected) return;
     status.textContent = message;
     suppressStreamError = true;
-    image.src = "";
+    videoStream.stop();
     streamRetryTimer = window.setTimeout(() => {
       suppressStreamError = false;
-      if (playing) image.src = `/api/v1/video/stream.mjpg?t=${Date.now()}`;
+      if (playing && element.isConnected) videoStream.start(`/api/v1/video/stream.mjpg?t=${Date.now()}`, () => {
+        if (playing && element.isConnected) startVideoStream("Video stream interrupted · reconnecting…", 900);
+      });
     }, delay);
   };
   keyboard.remove();
@@ -1567,7 +1570,7 @@ function openVideoWindow() {
     element.querySelector(".video-resolution").textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
   });
   image.addEventListener("error", () => {
-    if (playing && !suppressStreamError) startVideoStream("Video signal changed · reconnecting…", 900);
+    if (playing && element.isConnected && !suppressStreamError) startVideoStream("Video signal changed · reconnecting…", 900);
   });
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const connection = element.querySelector(".terminal-connection");
@@ -1956,7 +1959,7 @@ function openVideoWindow() {
     } else {
       stopRecording();
       window.clearTimeout(streamRetryTimer);
-      image.src = "";
+      videoStream.stop();
       toolbarButton("play").textContent = "▷ Play";
       status.textContent = "Video paused";
     }
@@ -2040,7 +2043,7 @@ function openVideoWindow() {
       if (!videoStatus.signal) {
         signalAvailable = false;
         suppressStreamError = true;
-        image.src = "";
+        videoStream.stop();
         status.textContent = "Waiting for video signal…";
         return;
       }
@@ -2065,7 +2068,7 @@ function openVideoWindow() {
     }
   }, 2000);
   videoWindow = {
-    element, image, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
+    element, image, videoStream, keepAwakeTimer, keyboard, releaseAllKeys, closeHid,
     clearMouseMotion, mouseMotionAbort,
     stopRecording, aspectObserver, resolutionTimer,
     startedAt: kvmStartedAt,
@@ -2199,10 +2202,150 @@ function bindNetworkSettingsForms() {
   });
 }
 
-async function loadNetworkSettings() {
+let networkSettingsDirty = false;
+let apAccessDirty = false;
+let apAccessSaving = false;
+const wifiPasswordForm = document.querySelector("#wifi-password-form");
+let wifiPasswordSaving = false;
+let wifiPasswordRequestId = "";
+let wifiModeSaving = false;
+let wifiModeRequestId = "";
+let wifiModeDirty = false;
+const wifiModeForm = document.querySelector("#wifi-mode-form");
+wifiModeForm.addEventListener("change", () => { wifiModeDirty = true; });
+wifiModeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  wifiModeSaving = true;
+  document.querySelector("#wifi-mode-save").disabled = true;
+  const message = document.querySelector("#wifi-mode-message");
+  message.textContent = "Applying Wi-Fi mode… Reconnect Wi-Fi if the connection drops.";
+  try {
+    const response = await fetch("/api/v1/network/wifi", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: document.querySelector("#wifi-mode").value }),
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || "Wi-Fi mode update failed.");
+    wifiModeRequestId = (await response.json()).request_id;
+    wifiModeDirty = false;
+    await loadWifiSettings();
+    window.setTimeout(loadWifiSettings, 3000);
+  } catch (error) {
+    wifiModeSaving = false;
+    message.textContent = error.message;
+    await loadWifiSettings();
+  }
+});
+async function loadWifiSettings() {
+  try {
+    const state = await getJson("/api/v1/network/wifi");
+    const usable = state.installed && !state.stale;
+    document.querySelector("#wifi-identity").textContent = state.ssid ? `SSID: ${state.ssid}` : "";
+    document.querySelector("#wifi-password-mode").textContent = state.default_password ? "Default password in use: KDX@<last 8 serial characters>! (serial is on the appliance label)." : "Custom Wi-Fi password in use.";
+    if (wifiPasswordSaving && !state.pending && state.request_id === wifiPasswordRequestId) {
+      wifiPasswordSaving = false;
+      document.querySelector("#wifi-password-message").textContent = state.error || "Wi-Fi password updated. Reconnect Wi-Fi with the new password.";
+    }
+    if (wifiModeSaving && !state.pending && state.request_id === wifiModeRequestId) {
+      wifiModeSaving = false;
+      document.querySelector("#wifi-mode-message").textContent = state.error || state.notice || "Wi-Fi mode updated. Reconnect Wi-Fi if needed.";
+    }
+    if (!wifiModeDirty && !wifiModeSaving) document.querySelector("#wifi-mode").value = state.mode || "standard";
+    document.querySelector('#wifi-mode option[value="performance"]').disabled = !state.performance_available;
+    document.querySelector("#wifi-mode-active").textContent = state.frequency_mhz ? `Active: ${state.frequency_mhz} MHz · channel ${state.channel} · ${state.width_mhz} MHz width` : "Active frequency unavailable.";
+    for (const id of ["wifi-mode", "wifi-mode-save"]) document.getElementById(id).disabled = !usable || wifiPasswordSaving || wifiModeSaving || state.pending;
+    if (state.notice && !wifiModeSaving) document.querySelector("#wifi-mode-message").textContent = state.notice;
+    const waiting = wifiPasswordSaving || wifiModeSaving || state.pending;
+    document.querySelector("#wifi-state").textContent = !usable ? "Unavailable" : waiting ? "Applying…" : state.secured ? "WPA2 protected" : "Open";
+    document.querySelector("#wifi-state").className = `badge ${usable && state.secured && !waiting ? "ready" : "pending"}`;
+    for (const id of ["wifi-password", "wifi-password-confirm", "wifi-password-save"]) document.getElementById(id).disabled = !usable || wifiPasswordSaving || wifiModeSaving || state.pending;
+    if (state.error && !wifiPasswordSaving) document.querySelector("#wifi-password-message").textContent = state.error;
+  } catch (error) {
+    document.querySelector("#wifi-state").textContent = "Unavailable";
+  }
+}
+wifiPasswordForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const password = document.querySelector("#wifi-password").value;
+  const message = document.querySelector("#wifi-password-message");
+  if (password !== document.querySelector("#wifi-password-confirm").value) {
+    message.textContent = "Wi-Fi passwords do not match.";
+    return;
+  }
+  wifiPasswordSaving = true;
+  document.querySelector("#wifi-password-save").disabled = true;
+  message.textContent = "Applying Wi-Fi password… If you are connected over Wi-Fi, reconnect with the new password.";
+  try {
+    const response = await fetch("/api/v1/network/wifi", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || "Wi-Fi password update failed.");
+    wifiPasswordRequestId = (await response.json()).request_id;
+    wifiPasswordForm.reset();
+    await loadWifiSettings();
+    window.setTimeout(loadWifiSettings, 3000);
+  } catch (error) {
+    wifiPasswordSaving = false;
+    message.textContent = error.message;
+    await loadWifiSettings();
+  }
+});
+
+const apAccessForm = document.querySelector("#ap-access-form");
+apAccessForm.addEventListener("input", () => { apAccessDirty = true; });
+
+async function loadApAccess(background = false) {
+  try {
+    const state = await getJson("/api/v1/network/ap-access");
+    const usable = state.installed && !state.stale;
+    const badge = document.querySelector("#ap-access-state");
+    badge.textContent = state.pending ? "Applying…" : ({ active: "Enabled", off: "Disabled", "waiting-uplink": "Waiting for Ethernet", failed: "Failed" }[state.state] || "Unavailable");
+    badge.className = `badge ${state.state === "active" ? "ready" : "pending"}`;
+    const disabled = !usable || state.pending || apAccessSaving;
+    for (const id of ["ap-access-enabled", "ap-access-networks", "ap-access-save"]) document.getElementById(id).disabled = disabled;
+    if (!apAccessDirty && !apAccessSaving && (!background || !apAccessForm.contains(document.activeElement))) {
+      document.querySelector("#ap-access-enabled").checked = Boolean(state.enabled);
+      document.querySelector("#ap-access-networks").value = (state.networks || []).join(", ");
+    }
+    if (!apAccessSaving && !apAccessDirty) document.querySelector("#ap-access-message").textContent = state.error || (!usable ? "Customer network access is unavailable." : "");
+  } catch (error) {
+    document.querySelector("#ap-access-state").textContent = "Unavailable";
+    document.querySelector("#ap-access-message").textContent = error.message;
+  }
+}
+
+apAccessForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  apAccessSaving = true;
+  const message = document.querySelector("#ap-access-message");
+  const button = document.querySelector("#ap-access-save");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/v1/network/ap-access", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: document.querySelector("#ap-access-enabled").checked, networks: document.querySelector("#ap-access-networks").value.split(/[,\s]+/).filter(Boolean) }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save access setting");
+    apAccessDirty = false;
+    message.textContent = "Applying access setting… Reconnect Wi-Fi after enabling.";
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    apAccessSaving = false;
+    button.disabled = false;
+    window.setTimeout(() => loadApAccess(), 2000);
+  }
+});
+document.querySelector("#network-settings").addEventListener("input", () => { networkSettingsDirty = true; });
+document.querySelector("#network-settings").addEventListener("change", () => { networkSettingsDirty = true; });
+async function loadNetworkSettings(background = false) {
+  background = background === true;
   const container = document.querySelector("#network-settings");
   try {
+    if (background && (networkSettingsDirty || container.contains(document.activeElement))) return;
     const response = await getJson("/api/v1/network/settings");
+    if (background && (networkSettingsDirty || container.contains(document.activeElement))) return;
+    networkSettingsDirty = false;
     if (!response.interfaces.length) {
       container.innerHTML = '<span class="muted">No configurable Ethernet interface detected.</span>';
       return;
@@ -2215,6 +2358,7 @@ async function loadNetworkSettings() {
       </form>`).join("");
     bindNetworkSettingsForms();
   } catch (error) {
+    if (background) return;
     container.innerHTML = '<span class="muted">Network settings are unavailable.</span>';
   }
 }
@@ -2228,8 +2372,12 @@ function renderServiceCards(payload, target = "#service-cards") {
   }).join("");
   document.querySelector("#services-state").innerHTML = `<i></i> ${payload.updated_at ? `Updated ${escapeHtml(new Date(payload.updated_at).toLocaleTimeString())}` : "Status pending"}`;
   container.querySelectorAll("[data-recovery-service]").forEach((button) => button.addEventListener("click", async () => {
+    const ssh = button.dataset.recoveryService === "ssh";
+    if (ssh && !window.confirm(button.dataset.action === "stop"
+      ? "Disable SSH now and after reboot? New CLI connections will be blocked; existing sessions may remain open. You can enable SSH again from this web page."
+      : "Enable SSH now and at boot for host CLI access?")) return;
     button.disabled = true;
-    try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`); }
+    try { await queueServiceAction(`/api/v1/services/${button.dataset.recoveryService}/${button.dataset.action}`, ssh ? { confirmed: true } : {}); }
     catch (error) { showToast(error.message); button.disabled = false; }
   }));
   container.querySelectorAll("[data-recovery-browse]").forEach((link) => link.addEventListener("click", (event) => {
@@ -2289,29 +2437,13 @@ async function restartManagedService(button) {
 }
 
 async function load() {
-  const health = document.querySelector("#health");
-  loadPorts();
-  loadStorage();
-  loadConnections();
-  loadVideoStatus();
-  loadTasks();
+  await Promise.allSettled([loadPorts(), loadStorage(), loadConnections(), loadVideoStatus(), loadTasks()]);
   const results = await Promise.allSettled([
-    getJson("/api/v1/health"),
     getJson("/api/v1/system/info"),
     getJson("/api/v1/system/network"),
     getJson("/api/v1/hid/status"),
   ]);
-  const [healthResult, systemResult, networkResult, hidResult] = results;
-
-  if (healthResult.status === "fulfilled") {
-    const healthData = healthResult.value;
-    health.textContent = `API ${text(healthData.status)}`;
-    health.className = "badge ready";
-  } else {
-    health.textContent = "API unavailable";
-    health.className = "badge error";
-    console.error(healthResult.reason);
-  }
+  const [systemResult, networkResult, hidResult] = results;
 
   try {
     renderServices(hidResult.status === "fulfilled" ? hidResult.value : null);
@@ -2383,6 +2515,8 @@ function showView(view) {
   if (view === "services") loadManagedServices();
   if (view === "settings") {
     loadNetworkSettings();
+    loadApAccess();
+    loadWifiSettings();
     document.querySelector("#settings-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
@@ -2567,7 +2701,7 @@ document.addEventListener("click", (event) => {
   });
 });
 Promise.allSettled([load(), startupMinimum]).then(dismissStartupSplash);
-window.setInterval(loadTasks, 3000);
+window.setInterval(() => { if (!document.hidden) loadTasks(); }, 3000);
 window.setInterval(() => {
   if (!document.hidden) loadVirtualMediaStatus();
 }, 3000);
@@ -2582,9 +2716,7 @@ document.querySelector("#external-up").addEventListener("click", () => {
   externalPath = externalPath.split("/").slice(0, -1).join("/");
   loadExternalStorage();
 });
-window.setInterval(() => {
-  if (!document.querySelector("#external-storage-panel").hidden && !externalImportRunning) loadExternalStorage();
-}, 5000);
+
 
 
 async function loadRecovery() {
@@ -2655,15 +2787,6 @@ document.querySelector("#recovery-files").addEventListener("click", async (event
   } catch (error) { message.textContent = error.message; }
   finally { button.disabled = false; }
 });
-let serviceRefreshRunning = false;
-window.setInterval(async () => {
-  if (document.hidden || document.querySelector("#services-panel").hidden || serviceRefreshRunning) return;
-  serviceRefreshRunning = true;
-  try {
-    await loadManagedServices();
-    if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) await loadServiceLogs(selectedServiceLog, true);
-  } finally { serviceRefreshRunning = false; }
-}, 5000);
 
 
 function updateRecoverySources(files) {
@@ -2706,12 +2829,32 @@ function openRecoveryLog(service) {
   loadRecoveryLog();
   document.querySelector("#recovery-log-panel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
+async function loadRecoveryHistory() {
+  const target = document.querySelector("#recovery-history");
+  try {
+    const { entries } = await getJson("/api/v1/recovery/network/history");
+    target.innerHTML = `<table class="storage-table"><thead><tr><th>Observed</th><th>Device</th><th>IP address</th><th>MAC</th></tr></thead><tbody>${entries.slice(0, 100).map((entry) => `<tr><td>${escapeHtml(new Date(entry.observed_at * 1000).toLocaleString())}</td><td>${escapeHtml(entry.hostname)}</td><td>${escapeHtml(entry.ip)}</td><td>${escapeHtml(entry.mac)}</td></tr>`).join("") || '<tr><td colspan="4">No saved observations</td></tr>'}</tbody></table><p>${entries.length} saved observations. Showing latest 100; Save log exports all.</p>`;
+  } catch (error) { target.textContent = "History unavailable: " + error.message; }
+}
+document.querySelector("#recovery-history-clear").addEventListener("click", async (event) => {
+  if (!window.confirm("Clear saved device history? Save the log first if needed. Active DHCP leases and connections will remain unchanged.")) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  const status = document.querySelector("#recovery-history-status");
+  try {
+    const response = await fetch("/api/v1/recovery/network/history", { method: "DELETE" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    status.textContent = "History cleared. New or changed leases will be recorded automatically.";
+    await loadRecoveryHistory();
+  } catch (error) { status.textContent = "Clear failed: " + error.message; }
+  finally { button.disabled = false; }
+});
 let recoveryMonitoring = false;
 async function loadRecoveryMonitoring() {
   if (recoveryMonitoring) return;
   recoveryMonitoring = true;
   try {
-    const results = await Promise.allSettled([getJson("/api/v1/services"), getJson("/api/v1/recovery/network"), loadRecoveryLog()]);
+    const results = await Promise.allSettled([getJson("/api/v1/services"), getJson("/api/v1/recovery/network"), loadRecoveryLog(), loadRecoveryHistory()]);
     if (results[0].status === "fulfilled") {
       const payload = results[0].value;
       renderServiceCards({ ...payload, services: payload.services.filter((service) => ["tftp", "recovery_http", "recovery_ftp"].includes(service.id)) }, "#recovery-service-cards");
@@ -2731,9 +2874,30 @@ document.querySelectorAll("[data-recovery-jump]").forEach((button) => button.add
   if (target.classList.contains("collapsible")) setCollapsed(target, false);
   target.scrollIntoView({ behavior: "smooth", block: "start" });
 }));
-window.setInterval(() => {
-  if (!document.hidden && !document.querySelector("#recovery-panel").hidden) loadRecoveryMonitoring();
-}, 5000);
+let uiRefreshRunning = false;
+async function refreshVisibleView() {
+  if (document.hidden || uiRefreshRunning) return;
+  uiRefreshRunning = true;
+  try {
+    const view = document.querySelector(".side-link.active[data-view]")?.dataset.view || "dashboard";
+    const jobs = [];
+    if (["dashboard", "sessions"].includes(view)) jobs.push(load());
+    if (view === "storage") jobs.push(loadStorage(), loadExternalStorage());
+    if (view === "recovery") {
+      jobs.push(loadRecoveryMonitoring());
+      if (!recoveryPublishRunning) jobs.push(loadRecovery());
+    }
+    if (view === "settings") jobs.push(loadNetworkSettings(true), loadApAccess(true), loadWifiSettings());
+    if (view === "logs") jobs.push(loadLogs(), loadSessionLogs());
+    if (view === "services") {
+      jobs.push(loadManagedServices());
+      if (selectedServiceLog && !document.querySelector("#service-log-viewer").hidden) jobs.push(loadServiceLogs(selectedServiceLog, true));
+    }
+    await Promise.allSettled(jobs);
+  } finally { uiRefreshRunning = false; }
+}
+window.setInterval(refreshVisibleView, UI_REFRESH_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshVisibleView(); });
 
 
 let recoveryBrowserFiles = [];

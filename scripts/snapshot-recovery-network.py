@@ -2,8 +2,12 @@
 """Publish recovery link state and DHCP leases to the unprivileged API."""
 import json
 import os
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend/app/hardware"))
+from recovery_history import observe  # noqa: E402
 
 
 def snapshot(lease_path=Path("/var/lib/misc/dnsmasq.leases"), net_root=Path("/sys/class/net")):
@@ -43,7 +47,12 @@ def snapshot(lease_path=Path("/var/lib/misc/dnsmasq.leases"), net_root=Path("/sy
 if __name__ == "__main__":
     target = Path("/var/lib/kronoskvm/state/recovery-network.json")
     temporary = target.with_suffix(".tmp")
-    temporary.write_text(json.dumps(snapshot()), encoding="utf-8")
+    value = snapshot()
+    history_path = target.with_name("recovery-history.sqlite3")
+    observe(history_path, value["leases"], value["updated_at"])
+    os.chown(history_path, 10001, 20)
+    history_path.chmod(0o640)
+    temporary.write_text(json.dumps(value), encoding="utf-8")
     os.chown(temporary, 10001, 20)
     temporary.chmod(0o640)
     temporary.replace(target)

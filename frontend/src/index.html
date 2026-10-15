@@ -6,12 +6,38 @@
   <meta name="theme-color" content="#f4f7f6">
   <title>KDX InfraBox</title>
   <link rel="icon" href="/infrabox-logo-transparent.png" type="image/png">
-  <link rel="stylesheet" href="/styles-0.3.45-storage2.css?v=storage-wan-vpn-3">
+  <link rel="stylesheet" href="/styles-0.3.45-storage2.css?v=ssh-control-1">
   <link rel="stylesheet" href="/services.css">
   <link rel="stylesheet" href="/remote-assist.css?v=1">
-  <link rel="stylesheet" href="/mobile.css?v=storage-wan-vpn-3">
+  <link rel="stylesheet" href="/wireguard.css?v=1">
+  <link rel="stylesheet" href="/ap-access.css?v=3">
+  <link rel="stylesheet" href="/mobile.css?v=ssh-control-1">
+  <link rel="stylesheet" href="/auth.css?v=2">
+  <link rel="stylesheet" href="/remote-connections.css?v=1">
 </head>
 <body>
+  <section id="auth-panel" class="auth-panel" aria-labelledby="auth-brand">
+    <div class="auth-card">
+      <img src="/infrabox-logo-transparent.png" width="96" height="96" alt="">
+      <h1 id="auth-brand">KDX InfraBox</h1>
+      <p>Infrastructure in a Box</p>
+      <h2 id="auth-title">Admin sign in</h2>
+      <form id="auth-login">
+        <label>Username<input id="auth-username" name="username" autocomplete="username" required maxlength="80" value="admin"></label>
+        <label>Password<input id="auth-login-password" name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <form id="auth-password" hidden>
+        <label>Current password<input id="auth-current-password" type="password" autocomplete="current-password" required maxlength="256"></label>
+        <label>New password<input id="auth-new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="256"></label>
+        <label>Confirm new password<input id="auth-confirm-password" type="password" autocomplete="new-password" required minlength="12" maxlength="256"></label>
+        <small>Use at least 12 characters. Choose a password you do not use elsewhere.</small>
+        <button type="submit">Save password</button>
+        <a id="auth-password-cancel" href="/" hidden>Back to dashboard</a>
+      </form>
+      <p id="auth-message" role="status" aria-live="polite">Checking session…</p>
+    </div>
+  </section>
   <div id="startup-splash" class="startup-splash" hidden>
     <div class="startup-brand">
       <img src="/infrabox-logo-transparent.png" width="144" height="144" alt="">
@@ -23,7 +49,7 @@
     </div>
     <div class="startup-caption"><p>Portable Access <span>·</span> Recovery <span>·</span> Diagnostics</p><p class="startup-powered">Powered by <strong>KronosDX</strong></p></div>
   </div>
-  <div class="app-shell">
+  <div class="app-shell" hidden>
     <aside id="sidebar" class="sidebar">
       <nav class="side-nav" aria-label="Main navigation">
         <button class="side-link active" type="button" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
@@ -53,8 +79,13 @@
             <button type="button" data-theme-choice="light" aria-pressed="true">☀ <span>Light</span></button>
             <button type="button" data-theme-choice="dark" aria-pressed="false">☾ <span>Dark</span></button>
           </div>
-          <span id="health" class="badge pending"><i></i> Checking API</span>
-          <button class="user-button" type="button" aria-label="Current user">◎ <span>admin</span></button>
+          <div class="admin-account">
+            <button id="auth-admin-toggle" class="user-button" type="button" aria-expanded="false" aria-controls="auth-admin-menu">◎ <span>admin</span> ▾</button>
+            <div id="auth-admin-menu" class="admin-account-menu" hidden>
+              <button id="auth-change-password" type="button">Change password</button>
+              <button id="auth-logout" type="button">Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -74,6 +105,13 @@
           <div class="storage-content">
             <p>Server: <strong>192.168.34.100</strong> · Available on the service port and recovery Wi-Fi. Management Ethernet uses its own IP; use this recovery address on the target device.</p>
             <div id="recovery-network" class="recovery-network" aria-live="polite">Checking service port and DHCP leases…</div>
+            <details class="recovery-network">
+              <summary>Device history</summary>
+              <p>Automatically saved on this box, including when this page is closed. Latest 5,000 new or changed DHCP observations. Auto-refresh: 10 seconds. This is not an online-status or complete connection log.</p>
+              <div class="toolbar"><a class="button" href="/api/v1/recovery/network/history/download" download>Save log (CSV)</a> <button id="recovery-history-clear" type="button">Clear history</button></div>
+              <p id="recovery-history-status" role="status"></p>
+              <div id="recovery-history" class="storage-table-wrap"></div>
+            </details>
             <div class="recovery-shortcuts"><button type="button" data-recovery-jump="storage-panel">Open Storage · Upload / Mount</button><button type="button" data-recovery-jump="external-storage-panel">Open Storage / WAN</button><button type="button" data-recovery-jump="recovery-publish">2 · Publish files</button><button type="button" data-recovery-jump="recovery-service-cards">3 · Start a service</button><button type="button" data-recovery-jump="recovery-log-panel">Transfer logs</button></div>
             <h3>Transfer services</h3><div id="recovery-service-cards" class="service-cards">Loading services…</div>
             <details class="recovery-connection-settings"><summary>Connection settings</summary><p>FTP: port 21 · User <code>anonymous</code> · Any password (for example <code>recovery@</code>) · Passive ports 30000–30010.<br>TFTP: UDP port 69 · No login.<br>HTTP: port 8080 · No login.<br>All services provide read-only downloads of published files. Start them when needed; after reboot they remain stopped.</p></details>
@@ -146,6 +184,32 @@
           <div class="panel-heading"><div><h2>Global appliance settings</h2><p>System-wide lifecycle and management controls</p></div><span class="verified-label">Appliance</span></div>
           <div class="settings-group-heading"><div><strong>Network settings</strong><p>Configure DHCP or static IPv4 on Ethernet interfaces. The management AP remains protected.</p></div><button id="network-settings-refresh" class="session-refresh" type="button" aria-label="Refresh network settings">↻</button></div>
           <div id="network-settings" class="network-settings"><span class="muted">Loading network interfaces…</span></div>
+          <div class="settings-group-heading"><div><strong>Wi-Fi access point</strong><p>Change the password used to connect to this appliance’s Wi-Fi.</p></div><span id="wifi-state" class="badge pending">Checking…</span></div>
+          <form id="wifi-mode-form" class="network-settings">
+            <label>Wi-Fi mode<select id="wifi-mode" disabled><option value="standard">Standard — 2.4 GHz (default)</option><option value="performance">Performance — 5 GHz</option></select></label>
+            <p id="wifi-mode-active" class="muted"></p>
+            <p class="muted">Standard prioritizes coverage. Performance uses 5 GHz for higher speed at shorter distances. Switching reconnects Wi-Fi clients; the SSID and password stay the same. If 5 GHz cannot start, the AP returns to Standard.</p>
+            <button id="wifi-mode-save" type="submit" disabled>Apply Wi-Fi mode</button>
+            <p id="wifi-mode-message" role="status"></p>
+          </form>
+          <form id="wifi-password-form" class="network-settings">
+            <p id="wifi-identity" class="muted"></p>
+            <p id="wifi-password-mode" class="muted"></p>
+            <label>New Wi-Fi password<input id="wifi-password" type="password" autocomplete="new-password" minlength="8" maxlength="63" required disabled></label>
+            <label>Confirm Wi-Fi password<input id="wifi-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="63" required disabled></label>
+            <p class="muted">Use 8–63 printable ASCII characters. Changing the password disconnects Wi-Fi clients; reconnect with the new password. Your password is kept after reboot.</p>
+            <button id="wifi-password-save" type="submit" disabled>Change Wi-Fi password</button>
+            <p id="wifi-password-message" role="status"></p>
+          </form>
+          <div class="settings-group-heading"><div><strong>AP access to customer network</strong><p>Let Wi-Fi laptops reach customer networks through Ethernet. Disabled by default.</p></div><span id="ap-access-state" class="badge pending">Checking…</span></div>
+          <form id="ap-access-form" class="network-settings">
+            <label><input id="ap-access-enabled" type="checkbox" disabled> Enable customer network access</label>
+            <label>Allowed IPv4 networks (optional)<input id="ap-access-networks" type="text" placeholder="192.168.1.0/24, 10.20.0.0/16" disabled></label>
+            <p class="muted">Leave blank to allow all destinations reachable through Ethernet, including internet when available. Applies to Wi-Fi clients; the Recovery port stays blocked. After enabling, reconnect Wi-Fi to receive the gateway and DNS settings.</p>
+            <button id="ap-access-save" type="submit" disabled>Save access setting</button>
+            <p id="ap-access-message" role="status"></p>
+          </form>
+          <div id="wireguard-settings" class="network-settings"></div>
           <div class="settings-group-heading"><div><strong>Power controls</strong><p>Restart or safely shut down the appliance.</p></div></div>
           <div class="appliance-controls">
             <article><div><strong>Restart appliance</strong><p>Safely restarts the operating system and all KDX InfraBox services.</p></div><button id="appliance-reboot" type="button">↻ Reboot</button></article>
@@ -179,7 +243,7 @@
   </aside>
   <dialog id="session-dialog" class="modal session-modal">
     <div class="modal-heading"><div><h2>New connection</h2><p>Select a connection type</p></div><button class="modal-close" type="button" data-close-dialog="session-dialog" aria-label="Close">×</button></div>
-    <div class="session-types connection-types"><button type="button" data-connection-type="ssh"><b>›_</b><strong>SSH</strong><span>Native secure shell</span></button><button type="button" data-connection-type="telnet"><b>&gt;_</b><strong>Telnet</strong><span>Native Telnet client</span></button><button type="button" data-connection-type="rdp"><b>▣</b><strong>RDP</strong><span>Remote desktop client</span></button><button type="button" data-connection-type="vnc"><b>⌘</b><strong>VNC</strong><span>Screen sharing client</span></button><button type="button" data-connection-type="web"><b>◎</b><strong>Web URL</strong><span>HTTP or HTTPS</span></button></div>
+    <div class="session-types connection-types"><button type="button" data-connection-type="ssh"><b>›_</b><strong>SSH</strong><span>Browser terminal</span></button><button type="button" data-connection-type="telnet"><b>&gt;_</b><strong>Telnet</strong><span>Browser terminal</span></button><button type="button" data-connection-type="rdp"><b>▣</b><strong>RDP</strong><span>Browser desktop</span></button><button type="button" data-connection-type="vnc"><b>⌘</b><strong>VNC</strong><span>Browser desktop</span></button><button type="button" data-connection-type="web"><b>◎</b><strong>Web URL</strong><span>HTTP or HTTPS</span></button></div>
     <form id="connection-form" class="connection-form" hidden>
       <input id="connection-id" type="hidden">
       <input id="connection-type" type="hidden">
@@ -206,7 +270,8 @@
     <label>Reference SHA256<input id="storage-checksum-expected" type="text" autocomplete="off" spellcheck="false" placeholder="Paste the original SHA256"></label>
     <p id="storage-checksum-match" role="status"></p>
   </dialog>
-  <script src="/app-0.3.45-live-record.js?v=storage-wan-vpn-3" defer></script>
-  <script src="/remote-assist.js?v=1" defer></script>
+  <script src="/vendor/guacamole-1.6.0.js" defer></script>
+  <script src="/remote-connections.js?v=1" defer></script>
+  <script src="/auth.js?v=3" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
 </body>
 </html>

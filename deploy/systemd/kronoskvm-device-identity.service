@@ -1,0 +1,12 @@
+[Unit]
+Description=Generate InfraBox identity from Raspberry Pi hardware serial
+After=NetworkManager.service hostapd.service dnsmasq.service
+Before=kronoskvm-containers.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/device-identity.py --apply --boot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

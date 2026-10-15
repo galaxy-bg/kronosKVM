@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh Wi-Fi customer-network access status
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/ap-access-host.py

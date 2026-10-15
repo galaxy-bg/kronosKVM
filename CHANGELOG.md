@@ -2,6 +2,73 @@
 
 ## Unreleased
 
+- Add manual and automatic WireGuard registration, server provisioning tools,
+  and a Turkish setup/customization guide.
+- Add LCD Status, Network, Remote Assist and System actions with symbol-based
+  buttons: K1 down, K2 up, K3 select, K4 return to top level.
+
+- Show the full hardware serial in Appliance status for production labels and
+  display Raspberry Pi 4 appliances as Galaxy-RP4; retain board details in the API.
+
+- Add persistent Standard (2.4 GHz) and Performance (5 GHz) AP modes in Settings,
+  actual radio frequency/width status, and automatic Standard fallback when
+  5 GHz cannot start. Keep SSID, credentials and customer-network routing.
+  Deployed on the first appliance; record user-reported stable connectivity
+  through a wall at approximately ten metres in `docs/wifi-modes.md`.
+
+- Protect the management AP with WPA2/CCMP and initial password
+  `KDX@<last 8 serial characters>!`; add an authenticated Settings password change
+  with persistent custom passwords and activation rollback.
+
+- Restore authenticated browser uploads by sending the same-origin request
+  header on XMLHttpRequest, verified with a throttled 16 MiB upload and SHA256.
+
+- Generate hostname and KDX-iKVM SSID from the last eight Pi serial characters, with
+  boot-time checks, preserved AP settings and rollback. Applied to the first
+  appliance; see `docs/device-identity.md`.
+
+- Buffer and decode complete KVM JPEG frames before display, preserving the
+  last good frame during reconnect/pause instead of painting partial MJPEG data.
+
+- Restore LCD information after web authentication: add a scoped loopback-only
+  LCD identity and show Ethernet/AP IPv4 addresses on the LCD Dashboard.
+  Verified on the second appliance on 2026-10-08.
+
+- Add default-off Settings control for Wi-Fi customer-network IPv4 access,
+  optional CIDR restrictions, Ethernet NAT and Recovery-port isolation.
+  Deployed and tested on the second appliance on 2026-10-08.
+
+- Resolve the management Wi-Fi AP by its NetworkManager UUID and AP mode,
+  fixing false inactive status and restart requests on renamed appliance profiles.
+
+- Add opt-in LCD backlight control on BCM24 and local-filesystem boot ordering.
+  Record the remaining initial cold-start flash on the second appliance.
+- Preserve the separate-GPIO power-button prototype and release-only gesture
+  tests. The selected Witty onboard-button integration is not deployed and
+  requires MCU firmware work; see `docs/power-button.md`.
+
+- Implement appliance-side browser Telnet/RDP/VNC sessions with a local guacd
+  gateway, session-only credentials and existing administrator authentication.
+  ARM64 Telnet/VNC fixture tests passed; deployed to the second appliance on
+  2026-10-04 and the first appliance on 2026-10-07. Real RDP target validation
+  remains pending.
+
+- Remove the topbar API health badge and group password changes and sign out
+  under the admin menu, including on mobile.
+
+- Add a host-root-only web administrator reset command restoring admin / ChangeMe
+  with optional password replacement and invalidation of current sessions.
+
+- Add HTTPS admin sign in with optional default-password replacement, secure
+  cookies, RAM-only sessions, login throttling and API/WebSocket protection.
+
+- Add confirmed SSH Start/Stop controls that persist across reboot and disable
+  socket activation when SSH is stopped.
+- Record second-appliance installation results and remaining hardware checks.
+- Fix project lint checks while retaining Python 3.9 runtime annotations.
+
+- Correct current hardware documentation: the RTC/power-control board is installed.
+
 - Standardize current product documentation on **KDX InfraBox — Infrastructure
   in a Box**; retain the historical `kronosKVM` repository and `kronoskvm-*`
   technical identifiers for compatibility.

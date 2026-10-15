@@ -32,7 +32,9 @@ async def ssh_console(websocket: WebSocket) -> None:
         password = str(credentials.get("password", ""))
         port = int(credentials.get("port", 22))
         if not host or not username or not 1 <= port <= 65535:
-            await websocket.send_text("\r\n[KDX InfraBox: host, username and port are required]\r\n")
+            await websocket.send_text(
+                "\r\n[KDX InfraBox: host, username and port are required]\r\n"
+            )
             await websocket.close(code=1008)
             result = "invalid_request"
             return
@@ -52,8 +54,12 @@ async def ssh_console(websocket: WebSocket) -> None:
             username=username,
         )
         connection = await asyncssh.connect(
-            host, port=port, username=username, password=password or None,
-            known_hosts=None, login_timeout=15,
+            host,
+            port=port,
+            username=username,
+            password=password or None,
+            known_hosts=None,
+            login_timeout=15,
         )
         process = await connection.create_process(term_type="xterm-256color", term_size=(120, 34))
         result = "connected"

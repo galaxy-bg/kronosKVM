@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply approved Wi-Fi customer-network access request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/ap-access-host.py --request

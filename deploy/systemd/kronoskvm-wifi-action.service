@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply authenticated Wi-Fi password request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/wifi-host.py --request

@@ -8,6 +8,8 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 
+from backend.app.security.auth import require_admin
+from backend.app.security.lcd_access import lcd_authenticated
 from backend.app.services.remote_assist_config import (
     ProfileError,
     parse_config,
@@ -60,6 +62,7 @@ def queue(payload):
 
 @router.put("/profile", status_code=202)
 async def save_profile(request: Request):
+    require_admin(request)
     # Parse manually: validation errors must never echo submitted private keys.
     raw = bytearray()
     async for chunk in request.stream():
@@ -82,5 +85,7 @@ async def save_profile(request: Request):
 
 
 @router.post("/{action}", status_code=202)
-async def control(action: Literal["enable", "disable", "boot-on", "boot-off"]):
+async def control(action: Literal["enable", "disable", "boot-on", "boot-off"], request: Request):
+    if not lcd_authenticated(request.scope, request.headers):
+        require_admin(request)
     return queue({"action": action})

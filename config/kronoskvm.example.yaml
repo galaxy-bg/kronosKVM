@@ -1,5 +1,5 @@
 system:
-  hostname: kdx-infrabox
+  # Hostname is generated from the full Raspberry Pi serial during provisioning.
   timezone: Europe/Istanbul
   data_directory: /var/lib/kronoskvm
   runtime_directory: /run/kronoskvm
