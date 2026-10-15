@@ -57,7 +57,7 @@
     shell.hidden = false;
     try {
       await script('/kvm-video.js?v=complete-frames-1');
-      await script('/app-0.3.45-live-record.js?v=wifi-modes-2');
+      await script('/app-0.3.45-live-record.js?v=appliance-serial-1');
       await script('/remote-assist.js?v=admin-auth-1');
       await script('/wireguard.js?v=provisioning-1');
     } catch (error) {

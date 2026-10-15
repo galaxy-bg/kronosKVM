@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add manual and automatic WireGuard registration, server provisioning tools,
+  and a Turkish setup/customization guide.
+- Add LCD Status, Network, Remote Assist and System actions with symbol-based
+  buttons: K1 down, K2 up, K3 select, K4 return to top level.
+
+- Show the full hardware serial in Appliance status for production labels and
+  display Raspberry Pi 4 appliances as Galaxy-RP4; retain board details in the API.
+
 - Add persistent Standard (2.4 GHz) and Performance (5 GHz) AP modes in Settings,
   actual radio frequency/width status, and automatic Standard fallback when
   5 GHz cannot start. Keep SSID, credentials and customer-network routing.

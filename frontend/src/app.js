@@ -155,6 +155,7 @@ function renderSystem(system) {
   document.querySelector("#system").innerHTML = [
     ["Hostname", system.hostname],
     ["Model", system.model],
+    ["Serial number", system.serial || "Unavailable"],
     ["Architecture", system.architecture],
     ["Kernel", system.kernel],
     ["Uptime", `${Math.floor(system.uptime_seconds / 60)} min`],

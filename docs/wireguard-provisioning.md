@@ -223,7 +223,7 @@ npm install --prefix /tmp/kdx-wg-ui-tests --no-audit --no-fund playwright-core
 NODE_PATH=/tmp/kdx-wg-ui-tests/node_modules node tests/browser/wireguard.cjs
 ```
 
-The isolated publication branch passes **247 tests** and lint. Real Chrome
+The isolated publication branch passes **261 tests** and lint. Real Chrome
 checks cover manual/automatic enrollment, connection controls, automatic startup
 and read-only behavior with mocked APIs. The repository contains source and
 automated tests directly; deployment archives and private operational records

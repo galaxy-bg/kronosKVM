@@ -8,10 +8,10 @@ SPI bus/device 0/0 at 4 MHz. Backlight control is opt-in per appliance.
 
 | Key | Function | BCM | Physical pin |
 | --- | --- | --- | --- |
-| K1 | Up | 5 | 29 |
-| K2 | Down | 6 | 31 |
-| K3 | OK | 13 | 33 |
-| K4 | Back | 19 | 35 |
+| K1 ↓ | Down | 5 | 29 |
+| K2 ↑ | Up | 6 | 31 |
+| K3 ✓ | Menu / Select | 19 | 35 |
+| K4 ↩ | Back to top-level menu | 13 | 33 |
 | Common | Ground | — | 30 |
 
 This wiring assumes four independent normally-open contacts to common ground,
@@ -21,10 +21,12 @@ https://gpiozero.readthedocs.io/en/rtd/api_input.html
 
 At LCD service startup, the existing UI InfraBox logo and `Booting...` are shown
 for two seconds. This is a service-start splash, not a firmware/early-kernel
-screen. The first screen is a scrollable main menu matching the web UI:
-Dashboard, Sessions, Storage, Recovery, Remote Assist, Tasks, Services, Logs,
-Settings. Four rows are visible; a green highlight, arrow and position counter
-identify the selected item. Up/down moves selection, OK opens, Back returns.
+screen. The first screen is Status. K3 opens the main menu: Status, Network, Remote
+Assist and System. Four rows are visible; a green highlight, arrow and position
+counter identify the selected item. K1/K2 move selection, K3 opens, K4 returns.
+K4 always returns to the top-level menu and stays there on repeated presses;
+K3 opens the highlighted section.
+See [LCD MVP](../../docs/lcd-mvp.md) for actions and confirmation behavior.
 
 For an earlier splash, the base LCD service must not retain
 `After=network.target`; replace that dependency with

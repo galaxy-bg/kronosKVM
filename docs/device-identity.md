@@ -75,3 +75,24 @@ metadata, then reload application containers. Keep private archives root-only.
 The corrected short-name rollout is backed up at
 `/var/backups/kronoskvm/short-identity.Tllv7j` (source) and
 `/var/backups/kronoskvm/device-identity-_57qhsf3` (names/files).
+
+## Appliance status and production label
+
+Dashboard → Appliance status → System displays the full 16-character hardware
+serial as **Serial number**. Use this value for the label beneath the appliance;
+SSID and initial Wi-Fi password continue to use its last eight characters.
+Raspberry Pi 4 hardware is displayed as product model **Galaxy-RP4**. The API
+retains the original board description separately as `hardware_model` for
+maintenance. Missing serials display Unavailable rather than a shared placeholder.
+
+Example label content: `Model: Galaxy-RP4`, `S/N: 100000008ed89866`.
+
+Deployed the production-label display to the first appliance (`192.168.31.185`)
+on 2026-10-09 after the large upload completed. Real Chrome verified Model
+`Galaxy-RP4` and Serial number `100000008ed89866` in Appliance status, with the
+original board model retained in the authenticated API. API/web/guacd health
+checks passed. Relevant system/API tests: 23 passed.
+
+Backup: `/var/backups/kronoskvm/pre-system-serial.cQVdAN`.
+New API/web image tag: `system-serial-20261009` (also `dev`);
+previous images: `pre-system-serial-20261009`.

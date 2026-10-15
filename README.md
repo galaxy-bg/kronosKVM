@@ -280,3 +280,5 @@ and [docs/security.md](docs/security.md).
 
 Copyright belongs to KronosDX. Redistribution is not currently authorized; see
 [LICENSE](LICENSE) and [docs/decisions.md](docs/decisions.md).
+
+LCD navigation, button symbols and available actions: [LCD MVP](docs/lcd-mvp.md).

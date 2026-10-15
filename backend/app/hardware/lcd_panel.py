@@ -89,7 +89,7 @@ class LCDPanel:
         draw = self.draw.Draw(canvas)
         view = menu.view()
         draw.rectangle((0, 0, 159, 20), fill="#087f5b")
-        title = "InfraBox / Menu" if menu.section is None else view["title"]
+        title = view["title"]
         draw.text((5, 2), self.fit(draw, title, 150), font=self.font, fill="white")
         status = menu.remote.status
         if not status.get("installed") or status.get("stale", True):
@@ -102,6 +102,7 @@ class LCDPanel:
             subtitle = vpn + " / Boot:" + ("ON" if status.get("autostart") else "OFF")
         else:
             subtitle = self.ip
+        subtitle = view.get("subtitle", subtitle)
         draw.text((5, 23), self.fit(draw, subtitle, 150, self.small),
                   font=self.small, fill="#a5c5ba")
         selected = view.get("selected")
@@ -124,12 +125,8 @@ class LCDPanel:
             top = 38 + int((66 - thumb) * start / (len(rows) - 4))
             draw.line((156, top, 156, top + thumb - 1), fill="#53dca5", width=2)
         draw.line((4, 109, 155, 109), fill="#2f4940")
-        footer = "OK: Sec  " + str(selected + 1) + "/" + str(len(rows)) if selected is not None \
-            else "OK: Yenile"
-        if menu.remote.confirm and menu.section == "Remote Assist":
-            footer = "OK: Onayla"
-        if menu.section is not None:
-            footer += "  BACK: Geri"
+        # Symbols match the four physical enclosure keys in order.
+        footer = "↓ ↑  ✓ " + ("Sec" if selected is not None else "Menu") + "  ↩ Menu"
         draw.text((5, 114), self.fit(draw, footer, 150, self.small),
                   font=self.small, fill="#a5c5ba")
         self.lcd.ShowImage(canvas)
