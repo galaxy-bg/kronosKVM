@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.app.security.auth import AuthMiddleware
+from backend.app.security.auth import AuthMiddleware, AuthStore
 
 
 @pytest.fixture(autouse=True)
@@ -14,3 +14,4 @@ def business_endpoint_access(request, monkeypatch):
         await self.app(scope, receive, send)
 
     monkeypatch.setattr(AuthMiddleware, "__call__", business_only)
+    monkeypatch.setattr(AuthStore, "session", lambda *a, **kw: {"username": "admin"})

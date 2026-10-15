@@ -1,0 +1,26 @@
+#wireguard-settings { gap: 16px; }
+#wireguard-settings .settings-group-heading { margin: -18px -18px 0; flex-wrap: wrap; }
+#wireguard-settings p { margin: 0; font-size: .73rem; line-height: 1.6; }
+#wg-message { color: var(--accent); }
+#wg-message:empty { display: none; }
+#wg-summary { display: grid; grid-template-columns: minmax(130px, .55fr) minmax(0, 1fr); gap: 9px 18px; max-width: 720px; margin: 0; }
+#wg-summary dt, #wg-summary dd { margin: 0; padding: 0; font-size: .73rem; }
+#wg-summary dt { color: var(--muted); }
+#wg-summary dd { color: var(--text); font-weight: 650; overflow-wrap: anywhere; }
+#wireguard-settings label { display: grid; gap: 7px; max-width: 720px; color: var(--muted); font-size: .73rem; font-weight: 650; }
+#wireguard-settings input:not([type=checkbox]), #wireguard-settings textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text); background: var(--surface); font: inherit; }
+#wireguard-settings textarea { font-family: ui-monospace, monospace; resize: vertical; }
+#wireguard-settings form { display: grid; gap: 12px; max-width: 720px; }
+#wireguard-settings details { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+#wireguard-settings summary { cursor: pointer; font-size: .75rem; font-weight: 650; }
+#wireguard-settings details form { margin-top: 14px; }
+#wireguard-settings button { justify-self: start; padding: 9px 13px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-2); color: var(--text); font-size: .73rem; font-weight: 650; cursor: pointer; }
+#wireguard-settings button:disabled { opacity: .5; cursor: default; }
+#wg-connect { background: var(--accent) !important; border-color: var(--accent) !important; color: white !important; }
+#wireguard-settings label:has(input[type=checkbox]) { display: flex; align-items: center; color: var(--text); }
+#wg-autostart { width: 18px; height: 18px; accent-color: var(--accent); margin: 0 4px 0 0; }
+@media (max-width: 480px) {
+  #wg-summary { grid-template-columns: 1fr; gap: 5px; }
+  #wg-summary dd { margin-bottom: 8px; }
+  #wireguard-settings button { margin-bottom: 5px; }
+}

@@ -176,6 +176,11 @@ Ethernet default route disappears; internet-health-based failover is not yet
 implemented. Generic USB-RJ45 WAN adapter support has not been qualified in this
 version. The Service port retains its Recovery role.
 
+Türkçe adım adım: [WireGuard kurulum, kayıt ve IP/endpoint değiştirme kılavuzu](docs/wireguard-kullanim-kilavuzu.md).
+
+See [WireGuard provisioning](docs/wireguard-provisioning.md) for local device key generation,
+approved server registration, Settings integration and rollback.
+
 See [Remote Assist](docs/remote-assist.md), [USB WAN setup and tests](docs/usb-wan.md)
 and [network design](docs/network-design.md).
 
