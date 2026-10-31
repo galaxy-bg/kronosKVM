@@ -19,6 +19,9 @@ class LCDPanel:
         self.small = ImageFont.truetype(font_path, 9)
         self.brand = ImageFont.truetype(font_path, 15)
         self.lcd = lcd
+        self.rotation = int(os.environ.get("KRONOSKVM_LCD_ROTATION", "0"))
+        if self.rotation not in (0, 180):
+            raise ValueError("LCD rotation must be 0 or 180 degrees")
         backlight = os.environ.get("KRONOSKVM_LCD_BL_PIN")
         self.backlight_pin = int(backlight) if backlight is not None else None
         if self.lcd is None:
@@ -41,6 +44,11 @@ class LCDPanel:
         except OSError:
             self.logo = None
 
+    def _present(self, canvas):
+        frame = (canvas.transpose(self.image.Transpose.ROTATE_180)
+                 if self.rotation == 180 else canvas)
+        self.lcd.ShowImage(frame)
+
     def splash(self):
         canvas = self.image.new("RGB", (160, 128), "#101b24")
         draw = self.draw.Draw(canvas)
@@ -49,7 +57,7 @@ class LCDPanel:
         draw.text((80, 74), "KDX InfraBox", font=self.brand, fill="white", anchor="mt")
         draw.text((80, 96), "Booting...", font=self.font, fill="#53dca5", anchor="mt")
         draw.rounded_rectangle((46, 115, 114, 118), radius=1, fill="#087f5b")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         if self.backlight_pin is not None:
             # Init clears the panel; expose it only after the complete logo frame.
             self.lcd.bl_DutyCycle(100)
@@ -129,7 +137,7 @@ class LCDPanel:
         footer = "↓ ↑  ✓ " + ("Sec" if selected is not None else "Menu") + "  ↩ Menu"
         draw.text((5, 114), self.fit(draw, footer, 150, self.small),
                   font=self.small, fill="#a5c5ba")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         return canvas
 
     def show_power_button(self, status):
@@ -147,5 +155,5 @@ class LCDPanel:
         draw.rectangle((10, 90, 10 + int(140 * min(duration / 5, 1)), 96), fill="#087f5b")
         draw.text((80, 106), "2s: Restart / 5s: Kapat", font=self.small,
                   fill="#a5c5ba", anchor="mt")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         return canvas

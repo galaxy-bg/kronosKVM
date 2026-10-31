@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Release HDMI capture locks after startup failures, stop stalled encoders and
+  reconnect stalled browser streams. Show HDMI cable detection separately from
+  video signal status; update the displayed application version to 0.3.46.
+
+- Integrate standard Witty Pi 4 RTC and power daemon with verified source/GPIO
+  packages, guarded UART/button preflight, UTC RTC synchronization that preserves
+  NTP, and actual MCU RTC status in the hardware API and Services page.
+
+- Add a simple server-address/username/password VPN setup form with automatic
+  identity, server registration, profile installation and connection. Keep SSH
+  credentials in memory and pin the confirmed server identity before login.
+
+- Guide VPN setup through four numbered steps, explain expired/missing approvals,
+  and support explicitly restoring the previous device-bound public registration
+  after deleting a local profile.
+- Add confirmed Remote Assist profile deletion with tunnel shutdown and rollback.
+
 - Add manual and automatic WireGuard registration, server provisioning tools,
   and a Turkish setup/customization guide.
 - Add LCD Status, Network, Remote Assist and System actions with symbol-based

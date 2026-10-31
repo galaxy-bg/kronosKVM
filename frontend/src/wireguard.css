@@ -24,3 +24,16 @@
   #wg-summary dd { margin-bottom: 8px; }
   #wireguard-settings button { margin-bottom: 5px; }
 }
+
+.wg-steps { list-style: none; display: grid; gap: 14px; margin: 0; padding: 0; }
+.wg-steps > li { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.wg-steps > li.wg-current { border-color: var(--accent); }
+.wg-steps h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font-size: .85rem; }
+.wg-steps h3 > span { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--text); background: var(--surface-2); }
+.wg-steps h3 small { margin-left: auto; color: var(--muted); font-size: .7rem; }
+#wg-next { color: var(--accent); font-weight: 650; }
+.wg-steps details > label, .wg-steps details > div { margin-top: 12px; }
+#wireguard-settings form { grid-template-columns: minmax(0, 1fr); }
+#wireguard-settings label, #wireguard-settings details { min-width: 0; overflow-wrap: anywhere; }
+#wireguard-settings button { max-width: 100%; white-space: normal; }
+#wg-quick-status { color: var(--accent); font-weight: 650; }

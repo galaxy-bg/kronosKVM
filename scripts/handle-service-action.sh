@@ -134,6 +134,9 @@ elif [[ "${action}" != refresh || "${service}" != all ]]; then
     error="Rejected action"
 fi
 
+if [[ -f /opt/kronoskvm/scripts/wittypi-host.py ]]; then
+    timeout 6 python3 /opt/kronoskvm/scripts/wittypi-host.py snapshot || true
+fi
 write_status
 python3 /opt/kronoskvm/scripts/snapshot-recovery-network.py
 python3 /opt/kronoskvm/scripts/snapshot-media-activity.py

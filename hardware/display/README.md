@@ -100,3 +100,13 @@ Do not run a second LCD process concurrently.
 For another LCD driver, use `Menu.lines()` or the runner's `--output` JSON file
 (includes `updated_at`; consumers should reject old data). `--lcd` is specific
 to the installed .102 panel. No arbitrary service stop/restart menu is exposed.
+
+## Enclosure orientation
+
+To turn all LCD frames upside down, install
+`deploy/systemd/infrabox-lcd-rotation-180.conf` as
+`/etc/systemd/system/infrabox-lcd.service.d/orientation.conf`, run
+`systemctl daemon-reload`, then restart `infrabox-lcd.service`.
+`KRONOSKVM_LCD_ROTATION` accepts 0 (default) or 180. Rotation covers the
+splash, menus and power feedback without changing the logical 160×128 canvas
+or physical button assignments. Restore 0 to return to the previous direction.

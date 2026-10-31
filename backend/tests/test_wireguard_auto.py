@@ -186,3 +186,9 @@ def test_automatic_action_is_queued_only_with_approved_grant(transport, monkeypa
     assert client.post("/api/v1/wireguard/enroll").status_code == 202
     queued = json.loads((transport / "remote-assist-request.json").read_text())
     assert queued["action"] == "auto-register"
+
+
+def test_cached_approval_remains_available_without_transport(transport, reply):
+    (transport / "registration.json").write_text(json.dumps(reply))
+    (transport / "transport.json").unlink()
+    assert auto.status() == {"ready": True, "state": "reply_cached"}

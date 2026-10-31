@@ -17,6 +17,21 @@ No public provisioning API or server password is installed on the InfraBox.
 A request UUID is correlation, not a credential; the restricted SSH key and
 server grant authorize one device registration. Connect remains a separate action.
 
+## Read-only infrastructure inspection — 2026-10-15
+
+- `172.12.2.74`: Rocky Linux 9.5, active `wg0`, `10.77.0.1/24`, UDP 51820.
+- Existing live peers use `10.77.0.2/32` and `10.77.0.10/32`.
+- Existing `wg0.conf` has those peers and no `SaveConfig=true` directive.
+- `192.168.31.26`: `infrabox-000865dd`, serial `10000000000865dd`, `wg` installed,
+  no `wg-kdx` interface, no existing controller keyfile or recovery `.conf`.
+  Server address routes through Ethernet via `192.168.31.1`.
+- The other previously known appliance at `192.168.31.185` timed out on SSH;
+  rediscover its address before scheduling its deployment.
+
+At this initial inspection stage, no production configuration was changed.
+The subsequent user-approved deployment and live verification are recorded below.
+Production VPN connection testing received a separate explicit user approval.
+
 ## Files
 
 | File | Responsibility |
@@ -117,7 +132,7 @@ the physical device inventory. Approval is a deliberate local root command:
 ```bash
 sudo /usr/local/sbin/kdx-wg-server.sh add \
   --request /root/infrabox-registration.json \
-  --endpoint vpn-mgmt.example.com:51820 > approved-registration.json
+  --endpoint 172.12.2.74:51820 > approved-registration.json
 ```
 
 Verify that the endpoint is reachable from the device's intended deployment
@@ -152,8 +167,8 @@ is not evidence of a handshake. The GUI reports waiting_handshake distinctly.
 ```bash
 sudo /usr/local/sbin/kdx-wg-server.sh list
 sudo /usr/local/sbin/kdx-wg-server.sh status
-sudo /usr/local/sbin/kdx-wg-server.sh export infrabox-1234abcd > approved-registration.json
-sudo /usr/local/sbin/kdx-wg-server.sh remove infrabox-1234abcd
+sudo /usr/local/sbin/kdx-wg-server.sh export infrabox-000865dd > approved-registration.json
+sudo /usr/local/sbin/kdx-wg-server.sh remove infrabox-000865dd
 ```
 
 `list`/`export` operate on registered managed peers. `status` includes live peers,
@@ -223,11 +238,14 @@ npm install --prefix /tmp/kdx-wg-ui-tests --no-audit --no-fund playwright-core
 NODE_PATH=/tmp/kdx-wg-ui-tests/node_modules node tests/browser/wireguard.cjs
 ```
 
-The isolated publication branch passes **261 tests** and lint. Real Chrome
-checks cover manual/automatic enrollment, connection controls, automatic startup
-and read-only behavior with mocked APIs. The repository contains source and
-automated tests directly; deployment archives and private operational records
-are not committed. No device credentials or private keys are included.
+The manual provisioning stage passed **252 tests**. The final automatic enrollment
+implementation passed **260 tests**. Browser assertions cover the
+same-device public registration and controls with mocked API responses; they do
+not claim a real server handshake. The review screenshot is
+`artifacts/wireguard-provisioning/settings-preview.png`. The prepared source
+archive and SHA256 are in the same artifact directory; no private device state
+or credentials are included. This repository already contained unrelated local
+LCD and production-display changes; those were retained, not reverted or committed.
 
 
 ## Automatic registration with a one-time grant
@@ -249,7 +267,7 @@ On the InfraBox:
 ```bash
 cd /opt/kronoskvm
 sudo python3 scripts/configure-auto-enrollment.py prepare \
-  --host vpn-mgmt.example.com --host-key-file /tmp/approved-server-host-key.pub \
+  --host 172.12.2.74 --host-key-file /tmp/approved-server-host-key.pub \
   > enrollment-transport.pub
 ```
 
@@ -259,9 +277,9 @@ the InfraBox. Approve the specific physical device on the server:
 
 ```bash
 sudo /usr/local/sbin/kdx-wg-enroll.py authorize \
-  --device-id 100000001234abcd --hostname infrabox-1234abcd \
+  --device-id 10000000000865dd --hostname infrabox-000865dd \
   --ssh-public-key-file /root/enrollment-transport.pub \
-  --endpoint vpn-mgmt.example.com:51820 --ttl 900 > approved-enrollment-grant.json
+  --endpoint 172.12.2.74:51820 --ttl 900 > approved-enrollment-grant.json
 ```
 
 Deliver that public grant JSON through the administrative channel to the box:
@@ -307,3 +325,85 @@ budget for the bounded SSH operation and rollback; the GUI waits for its correla
 result. LCD/legacy connection controls continue to use the same profile.
 
 Reference: [OpenSSH authorized_keys forced commands, restrict and expiry-time](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT).
+
+
+## Approved live deployment — 2026-10-15
+
+Installed the reviewed source on `192.168.31.26` (`infrabox-000865dd`) and the three
+server scripts on `172.12.2.74`. User approval explicitly covered automatic
+registration; a subsequent explicit approval covered connecting for the live
+handshake test and disconnecting afterward.
+
+- Client backup: `/var/backups/kronoskvm/pre-wg-auto-20261015.xyXBX3`.
+- Server backup: `/var/backups/kdx-wg-auto-20261015.QdEFqk`.
+- Previous API/web images: `pre-wg-auto-20261015`; new tags:
+  `wg-auto-20261015`, also `dev`.
+- ARM64 API import/routes and live nginx validation passed.
+- Existing `wg0` service has remained active since September 24; no tunnel restart.
+- Existing `.2` and `.10` peers were preserved. The new registered device is
+  `10.77.0.11/32`, public WireGuard endpoint `185.251.66.26:51820`, routes
+  `10.77.0.0/24`.
+
+### Forti and the enrollment path
+
+The administration workstation reaches `172.12.2.74` through its existing VPN
+(`utun5`); the InfraBox's ordinary Ethernet uplink cannot reach server TCP 22.
+TCP 22 on the observed public egress IP also timed out. No Forti rule or public
+SSH exposure was added. Initial enrollment used this temporary administration
+relay, bound only to the box's localhost:
+
+```bash
+# Run on the trusted administration workstation with its existing VPN connected.
+ssh -N -T -o ExitOnForwardFailure=yes \
+  -R 127.0.0.1:45222:172.12.2.74:22 kronosdx@192.168.31.26
+# On the box, prepare the same pinned end-to-end SSH transport through this relay.
+cd /opt/kronoskvm
+sudo python3 scripts/configure-auto-enrollment.py prepare \
+  --host 127.0.0.1 --port 45222 \
+  --host-key-file /tmp/approved-server-host-key.pub
+```
+
+Issue/activate the device-bound grant as above. SSH still verifies the real VPN
+server host key through the relay. Only public requests/replies traverse it;
+WireGuard and enrollment SSH private keys stay on the box. After successful
+Generate & Register, revoke the enrollment grant and stop the administration
+relay. Both cleanup steps were completed for this deployment. The grant entry
+was removed; previous SSH authorization was preserved. The resulting empty
+root authorized_keys file was left in place rather than deleting it.
+
+New boxes therefore need either an approved reachable SSH enrollment path or
+this temporary trusted administration relay, plus their own short-lived grant.
+The GUI does not silently bypass Forti or retain a general-purpose server login.
+
+### Live verification
+
+Real HTTPS Chrome administrator sessions verified the new Settings controls,
+then submitted **Generate & Register**. It created the local key pair, invoked
+the server script, received `.11`, installed the profile and showed completed
+registration without enabling the VPN. Diagnostic sessions were logged out.
+
+A live connection was then present and, after explicit approval, verified:
+
+- Actual current handshake on both ends for the new public key.
+- Two-way ICMP: server `.1` ↔ device `.11`, no packet loss.
+- Server reached `https://10.77.0.11/api/v1/health` with HTTP 200.
+- Anonymous management through the VPN still returned HTTP 401.
+- Only the approved `10.77.0.0/24` route was added; the default remained
+  `192.168.31.1` via Ethernet.
+
+The test ended with an authenticated GUI/API Disconnect and logout. Final status
+is `off`, `enabled=false`, with no `wg-kdx` interface. The registered peer/profile
+remains available for the next Connect. The pre-existing automatic startup
+preference remains **true**; Disconnect did not change it. No OS reboot was done.
+
+Client routes match the pre-deployment baseline again. Client/server firewall
+policies and server routes are unchanged (ignoring packet counters). Existing
+TLS, admin authentication state and all pre-existing NetworkManager profiles
+match the private backup byte-for-byte. API, web, guacd, LCD and container service
+are healthy; systemd reports no failed units. Private identity, SSH key and
+recovery `.conf` are root-owned mode 0600.
+
+Final validation: **260 tests**, lint, shell syntax, JS syntax, mocked real-Chrome
+manual/automatic enrollment flows, plus actual deployed HTTPS registration and
+VPN handshake/reachability checks. Live review screenshots are under
+`artifacts/wireguard-provisioning/`.

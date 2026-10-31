@@ -43,6 +43,10 @@ def cached_response(public):
 
 
 def status():
+    # Cached public approval can restore a removed local profile without SSH access.
+    # The host validates its device binding before advertising it as usable.
+    if (ROOT / "registration.json").is_file():
+        return {"ready": True, "state": "reply_cached"}
     try:
         transport = read_transport()
     except ProfileError:

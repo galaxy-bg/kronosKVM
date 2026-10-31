@@ -56,10 +56,10 @@
     panel.hidden = true;
     shell.hidden = false;
     try {
-      await script('/kvm-video.js?v=complete-frames-1');
-      await script('/app-0.3.45-live-record.js?v=appliance-serial-1');
-      await script('/remote-assist.js?v=admin-auth-1');
-      await script('/wireguard.js?v=provisioning-1');
+      await script('/kvm-video.js?v=capture-watchdog-2');
+      await script('/app-0.3.45-live-record.js?v=kvm-watchdog-1');
+      await script('/remote-assist.js?v=simple-setup-3');
+      await script('/wireguard.js?v=simple-setup-3');
     } catch (error) {
       shell.hidden = true;
       panel.hidden = false;

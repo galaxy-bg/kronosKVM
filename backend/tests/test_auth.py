@@ -325,9 +325,12 @@ def test_wireguard_provisioning_requires_admin_and_excludes_lcd(client, tmp_path
     assert client.get("/api/v1/wireguard").status_code == 200
     assert client.post("/api/v1/wireguard/identity").status_code == 403
     assert client.post("/api/v1/wireguard/enroll").status_code == 403
+    assert client.post("/api/v1/wireguard/server-check", json={}).status_code == 403
+    assert client.post("/api/v1/wireguard/quick-register", json={}).status_code == 403
     assert client.put("/api/v1/wireguard/registration", json={}).status_code == 403
     assert client.post("/api/v1/remote-assist/enable").status_code == 403
     assert client.put("/api/v1/remote-assist/profile", json={}).status_code == 403
+    assert client.delete("/api/v1/remote-assist/profile").status_code == 403
     token = tmp_path / "lcd-token"
     token.write_text("a" * 64)
     monkeypatch.setenv("KRONOSKVM_LCD_TOKEN_PATH", str(token))
@@ -335,3 +338,6 @@ def test_wireguard_provisioning_requires_admin_and_excludes_lcd(client, tmp_path
                        client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
     assert local.post("/api/v1/wireguard/identity").status_code == 401
     assert local.put("/api/v1/wireguard/registration", json={}).status_code == 401
+    assert local.delete("/api/v1/remote-assist/profile").status_code == 401
+    assert local.post("/api/v1/wireguard/server-check", json={}).status_code == 401
+    assert local.post("/api/v1/wireguard/quick-register", json={}).status_code == 401

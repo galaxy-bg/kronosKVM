@@ -53,6 +53,7 @@ def local(tmp_path, monkeypatch, request_data):
     monkeypatch.setattr(host.os, "fchown", lambda *a: None)
     monkeypatch.setattr(host, "run",
                         lambda args, *a, **kw: key(1) if args == ["wg", "genkey"] else "")
+    monkeypatch.setattr(host.wireguard_auto, "ROOT", private / "enrollment-ssh")
     commands = []
 
     def process(args, **kw):
@@ -259,3 +260,42 @@ def test_manual_address_change_refreshes_cached_reply(local, response, monkeypat
     assert config["profile"]["address"] == "10.77.0.42/32"
     assert host.wireguard_auto.cached_response(public) == changed
     assert host.automatic_status(config)["state"] == "registered"
+
+
+def test_manual_registration_can_be_explicitly_restored_after_profile_delete(
+        local, response, monkeypatch):
+    config, _ = local
+    response = {**response, **host.ensure_identity(config)}
+    monkeypatch.setattr(host, "validate_routes", lambda p: None)
+    host.register(config, response)
+    host.process(config, {"action": "delete-profile"})
+    assert config["profile"] is None and not config["autostart"]
+    assert host.automatic_status(config)["state"] == "reply_cached"
+    assert host.automatic_status(config)["ready"]
+    host.automatic_registration(config)
+    assert config["profile"]["address"] == response["address"]
+    assert config["enabled"] is False
+    assert not config["autostart"]
+
+
+def test_wrong_device_cached_approval_is_not_advertised_as_ready(local, response):
+    config, _ = local
+    host.ensure_identity(config)
+    root = host.wireguard_auto.ROOT
+    root.mkdir()
+    host.atomic(root / "registration.json", {**response, "public_key": key(9)})
+    assert host.automatic_status(config)["state"] == "invalid_reply"
+    assert not host.automatic_status(config)["ready"]
+
+
+def test_quick_registration_installs_then_enables_same_profile(local, response, monkeypatch):
+    config, _ = local
+    response = {**response, **host.ensure_identity(config)}
+    monkeypatch.setattr(host, "validate_routes", lambda p: None)
+    calls = []
+    monkeypatch.setattr(host, "run", lambda args, *a, **kw: calls.append(args) or "")
+    updated = host.transactional_process(
+        config, {"action":"register-connect", "registration":response})
+    assert updated["enabled"]
+    assert updated["profile"]["address"] == response["address"]
+    assert ["nmcli", "--wait", "15", "connection", "up", host.PROFILE] in calls

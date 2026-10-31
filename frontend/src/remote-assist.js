@@ -11,7 +11,8 @@
         <article><h3>Remote access</h3><a id="ra-url" hidden target="_blank" rel="noopener"></a><p id="ra-access-hint">Configure a VPN profile to get the access address.</p><button id="ra-copy" type="button" disabled>Copy address</button><small>Available to authorized peers on your VPN. This is not a public URL.</small></article>
       </div>
       <label class="ra-boot"><input id="ra-boot" type="checkbox" disabled> Automatically connect after appliance startup</label>
-      <details id="ra-settings" open><summary>VPN settings</summary>
+      <div><button id="ra-setup" type="button">Set up VPN</button> <button id="ra-delete" type="button" disabled>Delete profile</button></div>
+      <details id="ra-settings"><summary>Advanced / manual VPN profile</summary>
         <p>One office/customer profile. Turn Remote Assist off before replacing it. Keys are saved privately and are never shown again.</p>
         <form id="ra-import"><h3>Import WireGuard configuration</h3>
           <label>Profile name<input name="name" required maxlength="80" placeholder="Office / Customer name"></label>
@@ -54,6 +55,7 @@
     node('toggle').disabled = disabled;
     node('toggle').textContent = state.enabled ? 'Turn off' : 'Turn on';
     node('toggle').setAttribute('aria-checked', String(state.enabled));
+    node('delete').disabled = disabled || !state.profile;
     node('boot').disabled = disabled;
     node('boot').checked = Boolean(state.autostart);
     node('state').textContent = unavailable ? 'Status unavailable' : labels[state.state] || state.state;
@@ -110,6 +112,15 @@
     } catch (error) { message(error.message, true); return false; }
     finally { busy = false; render(); }
   }
+  node('setup').addEventListener('click', () => {
+    document.querySelector('[data-view="settings"]').click();
+    document.querySelector('#wireguard-settings').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  node('delete').addEventListener('click', () => {
+    if (window.confirm('Disconnect VPN and delete the saved profile? Automatic startup will be disabled. The device identity, previous registration approval and server peer are retained for an explicit restore.')) {
+      send('/profile', 'DELETE');
+    }
+  });
   node('toggle').addEventListener('click', () => send(state.enabled ? '/disable' : '/enable', 'POST'));
   node('boot').addEventListener('change', event => send(event.target.checked ? '/boot-on' : '/boot-off', 'POST'));
   node('copy').addEventListener('click', async () => {

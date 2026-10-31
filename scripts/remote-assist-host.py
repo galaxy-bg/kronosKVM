@@ -251,10 +251,10 @@ def register(config, metadata):
             run(["nmcli", "connection", "delete", "uuid", PROFILE_UUID], False)
         raise ProfileError("Registration installation failed; previous files restored; "
                            "root-only backup: " + str(backup)) from None
-    # Keep a previously automated device's cached public reply aligned with approved
-    # manual IP/endpoint changes. A later retry must not restore obsolete settings.
-    if (wireguard_auto.ROOT / "registration.json").exists():
-        atomic(wireguard_auto.ROOT / "registration.json", response)
+    # Save only the latest approved public reply for an explicit restore after deletion.
+    # Manual IP/endpoint changes must replace any obsolete cached settings.
+    wireguard_auto.ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    atomic(wireguard_auto.ROOT / "registration.json", response)
     config.update(updated)
 
 
@@ -270,10 +270,12 @@ def automatic_registration(config):
 
 def automatic_status(config):
     value = wireguard_auto.status()
-    if config.get("profile") and IDENTITY.exists():
+    if value.get("state") == "reply_cached" and not IDENTITY.exists():
+        return {"ready": False, "state": "invalid_reply"}
+    if IDENTITY.exists():
         try:
             response = wireguard_auto.cached_response(identity_public())
-            profile = config["profile"]
+            profile = config.get("profile") or {}
             if response and all(profile.get(k) == response[v] for k, v in (
                 ("address", "address"), ("endpoint", "endpoint"),
                 ("public_key", "server_public_key"), ("allowed_ips", "allowed_ips"),
@@ -356,8 +358,22 @@ def process(config, request):
         ensure_identity(config)
     elif action == "register":
         register(config, request.get("registration"))
+    elif action == "register-connect":
+        register(config, request.get("registration"))
+        process(config, {"action": "enable"})
     elif action == "auto-register":
         automatic_registration(config)
+    elif action == "delete-profile":
+        # Stop the tunnel before removing persistent configuration; fail closed.
+        run(["nmcli", "connection", "down", "uuid", PROFILE_UUID], False)
+        if INTERFACE in run(["wg", "show", "interfaces"]).split():
+            raise ProfileError("VPN is still active; profile was not deleted")
+        if KEYFILE.exists() or config.get("profile"):
+            run(["nmcli", "connection", "delete", "uuid", PROFILE_UUID])
+        KEYFILE.unlink(missing_ok=True)
+        WG_CONFIG.unlink(missing_ok=True)
+        # Retain public approval for an explicit restore; no automatic reconnection.
+        config.update(profile=None, enabled=False, autostart=False)
     elif action == "restart":
         if not config.get("profile"):
             raise ProfileError("VPN profile is required")
@@ -409,7 +425,7 @@ def transactional_process(config, request):
         process(candidate, request)
         atomic(CONFIG, candidate)
         return candidate
-    targets = (CONFIG, KEYFILE, WG_CONFIG)
+    targets = (CONFIG, KEYFILE, WG_CONFIG, wireguard_auto.ROOT / "registration.json")
     before = {path: path.read_bytes() if path.exists() else None for path in targets}
     active_before = INTERFACE in run(["wg", "show", "interfaces"], False).split()
     backup = backup_profile()
@@ -427,7 +443,8 @@ def transactional_process(config, request):
             else:
                 path.write_bytes(content)
                 os.chmod(path, 0o600)
-        if changed or action in {"enable", "disable", "restart"}:
+        if changed or action in {
+                "enable", "disable", "restart", "delete-profile", "register-connect"}:
             try:
                 if before[KEYFILE] is not None:
                     run(["nmcli", "connection", "load", str(KEYFILE)])

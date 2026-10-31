@@ -1,15 +1,19 @@
 [Unit]
 Description=Witty Pi 4 RTC and power-management daemon
-After=local-fs.target systemd-modules-load.service
+After=local-fs.target systemd-modules-load.service time-sync.target
+ConditionPathExists=/dev/i2c-1
 Before=shutdown.target
 
 [Service]
 Type=simple
+Environment=TZ=UTC
+Environment=LC_ALL=C.UTF-8
+ExecStartPre=/usr/bin/python3 /opt/kronoskvm/scripts/wittypi-host.py prepare
 ExecStart=/opt/wittypi/daemon.sh
 WorkingDirectory=/opt/wittypi
-Restart=on-failure
-RestartSec=5
+Restart=no
 KillMode=control-group
+TimeoutStartSec=30
 
 [Install]
 WantedBy=multi-user.target

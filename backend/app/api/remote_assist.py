@@ -84,6 +84,12 @@ async def save_profile(request: Request):
     return queue({"action": "save", "profile": profile})
 
 
+@router.delete("/profile", status_code=202)
+def delete_profile(request: Request):
+    require_admin(request)
+    return queue({"action": "delete-profile"})
+
+
 @router.post("/{action}", status_code=202)
 async def control(action: Literal["enable", "disable", "boot-on", "boot-off"], request: Request):
     if not lcd_authenticated(request.scope, request.headers):

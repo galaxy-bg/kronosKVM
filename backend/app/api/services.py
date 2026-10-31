@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from backend.app.hardware.wittypi import snapshot as wittypi_snapshot
 from backend.app.services.tasks import finish_task, start_task
 
 router = APIRouter(prefix="/api/v1/services", tags=["services"])
@@ -105,13 +106,21 @@ def service_list() -> dict:
     services = []
     for service_id, name, description, restartable in CATALOG:
         state = live.get(service_id, {})
+        detail = state.get("detail")
+        if service_id == "wittypi":
+            board = wittypi_snapshot()
+            if board.get("present"):
+                rtc_status = ("RTC " + str(board.get("rtc_time_utc"))
+                              if board.get("rtc_valid") else "RTC needs initialization")
+                detail = (f"wittypi.service · Witty Pi 4 · firmware "
+                          f"{board.get('firmware_revision')} · {rtc_status}")
         services.append(
             {
                 "id": service_id,
                 "name": name,
                 "description": description,
                 "state": state.get("state", "unknown"),
-                "detail": state.get("detail"),
+                "detail": detail,
                 "controllable": service_id
                 in {"ssh", "tftp", "recovery_http", "recovery_ftp", "virtual_media"}
                 and state.get("state") != "not_installed",

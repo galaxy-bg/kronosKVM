@@ -521,3 +521,88 @@ Ayrıntılı mimari, API sınırları ve doğrulama kayıtları:
 - [wg komutları](https://git.zx2c4.com/wireguard-tools/about/src/man/wg.8)
 - [wg-quick ve SaveConfig](https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8)
 - [OpenSSH restrict, forced command ve expiry-time](https://man.openbsd.org/sshd.8#AUTHORIZED_KEYS_FILE_FORMAT)
+
+## Yerel profili silme
+
+Remote Assist → VPN settings → **Delete profile** ile onay vererek yerel
+profili silebilirsiniz. Aktif VPN önce kapatılır; NetworkManager profili,
+WireGuard kurtarma dosyası kaldırılır. Önceden onaylanmış, yalnızca public
+kayıt yanıtı açık bir geri yükleme işlemi için saklanır. Otomatik
+başlatma kapanır. Cihaz kimliği/anahtarı ve sunucudaki peer korunur. Sunucu
+erişimini iptal etmek için sunucu tarafında peer ayrıca kaldırılmalıdır.
+
+### Deploy doğrulaması — 2026-10-16
+
+Profil silme API, arayüz ve host controller güncellemesi cihaza uygulandı.
+API/web imajları yeniden oluşturuldu; cihaz reboot edilmedi. Yayınlanan JS
+düğmeyi içeriyor ve API DELETE rotası doğrulandı. İlk kontrol sırasında profil dosyasının SHA-256 özeti deploy öncesiyle aynıydı.
+Sonraki kontrolde başarılı bir silme sonucu, boş profil ve kapalı otomatik
+başlatma görüldü. Deploy doğrulaması sırasında ajan silme isteği göndermedi.
+İlgili 63 test ve Chrome onay/iptal akışı geçti.
+
+## 1–2–3–4 kurulum ve tekrar kayıt
+
+Remote Assist içindeki **VPN setup: 1 → 2 → 3 → 4** düğmesi Settings
+altındaki kılavuza götürür.
+
+1. **Device identity:** cihaz kimliğini oluşturun; mevcut kimlik yeniden kullanılır.
+2. **Server approval:** onay durumunu kontrol edin. Süreli SSH izni dolmuşsa
+   yöneticiden yeni izin veya onaylı JSON isteyin. Düğmenin pasif kalma nedeni
+   bu adımda gösterilir. Önceki onay mevcutsa yeni SSH izni gerekmez.
+3. **Install VPN profile:** yeni izin için Generate & Register; aynı cihazın
+   saklanan onayı için Restore previous registration; alternatif olarak onaylı
+   JSON veya sunucu ayarlarını kullanın. Kayıt yüklemek VPN'i açmaz.
+4. **Connect and verify:** Connect ile bağlanın; başarılı handshake durumunu
+   bekleyin. İsterseniz otomatik başlatmayı açın.
+
+Profil silmek sunucudaki peer'i silmez. Yerel profil ve otomatik başlatma
+temizlenirken public kayıt onayı saklanır; yalnızca kullanıcı adım 3'te
+geri yüklemeyi seçerse kullanılır. Sunucu peer'i kaldırılmış veya IP/endpoint
+değişmişse eski onayı geri yüklemek yerine yeni onay alın. Geri yükleme
+sunucu erişimini yeniden açamaz ve yeni bir peer oluşturmaz.
+
+2026-10-16 güncellemesi: dört adımlı akış ve onay geri yükleme cihaza
+deploy edildi. Önceki silme sürümünün temizlediği public yanıt, sunucunun
+mevcut kaydından yeniden okunup cihaz kimliğiyle eşleştirilerek saklandı.
+Profil kurulmadı ve VPN açılmadı; kullanıcı adım 3'te açıkça geri yükleyebilir.
+268 test, lint, Chrome kayıt/geri yükleme/onay süre aşımı ve mobil panel
+kontrolleri geçti.
+
+## Basit kullanıcı kurulumu
+
+Remote Assist → **Set up VPN** ekranında sunucu adresi, kullanıcı adı ve
+şifreyi girip **Register & connect** seçin. Cihaz kimliği otomatik hazırlanır,
+sunucudaki sabit kayıt komutu çağrılır, ayarlar yüklenir ve VPN açılır.
+Son durum gerçek handshake gelene kadar Connecting olarak gösterilir.
+İlk bağlantıda SSH sunucu kimliğini doğrulayın. Şifre dosyaya, host işlem
+kuyruğuna veya VPN ayarlarına kaydedilmez.
+
+SSH portu ve isteğe bağlı dış VPN endpoint'i Advanced connection settings
+altındadır. Normal kullanımda endpoint sunucunun ayarından alınır. Eski
+key/JSON ve dört adımlı kurulum Advanced / manual setup altında korunur.
+
+Sunucu yöneticisi bir kez `scripts/kdx-wg-register.py` ve
+`scripts/kdx-wg-server.py` dosyalarını root sahibiyle `/usr/local/sbin/`
+altına yüklemelidir (`0755`). `/etc/wireguard/kdx-registration.json`
+root sahibi ve `0600` izinli olmalıdır. Örnek:
+
+```json
+{"endpoint":"vpn.example.com:51820"}
+```
+
+Gerekirse bu dosyada `interface`, `config`, `registry`, `network`,
+`pool_start`, `pool_end` da ayarlanabilir. Varsayılanlar wg0,
+/etc/wireguard/wg0.conf, /etc/wireguard/kdx-peers.json ve 10.77.0.11–254
+havuzudur. Root dışındaki hesapların yalnızca bu sabit komutu `sudo -n`
+ile çalıştırma yetkisi bulunmalıdır. Komut stdin üzerinden yalnızca public
+kayıt isteği alır; aynı kayıt varsa peer'i değiştirmeden doğrulayıp döndürür.
+
+Sunucunun SSH yönetim adresi kutudan erişilebilir olmalıdır; dış WireGuard
+UDP erişimi tek başına SSH erişimini sağlamaz.
+
+2026-10-16 basit kurulum doğrulaması: 276 test, gerçek localhost SSH
+üzerinden şifreli kayıt/host key pinleme, Chrome sade form ve parola alanı
+temizliği kontrolleri geçti. Canlı sunucudaki sabit komut mevcut peer'i
+değiştirmeden doğru public yanıtı döndürdü; wg0.conf ve kayıt dosyası
+SHA-256 özetleri aynı kaldı. Kutudan yönetim adresi 172.12.2.74:22 erişimi
+halen başarısız; doğrudan şifreli kayıt için ağ erişimi ayrıca sağlanmalı.
