@@ -1,0 +1,15 @@
+[Unit]
+Description=Clean expired KDX authentication challenges and sessions
+After=postgresql.service
+[Service]
+Type=oneshot
+User=kdx-registration
+Group=kdx-registration
+WorkingDirectory=/opt/kdx-registration
+EnvironmentFile=/etc/kdx-registration/server.env
+ExecStart=/opt/kdx-registration/.venv/bin/python -m app.manage cleanup
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0077

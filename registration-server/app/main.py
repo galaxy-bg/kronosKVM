@@ -1,0 +1,905 @@
+import base64
+import logging
+import secrets
+import time
+from collections import defaultdict, deque
+from contextlib import asynccontextmanager
+from datetime import UTC, timedelta
+
+from cryptography.exceptions import InvalidSignature
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, sessionmaker
+
+from . import schemas as s
+from .config import Settings
+from .crypto import canonical, digest, load_signer, public_key, signed_document
+from .models import (
+    ActivationToken,
+    Administrator,
+    AuditLog,
+    Challenge,
+    Customer,
+    Device,
+    DeviceKey,
+    DeviceSession,
+    Installation,
+    License,
+    LicenseBinding,
+    RegistrationEvent,
+    now,
+    uid,
+)
+
+log = logging.getLogger("kdx.registration")
+log.setLevel(logging.INFO)
+log.addHandler(logging.StreamHandler())
+log.propagate = False
+bearer = HTTPBearer(auto_error=False)
+
+
+def utc(value):
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+
+def create_app(settings=None, engine=None, signer=None):
+    cfg = settings or Settings()
+    engine = engine or create_engine(cfg.database_url, pool_pre_ping=True)
+    sessions = sessionmaker(engine, expire_on_commit=False)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        if app.state.signer is None:
+            app.state.signer = load_signer(cfg.signing_key)
+        yield
+
+    app = FastAPI(title="KDX InfraBox Registration", version="1.0.0", lifespan=lifespan)
+    app.state.signer = signer
+    app.state.sessions = sessions
+    buckets = defaultdict(deque)
+
+    @app.middleware("http")
+    async def guard(request, call_next):
+        request_id = uid()
+        # No forwarded headers are trusted. Deployment uses a single worker.
+        ip = request.client.host if request.client else "unknown"
+        if request.url.path != "/health":
+            if not cfg.allow_lab_http and request.url.scheme != "https":
+                return JSONResponse({"detail": "HTTPS required"}, status_code=400)
+            if len(buckets) > 10000:
+                cutoff = time.monotonic() - 60
+                for key in list(buckets):
+                    if not buckets[key] or buckets[key][-1] < cutoff:
+                        del buckets[key]
+                if len(buckets) > 10000 and ip not in buckets:
+                    return JSONResponse({"detail": "Rate limit capacity reached"}, status_code=429)
+            bucket = buckets[ip]
+            tick = time.monotonic()
+            while bucket and bucket[0] < tick - 60:
+                bucket.popleft()
+            if len(bucket) >= cfg.rate_per_minute:
+                return JSONResponse(
+                    {"detail": "Rate limit exceeded"},
+                    status_code=429,
+                    headers={"Retry-After": "60"},
+                )
+            bucket.append(tick)
+            length = request.headers.get("content-length")
+            if length and (not length.isdigit() or int(length) > 16384):
+                return JSONResponse({"detail": "Request too large"}, status_code=413)
+            # Also bounds chunked requests; never log request bodies or credentials.
+            total = 0
+            chunks = []
+            async for chunk in request.stream():
+                total += len(chunk)
+                if total > 16384:
+                    return JSONResponse({"detail": "Request too large"}, status_code=413)
+                chunks.append(chunk)
+            request._body = b"".join(chunks)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        response.headers["Cache-Control"] = "no-store"
+        log.info(
+            canonical(
+                {
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                }
+            )
+        )
+        return response
+
+    def db():
+        with sessions() as session:
+            try:
+                # Serialize short state transitions across processes, including first enrollment.
+                # This avoids missing-row races and inconsistent capacity checks.
+                if engine.dialect.name == "postgresql":
+                    session.execute(text("SELECT pg_advisory_xact_lock(1464096837)"))
+                yield session
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                raise HTTPException(409, "Concurrent identity conflict; retry enrollment") from None
+
+    def audit(session, actor, action, target, detail):
+        session.add(AuditLog(actor=actor, action=action, target=target, detail=detail))
+
+    def event(session, device, kind, detail):
+        session.add(
+            RegistrationEvent(device_id=device.id if device else None, kind=kind, detail=detail)
+        )
+        audit(session, "device", kind, device.id if device else "unknown", detail)
+
+    def reject(session, device, kind, detail, status=403):
+        event(session, device, kind, detail)
+        session.commit()  # Persist security events and consumed challenges even on HTTP errors.
+        raise HTTPException(status, kind)
+
+    def admin(
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        value = session.scalar(
+            select(Administrator).where(
+                Administrator.token_hash == digest(credentials.credentials if credentials else "")
+            )
+        )
+        if not value or not value.active or utc(value.expires_at) <= now():
+            reject(session, None, "ADMIN_AUTH_DENIED", {}, 401)
+        return value
+
+    def writer(actor: Administrator = Depends(admin)):
+        if actor.role != "admin":
+            raise HTTPException(403, "Administrator role required")
+        return actor
+
+    def get_device(session, device_id):
+        value = session.get(Device, str(device_id))
+        if not value:
+            raise HTTPException(404, "Device not found")
+        return value
+
+    def license_for(session, device):
+        binding = session.get(LicenseBinding, device.id)
+        return session.get(License, binding.license_id) if binding else None
+
+    def state(session, device):
+        if device.archived_at:
+            return "REVOKED"
+        if device.status in {"REVOKED", "SUSPENDED", "PENDING", "ACTIVATION_REQUIRED"}:
+            return device.status
+        lic = license_for(session, device)
+        if not lic:
+            return "ACTIVATION_REQUIRED"
+        if lic.status != "ACTIVE":
+            return lic.status
+        if lic.expires_at and utc(lic.expires_at) <= now():
+            return "EXPIRED"
+        return "ACTIVE"
+
+    def identity(session, value):
+        inst = session.get(Installation, str(value.installation_id))
+        key = session.scalar(select(DeviceKey).where(DeviceKey.public_key == value.public_key))
+        if inst:
+            device = get_device(session, inst.device_id)
+            if device.serial != value.serial:
+                reject(session, device, "HARDWARE_MISMATCH", {"observed_serial": value.serial})
+            if not key or key.installation_id != inst.id:
+                reject(session, device, "IDENTITY_MISMATCH", {})
+            return device, inst, key
+        if key:
+            reject(
+                session,
+                get_device(session, session.get(Installation, key.installation_id).device_id),
+                "KEY_REUSE",
+                {},
+            )
+        return None, None, None
+
+    def consume(session, value, purpose):
+        challenge = session.get(Challenge, str(value.challenge_id))
+        if not challenge or challenge.used_at or utc(challenge.expires_at) <= now():
+            reject(session, None, "INVALID_OR_REPLAYED_CHALLENGE", {}, 401)
+        challenge.used_at = now()
+        device = get_device(session, challenge.device_id)
+        if challenge.purpose != purpose:
+            reject(session, device, "WRONG_CHALLENGE_PURPOSE", {}, 401)
+        key = session.get(DeviceKey, challenge.key_id)
+        try:
+            public_key(key.public_key).verify(
+                base64.b64decode(value.signature), challenge.message.encode()
+            )
+        except (InvalidSignature, ValueError):
+            reject(session, device, "INVALID_SIGNATURE", {}, 401)
+        if challenge.serial != device.serial:
+            reject(session, device, "HARDWARE_MISMATCH", {})
+        return device, session.get(Installation, challenge.installation_id), key
+
+    def identity_status(session, device, inst, key):
+        if device.archived_at:
+            return "REVOKED"
+        status = state(session, device)
+        if not inst.current or not key.current:
+            pending_token = session.scalar(
+                select(ActivationToken).where(
+                    ActivationToken.installation_id == inst.id,
+                    ActivationToken.key_id == key.id,
+                    ActivationToken.used_at.is_(None),
+                    ActivationToken.expires_at > now(),
+                )
+            )
+            status = "ACTIVATION_REQUIRED" if pending_token else "PENDING"
+        return status
+
+    def authorize(session, device, inst, key):
+        status = identity_status(session, device, inst, key)
+        result = {
+            "device_id": device.id,
+            "status": status,
+            "ssid": "infrabox-" + device.serial[-8:],
+        }
+        if status == "ACTIVE":
+            lic = license_for(session, device)
+            issued = now()
+            expires = issued + timedelta(seconds=cfg.offline_grace_seconds)
+            if lic.expires_at:
+                expires = min(expires, utc(lic.expires_at))
+            lic.last_validated_at = issued
+            device.last_seen = issued
+            payload = {
+                "v": 1,
+                "aud": cfg.audience,
+                "device_id": device.id,
+                "serial": device.serial,
+                "installation_id": inst.id,
+                "key_hash": digest(key.public_key),
+                "license_id": lic.id,
+                "status": "ACTIVE",
+                "issued_at": int(issued.timestamp()),
+                "expires_at": int(expires.timestamp()),
+            }
+            result["authorization"] = signed_document(app.state.signer, payload)
+            token = secrets.token_urlsafe(32)
+            session.add(
+                DeviceSession(
+                    token_hash=digest(token),
+                    device_id=device.id,
+                    installation_id=inst.id,
+                    key_id=key.id,
+                    expires_at=issued + timedelta(seconds=cfg.device_session_seconds),
+                )
+            )
+            result["session_token"] = token
+        return result
+
+    def device_session(
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        value = session.get(DeviceSession, digest(credentials.credentials if credentials else ""))
+        if not value or utc(value.expires_at) <= now():
+            raise HTTPException(401, "Valid device session required")
+        device = get_device(session, value.device_id)
+        inst = session.get(Installation, value.installation_id)
+        key = session.get(DeviceKey, value.key_id)
+        if not inst.current or not key.current:
+            raise HTTPException(403, "Identity no longer bound")
+        return device, inst, key
+
+    @app.get("/health")
+    def health():
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return {"status": "ok", "service": "kdx-registration", "version": "1.0.0"}
+
+    @app.post("/api/v1/devices/enroll")
+    def enroll(value: s.Enroll, session: Session = Depends(db, scope="function")):
+        device, inst, key = identity(session, value)
+        if not inst:
+            device = session.scalar(select(Device).where(Device.serial == value.serial))
+            if not device:
+                device = Device(serial=value.serial, model=value.model, firmware=value.firmware)
+                session.add(device)
+                session.flush()
+            inst = Installation(id=str(value.installation_id), device_id=device.id)
+            session.add(inst)
+            session.flush()
+            key = DeviceKey(installation_id=inst.id, public_key=value.public_key)
+            session.add(key)
+            event(session, device, "ENROLLMENT_REQUESTED", {"installation_id": inst.id})
+        result = {
+            "device_id": device.id,
+            "installation_id": inst.id,
+            "status": identity_status(session, device, inst, key),
+            "ssid": "infrabox-" + value.serial[-8:],
+        }
+        return result
+
+    @app.post("/api/v1/devices/challenge")
+    def challenge(value: s.ChallengeInput, session: Session = Depends(db, scope="function")):
+        device, inst, key = identity(session, value)
+        if not inst:
+            raise HTTPException(404, "Enroll first")
+        ident = uid()
+        expires = now() + timedelta(seconds=cfg.challenge_seconds)
+        message = canonical(
+            {
+                "v": 1,
+                "aud": cfg.audience,
+                "challenge_id": ident,
+                "nonce": secrets.token_urlsafe(32),
+                "serial": value.serial,
+                "installation_id": inst.id,
+                "key_hash": digest(key.public_key),
+                "purpose": value.purpose,
+                "expires_at": int(expires.timestamp()),
+            }
+        )
+        session.add(
+            Challenge(
+                id=ident,
+                device_id=device.id,
+                installation_id=inst.id,
+                key_id=key.id,
+                serial=value.serial,
+                purpose=value.purpose,
+                message=message,
+                expires_at=expires,
+            )
+        )
+        return {"challenge_id": ident, "message": message, "expires_at": expires}
+
+    @app.post("/api/v1/devices/verify")
+    def verify(value: s.Proof, session: Session = Depends(db, scope="function")):
+        device, inst, key = consume(session, value, "authenticate")
+        event(session, device, "AUTHENTICATED", {"installation_id": inst.id})
+        return authorize(session, device, inst, key)
+
+    @app.post("/api/v1/devices/activate")
+    def activate(value: s.Activate, session: Session = Depends(db, scope="function")):
+        device, inst, key = consume(session, value, "activate")
+        token = session.scalar(
+            select(ActivationToken).where(
+                ActivationToken.token_hash == digest(value.activation_token)
+            )
+        )
+        if (
+            not token
+            or utc(token.expires_at) <= now()
+            or token.device_id != device.id
+            or token.installation_id != inst.id
+            or token.key_id != key.id
+        ):
+            reject(session, device, "INVALID_ACTIVATION_TOKEN", {}, 401)
+        if token.used_at:
+            # A retry uses a fresh signed challenge. It can never rebind an old identity.
+            if (
+                inst.current
+                and key.current
+                and device.status == "ACTIVE"
+                and license_for(session, device).id == token.license_id
+            ):
+                return authorize(session, device, inst, key)
+            reject(session, device, "TOKEN_ALREADY_USED", {}, 409)
+        if device.status in {"REVOKED", "SUSPENDED"}:
+            reject(session, device, device.status, {})
+        lic = session.get(License, token.license_id)
+        active_customer(session, lic.customer_id)
+        if lic.status != "ACTIVE" or (lic.expires_at and utc(lic.expires_at) <= now()):
+            reject(session, device, "LICENSE_UNAVAILABLE", {})
+        binding = session.get(LicenseBinding, device.id)
+        if binding and binding.license_id != lic.id:
+            reject(session, device, "ADMIN_REASSIGNMENT_REQUIRED", {}, 409)
+        count = session.scalar(
+            select(func.count())
+            .select_from(LicenseBinding)
+            .where(LicenseBinding.license_id == lic.id)
+        )
+        if not binding and count >= lic.max_devices:
+            reject(session, device, "LICENSE_CAPACITY_REACHED", {}, 409)
+        other = session.scalar(
+            select(Installation).where(
+                Installation.device_id == device.id, Installation.current.is_(True)
+            )
+        )
+        if other and other.id != inst.id:
+            reject(session, device, "ADMIN_RECOVERY_REQUIRED", {}, 409)
+        if not binding:
+            session.add(LicenseBinding(device_id=device.id, license_id=lic.id))
+        inst.current = key.current = True
+        device.status = "ACTIVE"
+        device.customer_id = lic.customer_id
+        token.used_at = now()
+        session.flush()
+        event(session, device, "ACTIVATED", {"license_id": lic.id, "installation_id": inst.id})
+        return authorize(session, device, inst, key)
+
+    @app.get("/api/v1/devices/status")
+    def status(identity=Depends(device_session), session: Session = Depends(db, scope="function")):
+        device, inst, key = identity
+        return {
+            "device_id": device.id,
+            "status": state(session, device),
+            "installation_id": inst.id,
+        }
+
+    @app.post("/api/v1/devices/heartbeat")
+    def heartbeat(
+        identity=Depends(device_session), session: Session = Depends(db, scope="function")
+    ):
+        return authorize(session, *identity)
+
+    @app.post("/api/v1/admin/customers")
+    def customer(
+        value: s.CustomerInput,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        item = Customer(**value.model_dump())
+        session.add(item)
+        session.flush()
+        audit(session, actor.name, "CUSTOMER_CREATED", item.id, {})
+        return {"id": item.id, "name": item.name}
+
+    @app.post("/api/v1/admin/licenses")
+    def license_create(
+        value: s.LicenseInput,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        customer_record = session.get(Customer, str(value.customer_id))
+        if not customer_record or customer_record.archived_at:
+            raise HTTPException(404, "Active customer not found")
+        if value.kind != "PERPETUAL" and value.expires_at is None:
+            raise HTTPException(422, "Expiration required")
+        if value.expires_at and value.expires_at <= now():
+            raise HTTPException(422, "Expiration must be in the future")
+        item = License(
+            **value.model_dump(exclude={"customer_id"}), customer_id=str(value.customer_id)
+        )
+        session.add(item)
+        session.flush()
+        audit(session, actor.name, "LICENSE_CREATED", item.id, {})
+        return {"id": item.id, "status": item.status}
+
+    def customer_summary(item):
+        return {"id": item.id, "name": item.name, "contact_name": item.contact_name,
+                "email": item.email, "phone": item.phone, "email_verified": item.email_verified,
+                "archived_at": item.archived_at}
+
+    def active_customer(session, ident):
+        item = session.get(Customer, str(ident))
+        if not item or item.archived_at:
+            raise HTTPException(409, "Active customer required")
+        return item
+
+    def editable_device(session, ident):
+        item = get_device(session, ident)
+        if item.archived_at:
+            raise HTTPException(409, "Restore archived device before management")
+        return item
+
+    @app.patch("/api/v1/admin/customers/{customer_id}")
+    def customer_update(customer_id: str, value: s.CustomerUpdate, actor=Depends(writer),
+                        session: Session = Depends(db, scope="function")):
+        item = active_customer(session, customer_id)
+        changes = value.model_dump(exclude={"reason"})
+        if item.email != changes["email"]:
+            item.email_verified = False
+        for key, val in changes.items():
+            setattr(item, key, val)
+        audit(session, actor.name, "CUSTOMER_UPDATED", item.id, {"reason": value.reason})
+        return customer_summary(item)
+
+    @app.post("/api/v1/admin/customers/{customer_id}/{action}")
+    def customer_lifecycle(customer_id: str, action: str, value: s.Reason,
+                           actor=Depends(writer), session: Session = Depends(db, scope="function")):
+        item = session.get(Customer, customer_id)
+        if not item or action not in {"archive", "restore"}:
+            raise HTTPException(404, "Customer not found")
+        if action == "archive":
+            licenses = session.scalars(select(License).where(License.customer_id == item.id))
+            if any(l.status == "ACTIVE" and (not l.expires_at or utc(l.expires_at) > now()) for l in licenses):
+                raise HTTPException(409, "Suspend or revoke active customer licenses before archival")
+            if session.scalar(select(Device.id).where(Device.customer_id == item.id,
+                    Device.archived_at.is_(None), Device.status.in_(["ACTIVE", "SUSPENDED"])).limit(1)):
+                raise HTTPException(409, "Release active device association before customer archival")
+            item.archived_at = item.archived_at or now()
+        else:
+            item.archived_at = None
+        audit(session, actor.name, "CUSTOMER_" + action.upper(), item.id, value.model_dump())
+        return customer_summary(item)
+
+    @app.post("/api/v1/admin/devices")
+    def device_create(value: s.DeviceCreate, actor=Depends(writer),
+                      session: Session = Depends(db, scope="function")):
+        if session.scalar(select(Device).where(Device.serial == value.serial)):
+            raise HTTPException(409, "Hardware serial already registered; inspect existing record")
+        if value.customer_id:
+            active_customer(session, value.customer_id)
+        item = Device(serial=value.serial, model=value.model, firmware="not-enrolled",
+                      display_name=value.display_name, notes=value.notes,
+                      customer_id=str(value.customer_id) if value.customer_id else None, status="PENDING")
+        session.add(item)
+        session.flush()
+        audit(session, actor.name, "DEVICE_CREATED", item.id, {"serial": item.serial})
+        return summary(session, item)
+
+    @app.patch("/api/v1/admin/devices/{device_id}")
+    def device_update(device_id: str, value: s.DeviceUpdate, actor=Depends(writer),
+                      session: Session = Depends(db, scope="function")):
+        item = editable_device(session, device_id)
+        lic = license_for(session, item)
+        customer_id = str(value.customer_id) if value.customer_id else None
+        if lic and customer_id != lic.customer_id:
+            raise HTTPException(409, "Use controlled reassignment to change licensed device ownership")
+        if customer_id:
+            active_customer(session, customer_id)
+        item.display_name, item.notes, item.customer_id = value.display_name, value.notes, customer_id
+        audit(session, actor.name, "DEVICE_UPDATED", item.id, {"reason": value.reason})
+        return summary(session, item)
+
+    @app.post("/api/v1/admin/devices/{device_id}/archive")
+    def device_archive(device_id: str, value: s.Reason, actor=Depends(writer),
+                       session: Session = Depends(db, scope="function")):
+        item = get_device(session, device_id)
+        if state(session, item) == "ACTIVE":
+            raise HTTPException(409, "Revoke or suspend active device before archival")
+        item.archived_at, item.status = item.archived_at or now(), "REVOKED"
+        for token in session.scalars(select(ActivationToken).where(
+                ActivationToken.device_id == item.id, ActivationToken.used_at.is_(None))):
+            token.expires_at = now()
+        audit(session, actor.name, "DEVICE_ARCHIVE", item.id, value.model_dump())
+        return summary(session, item)
+
+    @app.post("/api/v1/admin/devices/{device_id}/restore")
+    def device_restore(device_id: str, value: s.Reason, actor=Depends(writer),
+                       session: Session = Depends(db, scope="function")):
+        item = get_device(session, device_id)
+        item.archived_at = None
+        audit(session, actor.name, "DEVICE_RESTORE", item.id, value.model_dump())
+        return summary(session, item)
+
+    def license_summary(session, lic):
+        customer = session.get(Customer, lic.customer_id)
+        bindings = list(
+            session.scalars(select(LicenseBinding).where(LicenseBinding.license_id == lic.id))
+        )
+        status = lic.status
+        if status == "ACTIVE" and lic.expires_at and utc(lic.expires_at) <= now():
+            status = "EXPIRED"
+        return {
+            "id": lic.id,
+            "customer_id": lic.customer_id,
+            "customer_name": customer.name if customer else None,
+            "kind": lic.kind,
+            "status": status,
+            "issued_at": lic.issued_at,
+            "expires_at": lic.expires_at,
+            "max_devices": lic.max_devices,
+            "last_validated_at": lic.last_validated_at,
+            "device_ids": [b.device_id for b in bindings],
+            "used_devices": len(bindings),
+        }
+
+    @app.get("/api/v1/admin/session")
+    def administrator_session(actor=Depends(admin)):
+        return {"name": actor.name, "role": actor.role, "expires_at": actor.expires_at}
+
+    @app.get("/api/v1/admin/customers")
+    def customer_list(
+        offset: int = 0,
+        limit: int = 200,
+        include_archived: bool = False,
+        actor=Depends(admin),
+        session: Session = Depends(db, scope="function"),
+    ):
+        if offset < 0 or not 1 <= limit <= 200:
+            raise HTTPException(422, "Invalid pagination")
+        return [
+            customer_summary(c)
+            for c in session.scalars(
+                select(Customer).where(True if include_archived else Customer.archived_at.is_(None))
+                .order_by(Customer.name, Customer.id).offset(offset).limit(limit)
+            )
+        ]
+
+    @app.get("/api/v1/admin/licenses")
+    def license_list(
+        offset: int = 0,
+        limit: int = 200,
+        actor=Depends(admin),
+        session: Session = Depends(db, scope="function"),
+    ):
+        if offset < 0 or not 1 <= limit <= 200:
+            raise HTTPException(422, "Invalid pagination")
+        return [
+            license_summary(session, lic)
+            for lic in session.scalars(
+                select(License)
+                .order_by(License.issued_at.desc(), License.id)
+                .offset(offset)
+                .limit(limit)
+            )
+        ]
+
+    @app.get("/api/v1/admin/events")
+    def event_list(
+        offset: int = 0,
+        limit: int = 100,
+        actor=Depends(admin),
+        session: Session = Depends(db, scope="function"),
+    ):
+        if offset < 0 or not 1 <= limit <= 200:
+            raise HTTPException(422, "Invalid pagination")
+        return [
+            {
+                "id": e.id,
+                "actor": e.actor,
+                "action": e.action,
+                "target": e.target,
+                "detail": e.detail,
+                "created_at": e.created_at,
+            }
+            for e in session.scalars(
+                select(AuditLog)
+                .order_by(AuditLog.created_at.desc(), AuditLog.id)
+                .offset(offset)
+                .limit(limit)
+            )
+        ]
+
+    def summary(session, device):
+        lic = license_for(session, device)
+        customer = session.get(Customer, device.customer_id) if device.customer_id else None
+        pending_ids = [
+            i.id
+            for i in session.scalars(
+                select(Installation).where(
+                    Installation.device_id == device.id, Installation.current.is_(False)
+                )
+            )
+            if not session.scalar(
+                select(ActivationToken.id)
+                .where(
+                    ActivationToken.installation_id == i.id, ActivationToken.used_at.is_not(None)
+                )
+                .limit(1)
+            )
+        ]
+        return {
+            "id": device.id,
+            "serial": device.serial,
+            "model": device.model,
+            "firmware": device.firmware,
+            "display_name": device.display_name, "notes": device.notes,
+            "archived_at": device.archived_at,
+            "status": state(session, device),
+            "customer_id": device.customer_id,
+            "license_id": lic.id if lic else None,
+            "last_seen": device.last_seen,
+            "ssid": "infrabox-" + device.serial[-8:],
+            "pending_installations": pending_ids,
+            "customer": {"id": customer.id, "name": customer.name} if customer else None,
+            "license": license_summary(session, lic) if lic else None,
+        }
+
+    @app.get("/api/v1/admin/devices")
+    def devices(
+        offset: int = 0,
+        limit: int = 100,
+        include_archived: bool = False,
+        actor=Depends(admin),
+        session: Session = Depends(db, scope="function"),
+    ):
+        if offset < 0 or not 1 <= limit <= 200:
+            raise HTTPException(422, "Invalid pagination")
+        return [
+            summary(session, d)
+            for d in session.scalars(
+                select(Device).where(True if include_archived else Device.archived_at.is_(None))
+                .order_by(Device.created_at, Device.id).offset(offset).limit(limit)
+            )
+        ]
+
+    @app.get("/api/v1/admin/devices/{device_id}")
+    def device_detail(
+        device_id: str, actor=Depends(admin), session: Session = Depends(db, scope="function")
+    ):
+        device = get_device(session, device_id)
+        result = summary(session, device)
+        result["installations"] = [
+            {
+                "id": i.id,
+                "current": i.current,
+                "keys": [
+                    {"public_key": k.public_key, "current": k.current}
+                    for k in session.scalars(
+                        select(DeviceKey).where(DeviceKey.installation_id == i.id)
+                    )
+                ],
+            }
+            for i in session.scalars(
+                select(Installation).where(Installation.device_id == device.id)
+            )
+        ]
+        result["events"] = [
+            {"kind": e.kind, "detail": e.detail, "created_at": e.created_at}
+            for e in session.scalars(
+                select(RegistrationEvent)
+                .where(RegistrationEvent.device_id == device.id)
+                .order_by(RegistrationEvent.created_at.desc())
+                .limit(100)
+            )
+        ]
+        return result
+
+    @app.post("/api/v1/admin/devices/{device_id}/approve")
+    def approve(
+        device_id: str,
+        value: s.Approval,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        device = editable_device(session, device_id)
+        if device.status in {"REVOKED", "SUSPENDED"}:
+            raise HTTPException(409, "Explicit reassignment required")
+        inst = session.get(Installation, str(value.installation_id))
+        key = session.scalar(select(DeviceKey).where(DeviceKey.public_key == value.public_key))
+        lic = session.get(License, str(value.license_id))
+        if (
+            not inst
+            or inst.device_id != device.id
+            or not key
+            or key.installation_id != inst.id
+            or not lic
+        ):
+            raise HTTPException(422, "Invalid approval binding")
+        current = session.scalar(
+            select(Installation).where(
+                Installation.device_id == device.id, Installation.current.is_(True)
+            )
+        )
+        if current and current.id != inst.id:
+            raise HTTPException(409, "Explicit recovery/reassignment required")
+        if session.scalar(
+            select(DeviceKey).where(
+                DeviceKey.installation_id == inst.id,
+                DeviceKey.current.is_(True),
+                DeviceKey.id != key.id,
+            )
+        ):
+            raise HTTPException(409, "Explicit key reassignment required")
+        active_customer(session, lic.customer_id)
+        if lic.status != "ACTIVE" or (lic.expires_at and utc(lic.expires_at) <= now()):
+            raise HTTPException(409, "License unavailable")
+        token = secrets.token_urlsafe(32)
+        session.add(
+            ActivationToken(
+                token_hash=digest(token),
+                device_id=device.id,
+                installation_id=inst.id,
+                key_id=key.id,
+                license_id=lic.id,
+                expires_at=now() + timedelta(seconds=value.token_ttl_seconds),
+            )
+        )
+        if device.status != "ACTIVE":
+            device.status = "ACTIVATION_REQUIRED"
+        audit(
+            session,
+            actor.name,
+            "APPROVED",
+            device.id,
+            {"reason": value.reason, "installation_id": inst.id, "license_id": lic.id},
+        )
+        return {"activation_token": token, "expires_in": value.token_ttl_seconds}
+
+    @app.post("/api/v1/admin/devices/{device_id}/suspend")
+    def suspend(
+        device_id: str,
+        value: s.Reason,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        device = editable_device(session, device_id)
+        device.status = "SUSPENDED"
+        audit(session, actor.name, "SUSPENDED", device.id, value.model_dump())
+        return {"status": device.status}
+
+    @app.post("/api/v1/admin/devices/{device_id}/revoke")
+    def revoke(
+        device_id: str,
+        value: s.Reason,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        device = editable_device(session, device_id)
+        device.status = "REVOKED"
+        audit(session, actor.name, "REVOKED", device.id, value.model_dump())
+        return {"status": device.status}
+
+    @app.post("/api/v1/admin/devices/{device_id}/reassign")
+    def reassign(
+        device_id: str,
+        value: s.Reason,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        # Release identity/license; approval then chooses an enrolled replacement.
+        # Hardware serial is immutable; other hardware requires a separate device record.
+        device = editable_device(session, device_id)
+        for inst in session.scalars(
+            select(Installation).where(Installation.device_id == device.id)
+        ):
+            inst.current = False
+            for key in session.scalars(
+                select(DeviceKey).where(DeviceKey.installation_id == inst.id)
+            ):
+                key.current = False
+        for token in session.scalars(
+            select(ActivationToken).where(
+                ActivationToken.device_id == device.id, ActivationToken.used_at.is_(None)
+            )
+        ):
+            token.expires_at = now()
+        binding = session.get(LicenseBinding, device.id)
+        if binding:
+            session.delete(binding)
+        device.status = "PENDING"
+        device.customer_id = None
+        audit(session, actor.name, "REASSIGNED_RELEASED", device.id, value.model_dump())
+        return {"status": device.status, "next": "Approve replacement installation explicitly"}
+
+    @app.post("/api/v1/admin/licenses/{license_id}/renew")
+    def renew(
+        license_id: str,
+        value: s.Renewal,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        lic = session.get(License, license_id)
+        if not lic:
+            raise HTTPException(404, "License not found")
+        active_customer(session, lic.customer_id)
+        if lic.status == "REVOKED" or value.expires_at <= now():
+            raise HTTPException(409, "Cannot renew revoked license or use a past expiration")
+        lic.expires_at = value.expires_at
+        audit(
+            session,
+            actor.name,
+            "LICENSE_RENEWED",
+            lic.id,
+            {"reason": value.reason, "expires_at": value.expires_at.isoformat()},
+        )
+        return {"id": lic.id, "expires_at": lic.expires_at}
+
+    @app.post("/api/v1/admin/licenses/{license_id}/{action}")
+    def license_control(
+        license_id: str,
+        action: str,
+        value: s.Reason,
+        actor=Depends(writer),
+        session: Session = Depends(db, scope="function"),
+    ):
+        lic = session.get(License, license_id)
+        if not lic or action not in {"suspend", "revoke", "resume"}:
+            raise HTTPException(404, "Not found")
+        if lic.status == "REVOKED":
+            raise HTTPException(409, "Issue a new license after revocation")
+        if action == "resume":
+            active_customer(session, lic.customer_id)
+        lic.status = {"suspend": "SUSPENDED", "revoke": "REVOKED", "resume": "ACTIVE"}[action]
+        audit(session, actor.name, "LICENSE_" + action.upper(), lic.id, value.model_dump())
+        return {"id": lic.id, "status": lic.status}
+
+    return app
+
+
+app = create_app()

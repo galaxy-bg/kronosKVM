@@ -12,6 +12,8 @@ class HealthResponse(BaseModel):
 class SystemInfo(BaseModel):
     hostname: str
     model: str
+    serial: Optional[str] = None
+    hardware_model: Optional[str] = None
     architecture: str
     kernel: str
     uptime_seconds: int

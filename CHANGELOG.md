@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+- Add the central registration/licensing service with Ed25519 device proofs, explicit
+  administrator approval, single-use activation, offline grace and audited recovery.
+- Connect the real InfraBox agent over verified WAN HTTPS and expose a non-secret
+  registration/license status card in appliance Settings.
+- Add the management dashboard, customer contact fields, device metadata editing,
+  reversible archival and migration 0002 while preserving existing license bindings.
+- Add restricted read-only WireGuard telemetry with registered-device/customer matching.
+- Publish static assets with explicit public permissions to prevent dashboard page errors.
+
+- Release HDMI capture locks after startup failures, stop stalled encoders and
+  reconnect stalled browser streams. Show HDMI cable detection separately from
+  video signal status; update the displayed application version to 0.3.46.
+
+- Integrate standard Witty Pi 4 RTC and power daemon with verified source/GPIO
+  packages, guarded UART/button preflight, UTC RTC synchronization that preserves
+  NTP, and actual MCU RTC status in the hardware API and Services page.
+
+- Add a simple server-address/username/password VPN setup form with automatic
+  identity, server registration, profile installation and connection. Keep SSH
+  credentials in memory and pin the confirmed server identity before login.
+
+- Guide VPN setup through four numbered steps, explain expired/missing approvals,
+  and support explicitly restoring the previous device-bound public registration
+  after deleting a local profile.
+- Add confirmed Remote Assist profile deletion with tunnel shutdown and rollback.
+
+- Show the full hardware serial in Appliance status for production labels and
+  display Raspberry Pi 4 appliances as Galaxy-RP4; retain board details in the API.
+
 - Add persistent Standard (2.4 GHz) and Performance (5 GHz) AP modes in Settings,
   actual radio frequency/width status, and automatic Standard fallback when
   5 GHz cannot start. Keep SSID, credentials and customer-network routing.

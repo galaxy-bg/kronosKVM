@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-PINS = {"up": 5, "down": 6, "ok": 13, "back": 19}
+# Physical enclosure order: down, up, menu/select, back to top level.
+PINS = {"down": 5, "up": 6, "ok": 19, "back": 13}
 ITEMS = (
     ("Destegi ac", "enable"),
     ("Destegi kapat", "disable"),
@@ -169,137 +170,169 @@ class Menu:
         return ("Remote Assist", states.get(self.status.get("state"), "Durum bilinmiyor"))
 
 
-SECTIONS = (
-    "Dashboard", "Sessions", "Storage", "Recovery", "Remote Assist",
-    "Tasks", "Services", "Logs", "Settings",
-)
-SECTION_PATHS = {
-    "Dashboard": "/system/info", "Sessions": "/connections", "Storage": "/storage",
-    "Recovery": "/recovery", "Tasks": "/tasks", "Services": "/services",
-    "Logs": "/logs?limit=8", "Settings": "/system/network",
-}
+SECTIONS = ("Status", "Network", "Remote Assist", "System")
 
 
 class MainMenu:
-    """UI section navigation around the existing confirmed Remote Assist controls."""
+    """Small local operations UI; hardware work is delegated to an async client."""
 
-    def __init__(self, client):
+    def __init__(self, client, clock=time.monotonic):
         self.client = client
-        self.remote = Menu(client)
+        self.clock = clock
+        self.remote = Menu(client)  # Retained for renderer compatibility.
         self.selected = 0
-        self.section = None
+        self.section = "Status"
+        self.page = None
         self.offset = 0
         self.details = []
-        self.next_detail = 0
+        self.data = {}
+        self.confirm = None
+        self.confirm_selected = 0
+        self.confirm_until = 0
+        self.pending = None
+        self.message = ""
+        self.last_input = clock()
 
     def refresh(self):
-        self.remote.refresh()
-        if self.section in SECTION_PATHS and time.monotonic() >= self.next_detail:
-            self.next_detail = time.monotonic() + 5
-            try:
-                value = self.client.get(SECTION_PATHS[self.section])
-                self.details = self.summarize(self.section, value)
-                if self.section == "Dashboard":
-                    try:
-                        network = self.client.get("/system/network")
-                        rows = []
-                        interfaces = sorted(network.get("interfaces", []),
-                                            key=lambda item: item["name"] != "eth0")
-                        for item in interfaces:
-                            if item["name"] == "lo":
-                                continue
-                            label = {"eth0": "ETH", "br-recovery": "AP"}.get(
-                                item["name"], item["name"],
-                            )
-                            rows.extend(f"{label}: {address.split('/')[0]}"
-                                        for address in item.get("addresses", [])
-                                        if ":" not in address)
-                        self.details[1:1] = rows
-                    except (OSError, ValueError, TypeError, KeyError):
-                        self.details.insert(1, "Ag bilgisi alinamadi")
-            except (OSError, ValueError, TypeError, KeyError, AttributeError):
-                self.details = ["Durum alinamiyor", "OK: Tekrar dene"]
-            self.offset = min(self.offset, max(0, len(self.details) - 4))
+        self.data = self.client.snapshot()
+        self.remote.status = self.data.get("vpn", {})
+        now = self.clock()
+        if self.confirm and now >= self.confirm_until:
+            self.confirm = None
+        result = self.data.get("result", {})
+        if self.pending and result.get("request_id") == self.pending:
+            self.message = result.get("message", "Completed" if result.get("ok") else "Failed")
+            self.pending = None
+        if now - self.last_input >= 30 and not self.pending:
+            self.section, self.page, self.offset = "Status", None, 0
+            self.confirm, self.message = None, ""
+        self.details = self.rows()
+        self.offset = min(self.offset, max(0, len(self.details) - 4))
 
-    @staticmethod
-    def summarize(section, value):
-        if section == "Dashboard":
-            minutes = int(value["uptime_seconds"]) // 60
-            return [value["hostname"], f"Uptime: {minutes // 60}h {minutes % 60}m",
-                    f"Load: {value['load_average'][0]:.2f}", value["model"]]
-        if section == "Sessions":
-            return [f"Kayitli profil: {len(value)}", "Oturum: Web UI"] + [
-                str(item.get("name", "Profil")) for item in value[:20]
-            ]
-        if section == "Storage":
-            return [str(value["status"]), f"Dosya: {value['file_count']}",
-                    f"Bos: {value['free_bytes'] / 1024**3:.1f} GiB",
-                    f"Toplam: {value['total_bytes'] / 1024**3:.1f} GiB"]
-        if section == "Recovery":
-            return [value["address"], f"Dosya: {len(value['files'])}", "HTTP / TFTP / FTP",
-                    "Yonetim: Web UI"]
-        if section == "Tasks":
-            tasks = value["tasks"][:20]
-            return [f"{item['status']}: {item['title']}" for item in tasks] or ["Gorev yok"]
-        if section == "Services":
-            return [f"{item['state']}: {item['id']}" for item in value["services"]]
-        if section == "Logs":
-            return [str(item.get("level", "")) + ": "
-                    + str(item.get("event") or item.get("message", ""))
-                    for item in value["entries"]] or ["Kayit yok"]
-        if section == "Settings":
-            rows = []
-            for item in value["interfaces"]:
-                rows.append(item["name"] + ": " + item["state"])
-                rows.extend(item["addresses"])
-            return rows or ["Ag bilgisi yok"]
+    def options(self):
+        if self.section == "Network":
+            return [("Network Diagnostics", "diagnostics"),
+                    ("Wi-Fi AP: " + ("Disable" if self.data.get("ap_enabled") else "Enable"),
+                     "ap-off" if self.data.get("ap_enabled") else "ap-on"),
+                    ("Customer: " +
+                     ("Disable" if self.data.get("access", {}).get("enabled") else "Enable"),
+                     "access-off" if self.data.get("access", {}).get("enabled") else "access-on")]
+        if self.section == "Remote Assist":
+            active = self.data.get("vpn", {}).get("enabled", False)
+            return [("VPN Status", "vpn-status"),
+                    ("Disconnect" if active else "Connect", "disconnect" if active else "connect")]
+        if self.section == "System":
+            return [("Device Information", "device"), ("Service Health", "services"),
+                    ("Restart", "reboot"), ("Shutdown", "poweroff")]
         return []
+
+    def rows(self):
+        d = self.data
+        if self.page == "diagnostics":
+            return d.get("diagnostics", ["OK: Run diagnostics"])
+        if self.page == "vpn-status":
+            vpn = d.get("vpn", {})
+            return ["VPN: " + str(vpn.get("state", "unavailable")),
+                    "IP: " + str((vpn.get("profile") or {}).get("address") or "--"),
+                    "Profile: " + str((vpn.get("profile") or {}).get("name", "Missing"))]
+        if self.page == "device":
+            info = d.get("info", {})
+            return [str(info.get("hostname", "Unavailable")),
+                    "Model: " + str(info.get("model", "--")),
+                    "S/N: " + str(info.get("serial", "--")),
+                    "Uptime: " + str(int(info.get("uptime_seconds", 0)) // 60) + " min",
+                    "Release: " + str(d.get("release", "--"))]
+        if self.page == "services":
+            return d.get("services", ["Unavailable"])
+        errors = d.get("errors", [])
+        return (["Error: " + str(errors[0]) if errors else
+                 ("System Ready" if d.get("ready") else "Starting / Unavailable")]
+                + ["ETH: " + str(d.get("ethernet_ip", "No IP")),
+                   "Wi-Fi AP: " + ("ON" if d.get("ap_enabled") else "OFF"),
+                   "Customer Access: " + str(d.get("access", {}).get("state", "Unavailable")),
+                   "VPN: " + str(d.get("vpn", {}).get("state", "Unavailable"))])
 
     def press(self, key):
         if key not in PINS:
+            return
+        self.refresh()
+        self.last_input = self.clock()
+        if key == "back":
+            if self.section in SECTIONS:
+                self.selected = SECTIONS.index(self.section)
+            self.section, self.page, self.offset = None, None, 0
+            self.confirm, self.message = None, ""
+            return
+        if self.confirm:
+            if key in {"up", "down"}:
+                self.confirm_selected = 1 - self.confirm_selected
+            elif key == "ok":
+                action, self.confirm = self.confirm, None
+                if self.confirm_selected == 1:
+                    try:
+                        self.pending = self.client.control(action)
+                        self.message = "Working..."
+                        if action == "diagnostics":
+                            self.page = "diagnostics"
+                    except (OSError, ValueError, RuntimeError) as error:
+                        self.message = str(error)
+            return
+        if self.pending:
+            return
+        if self.message:
+            if key == "ok":
+                self.message = ""
             return
         if self.section is None:
             if key in {"up", "down"}:
                 self.selected = (self.selected + (1 if key == "down" else -1)) % len(SECTIONS)
             elif key == "ok":
-                self.section = SECTIONS[self.selected]
-                self.offset = 0
-                self.next_detail = 0
-                self.remote.in_menu = True
-                self.remote.message = ""
-                self.refresh()
-        elif self.section == "Remote Assist":
-            if key == "back" and not self.remote.confirm and not self.remote.message:
-                self.section = None
-            else:
-                self.remote.press(key)
-                self.remote.in_menu = True
-        elif key == "back":
-            self.section = None
-        elif key in {"up", "down"}:
-            self.offset = max(0, min(max(0, len(self.details) - 4),
-                                     self.offset + (1 if key == "down" else -1)))
-        elif key == "ok":
-            self.next_detail = 0
-            self.refresh()
+                self.section, self.selected, self.offset = SECTIONS[self.selected], 0, 0
+        elif self.section == "Status" or self.page:
+            if key in {"up", "down"}:
+                self.offset = max(0, min(max(0, len(self.rows()) - 4),
+                                        self.offset + (1 if key == "down" else -1)))
+            elif key == "ok":
+                if self.section == "Status":
+                    self.section, self.selected = None, 0
+                elif self.page == "diagnostics":
+                    self.start_confirmation("diagnostics")
+        else:
+            options = self.options()
+            if key in {"up", "down"}:
+                self.selected = (self.selected + (1 if key == "down" else -1)) % len(options)
+            elif key == "ok":
+                action = options[self.selected][1]
+                if action in {"device", "services", "vpn-status"}:
+                    self.page, self.offset = action, 0
+                else:
+                    self.start_confirmation(action)
+
+    def start_confirmation(self, action):
+        self.confirm = action
+        self.confirm_selected = 0  # Cancel is always the default.
+        self.confirm_until = self.clock() + 15
 
     def view(self):
+        if self.confirm:
+            hints = {"ap-off": "Wi-Fi will disconnect", "access-on": "Wi-Fi to customer LAN",
+                     "poweroff": "Power will turn off", "reboot": "Device will restart"}
+            return {"title": "Confirm " + self.confirm, "items": ["Cancel", "Confirm"],
+                    "selected": self.confirm_selected,
+                    "subtitle": hints.get(self.confirm, "Apply this action?")}
+        if self.pending or self.message:
+            return {"title": self.section or "LCD", "rows": [self.message or "Working..."],
+                    "subtitle": "Please wait" if self.pending else "Action result"}
         if self.section is None:
-            return {"title": "Ana Menu", "items": list(SECTIONS), "selected": self.selected}
-        if self.section == "Remote Assist":
-            remote = self.remote
-            first, second = remote.lines()
-            if remote.confirm:
-                return {"title": "Onay", "rows": [first, "OK: Onayla", "BACK: Iptal"]}
-            if (remote.pending or remote.status.get("pending") or remote.message
-                    or not remote.status.get("installed") or remote.status.get("stale", True)):
-                return {"title": first, "rows": [second, "BACK: Geri"]}
-            return {"title": "Remote Assist", "items": [item[0] for item in ITEMS],
-                    "selected": remote.selected}
-        return {"title": self.section, "rows": self.details, "offset": self.offset}
+            return {"title": "InfraBox / Menu", "items": list(SECTIONS),
+                    "selected": self.selected}
+        if self.section != "Status" and not self.page:
+            return {"title": self.section, "items": [item[0] for item in self.options()],
+                    "selected": self.selected}
+        return {"title": self.page or self.section, "rows": self.rows(), "offset": self.offset}
 
     def lines(self):
         view = self.view()
         rows = view.get("items", view.get("rows", []))
         index = view.get("selected", view.get("offset", 0))
-        return (view["title"], rows[index] if rows else "Bilgi yok")
+        return view["title"], rows[index] if rows else "Unavailable"

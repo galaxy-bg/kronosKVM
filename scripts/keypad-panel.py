@@ -36,7 +36,9 @@ def main():
     buttons = {}
     scanner = KeyScanner()
     next_refresh = 0
-    menu = MainMenu(RemoteAssistClient())
+    from lcd_control import LocalLCDClient
+
+    menu = MainMenu(LocalLCDClient(RemoteAssistClient()))
     panel = None
     if args.lcd and not args.test_buttons:
         from lcd_panel import LCDPanel
@@ -59,7 +61,12 @@ def main():
                     print(f"{key}: BCM{PINS[key]}", flush=True)
                 continue
             if key:
+                before = menu.view()
                 menu.press(key)
+                after = menu.view()
+                print(f"Key {key} BCM{PINS[key]}: "
+                      f"{before['title']}[{before.get('selected', '-')}] -> "
+                      f"{after['title']}[{after.get('selected', '-')} ]", flush=True)
             elif now >= next_refresh:
                 menu.refresh()
             else:

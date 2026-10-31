@@ -19,6 +19,9 @@ class LCDPanel:
         self.small = ImageFont.truetype(font_path, 9)
         self.brand = ImageFont.truetype(font_path, 15)
         self.lcd = lcd
+        self.rotation = int(os.environ.get("KRONOSKVM_LCD_ROTATION", "0"))
+        if self.rotation not in (0, 180):
+            raise ValueError("LCD rotation must be 0 or 180 degrees")
         backlight = os.environ.get("KRONOSKVM_LCD_BL_PIN")
         self.backlight_pin = int(backlight) if backlight is not None else None
         if self.lcd is None:
@@ -41,6 +44,11 @@ class LCDPanel:
         except OSError:
             self.logo = None
 
+    def _present(self, canvas):
+        frame = (canvas.transpose(self.image.Transpose.ROTATE_180)
+                 if self.rotation == 180 else canvas)
+        self.lcd.ShowImage(frame)
+
     def splash(self):
         canvas = self.image.new("RGB", (160, 128), "#101b24")
         draw = self.draw.Draw(canvas)
@@ -49,7 +57,7 @@ class LCDPanel:
         draw.text((80, 74), "KDX InfraBox", font=self.brand, fill="white", anchor="mt")
         draw.text((80, 96), "Booting...", font=self.font, fill="#53dca5", anchor="mt")
         draw.rounded_rectangle((46, 115, 114, 118), radius=1, fill="#087f5b")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         if self.backlight_pin is not None:
             # Init clears the panel; expose it only after the complete logo frame.
             self.lcd.bl_DutyCycle(100)
@@ -89,7 +97,7 @@ class LCDPanel:
         draw = self.draw.Draw(canvas)
         view = menu.view()
         draw.rectangle((0, 0, 159, 20), fill="#087f5b")
-        title = "InfraBox / Menu" if menu.section is None else view["title"]
+        title = view["title"]
         draw.text((5, 2), self.fit(draw, title, 150), font=self.font, fill="white")
         status = menu.remote.status
         if not status.get("installed") or status.get("stale", True):
@@ -102,6 +110,7 @@ class LCDPanel:
             subtitle = vpn + " / Boot:" + ("ON" if status.get("autostart") else "OFF")
         else:
             subtitle = self.ip
+        subtitle = view.get("subtitle", subtitle)
         draw.text((5, 23), self.fit(draw, subtitle, 150, self.small),
                   font=self.small, fill="#a5c5ba")
         selected = view.get("selected")
@@ -124,15 +133,11 @@ class LCDPanel:
             top = 38 + int((66 - thumb) * start / (len(rows) - 4))
             draw.line((156, top, 156, top + thumb - 1), fill="#53dca5", width=2)
         draw.line((4, 109, 155, 109), fill="#2f4940")
-        footer = "OK: Sec  " + str(selected + 1) + "/" + str(len(rows)) if selected is not None \
-            else "OK: Yenile"
-        if menu.remote.confirm and menu.section == "Remote Assist":
-            footer = "OK: Onayla"
-        if menu.section is not None:
-            footer += "  BACK: Geri"
+        # Symbols match the four physical enclosure keys in order.
+        footer = "↓ ↑  ✓ " + ("Sec" if selected is not None else "Menu") + "  ↩ Menu"
         draw.text((5, 114), self.fit(draw, footer, 150, self.small),
                   font=self.small, fill="#a5c5ba")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         return canvas
 
     def show_power_button(self, status):
@@ -150,5 +155,5 @@ class LCDPanel:
         draw.rectangle((10, 90, 10 + int(140 * min(duration / 5, 1)), 96), fill="#087f5b")
         draw.text((80, 106), "2s: Restart / 5s: Kapat", font=self.small,
                   fill="#a5c5ba", anchor="mt")
-        self.lcd.ShowImage(canvas)
+        self._present(canvas)
         return canvas

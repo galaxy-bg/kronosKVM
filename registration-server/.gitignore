@@ -1,0 +1,8 @@
+.venv/
+.env
+*.db
+*.pem
+__pycache__/
+.pytest_cache/
+secrets/
+device-*/

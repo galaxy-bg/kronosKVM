@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 
 READ_PATHS = {
-    "/api/v1/system/info", "/api/v1/system/network", "/api/v1/connections",
+    "/api/v1/system/info", "/api/v1/system/network", "/api/v1/system/registration",
+    "/api/v1/connections",
     "/api/v1/storage", "/api/v1/recovery", "/api/v1/tasks", "/api/v1/services",
     "/api/v1/logs", "/api/v1/remote-assist",
 }

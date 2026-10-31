@@ -4,6 +4,7 @@ set -Eeuo pipefail
 cd /opt/kronoskvm
 version="${KRONOSKVM_VERSION:-dev}"
 export KRONOSKVM_HOSTNAME="$(hostname)"
+install -d -m 0755 /var/lib/kdx-registration-public
 
 docker-compose -f compose.yaml up --detach --no-deps guacd
 
@@ -29,6 +30,7 @@ docker run --detach \
     --volume /mnt/kronoskvm-storage:/storage \
     --volume /mnt/kronoskvm-external:/external:ro,rslave \
     --volume /var/lib/kronoskvm/state:/state \
+    --volume /var/lib/kdx-registration-public:/registration:ro \
     --volume /var/log/kronoskvm:/logs \
     --env KRONOSKVM_STORAGE_PATH=/storage \
     --env KRONOSKVM_STORAGE_REQUIRE_MARKER=0 \

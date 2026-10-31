@@ -176,6 +176,11 @@ Ethernet default route disappears; internet-health-based failover is not yet
 implemented. Generic USB-RJ45 WAN adapter support has not been qualified in this
 version. The Service port retains its Recovery role.
 
+Türkçe adım adım: [WireGuard kurulum, kayıt ve IP/endpoint değiştirme kılavuzu](docs/wireguard-kullanim-kilavuzu.md).
+
+See [WireGuard provisioning](docs/wireguard-provisioning.md) for local device key generation,
+approved server registration, Settings integration and rollback.
+
 See [Remote Assist](docs/remote-assist.md), [USB WAN setup and tests](docs/usb-wan.md)
 and [network design](docs/network-design.md).
 
@@ -275,3 +280,19 @@ and [docs/security.md](docs/security.md).
 
 Copyright belongs to KronosDX. Redistribution is not currently authorized; see
 [LICENSE](LICENSE) and [docs/decisions.md](docs/decisions.md).
+
+## Central registration, licensing and management
+
+- [Infrastructure map and release status](docs/infrastructure-management.md)
+- [Registration and licensing server](registration-server/README.md): device identity,
+  administrator approval, signed activation, license capacity and audit history.
+- [Management dashboard](dashboard/README.md): customers, device inventory, licensing,
+  pending approvals, safe archival and WireGuard monitoring.
+- [Device registration agent](device-registration/README.md): hardware-bound identity,
+  verified WAN TLS, signed offline grace and local Settings license status.
+- [VPN monitor](dashboard/vpn-monitor/README.md): restricted read-only telemetry and
+  matching of managed WireGuard peers to registered devices.
+
+The dashboard and registration service run on their own VMs. Their source and
+deployment instructions live here alongside the appliance; each component has
+its own dependencies and tests.

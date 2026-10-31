@@ -36,7 +36,8 @@
   }
 
   class CompleteVideoStream {
-    constructor(image) {
+    constructor(image, { frameTimeout = 10000 } = {}) {
+      this.frameTimeout = frameTimeout;
       this.image = image;
       this.generation = 0;
       this.controller = null;
@@ -68,6 +69,17 @@
         if (url !== this.currentURL) URL.revokeObjectURL(url);
       }
     }
+    async readChunk(reader, remaining) {
+      let timer;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Video stream stalled")), remaining);
+          }),
+        ]);
+      } finally { clearTimeout(timer); }
+    }
     async start(url, onError) {
       this.stop();
       const generation = this.generation;
@@ -79,16 +91,23 @@
         if (!response.ok || !response.body) throw new Error(`Video stream HTTP ${response.status}`);
         reader = response.body.getReader();
         const parser = new JPEGFrames();
+        let lastFrameAt = Date.now();
         while (generation === this.generation) {
-          const { value, done } = await reader.read();
+          if (Date.now() - lastFrameAt >= this.frameTimeout) throw new Error("Video stream stalled");
+          const remaining = Math.max(1, this.frameTimeout - (Date.now() - lastFrameAt));
+          const { value, done } = await this.readChunk(reader, remaining);
           if (done) throw new Error("Video stream ended");
           const frames = parser.push(value);
           // If rendering falls behind, paint the newest complete frame.
-          if (frames.length) await this.present(frames[frames.length - 1], generation);
+          if (frames.length) {
+            await this.present(frames[frames.length - 1], generation);
+            lastFrameAt = Date.now();
+          }
         }
       } catch (error) {
         if (generation === this.generation && error.name !== "AbortError") onError(error);
       } finally {
+        controller.abort();
         await reader?.cancel().catch(() => {});
         if (this.controller === controller) this.controller = null;
       }

@@ -155,6 +155,7 @@ function renderSystem(system) {
   document.querySelector("#system").innerHTML = [
     ["Hostname", system.hostname],
     ["Model", system.model],
+    ["Serial number", system.serial || "Unavailable"],
     ["Architecture", system.architecture],
     ["Kernel", system.kernel],
     ["Uptime", `${Math.floor(system.uptime_seconds / 60)} min`],
@@ -2043,7 +2044,11 @@ function openVideoWindow() {
         signalAvailable = false;
         suppressStreamError = true;
         videoStream.stop();
-        status.textContent = "Waiting for video signal…";
+        status.textContent = videoStatus.cable_connected === false
+          ? "HDMI input not detected · check source and cable"
+          : videoStatus.cable_connected === true
+            ? "HDMI connected · waiting for video signal…"
+            : "Waiting for HDMI video signal…";
         return;
       }
       if (!signalAvailable) {

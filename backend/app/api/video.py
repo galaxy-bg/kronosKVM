@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import binascii
+import logging
 import re
+import selectors
 import struct
 import subprocess
 import threading
@@ -21,6 +23,8 @@ _stream_state_lock = threading.Lock()
 _stream_process: Optional[subprocess.Popen] = None  # noqa: UP045
 _latest_frame: bytes = b""
 _latest_frame_at = 0.0
+FRAME_TIMEOUT = 8.0
+logger = logging.getLogger("kronoskvm.video")
 
 
 @router.get("/latest.jpg")
@@ -43,7 +47,10 @@ def _run(*args: str, timeout: float = 5.0) -> subprocess.CompletedProcess:
 
 
 def _timings() -> tuple[int, int] | None:
-    result = _run("v4l2-ctl", "-d", str(VIDEO_DEVICE), "--query-dv-timings")
+    try:
+        result = _run("v4l2-ctl", "-d", str(VIDEO_DEVICE), "--query-dv-timings")
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if result.returncode:
         return None
     output = result.stdout.decode("utf-8", errors="replace")
@@ -73,12 +80,22 @@ def _encode_png(rgb: bytes, width: int, height: int) -> bytes:
     )
 
 
+def _cable_connected():
+    try:
+        result = _run("v4l2-ctl", "-d", str(VIDEO_DEVICE), "--get-ctrl=power_present", timeout=1)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    match = re.search(rb"power_present:\s*(0x[0-9a-fA-F]+|[0-9]+)", result.stdout)
+    return bool(int(match.group(1), 0)) if result.returncode == 0 and match else None
+
+
 @router.get("/status")
 def video_status() -> dict:
     timing = _timings() if VIDEO_DEVICE.exists() else None
     return {
         "ready": VIDEO_DEVICE.exists(),
         "signal": timing is not None,
+        "cable_connected": _cable_connected() if VIDEO_DEVICE.exists() else None,
         "device": str(VIDEO_DEVICE),
         "width": timing[0] if timing else None,
         "height": timing[1] if timing else None,
@@ -143,91 +160,118 @@ def video_stream() -> StreamingResponse:
             previous_process.kill()
     if not _capture_lock.acquire(timeout=3):
         raise HTTPException(status_code=429, detail="Video capture is already active")
-    timing = _timings()
-    if not timing:
-        _capture_lock.release()
-        raise HTTPException(status_code=503, detail="No HDMI signal detected")
-    width, height = timing
-    _run(
-        "v4l2-ctl",
-        "-d",
-        str(VIDEO_DEVICE),
-        "--set-dv-bt-timings=query",
-        timeout=3,
-    )
-    process = subprocess.Popen(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-fflags",
-            "nobuffer",
-            "-flags",
-            "low_delay",
-            "-f",
-            "v4l2",
-            "-input_format",
-            "uyvy422",
-            "-video_size",
-            f"{width}x{height}",
-            "-framerate",
-            "15",
-            "-i",
+    try:
+        timing = _timings()
+        if not timing:
+            raise HTTPException(status_code=503, detail="No HDMI signal detected")
+        width, height = timing
+        configured = _run(
+            "v4l2-ctl",
+            "-d",
             str(VIDEO_DEVICE),
-            "-an",
-            "-vf",
-            "fps=12",
-            "-c:v",
-            "mjpeg",
-            "-q:v",
-            "7",
-            "-f",
-            "mpjpeg",
-            "pipe:1",
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    )
+            "--set-dv-bt-timings=query",
+            timeout=3,
+        )
+        if configured.returncode:
+            raise HTTPException(503, "HDMI timing configuration failed; retry the connection")
+        process = subprocess.Popen(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-fflags",
+                "nobuffer",
+                "-flags",
+                "low_delay",
+                "-f",
+                "v4l2",
+                "-input_format",
+                "uyvy422",
+                "-video_size",
+                f"{width}x{height}",
+                "-framerate",
+                "15",
+                "-i",
+                str(VIDEO_DEVICE),
+                "-an",
+                "-vf",
+                "fps=12",
+                "-c:v",
+                "mjpeg",
+                "-q:v",
+                "7",
+                "-f",
+                "mpjpeg",
+                "pipe:1",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except BaseException as error:
+        _capture_lock.release()
+        if isinstance(error, (OSError, subprocess.SubprocessError)):
+            raise HTTPException(503, "HDMI capture could not start; retry the connection") from None
+        raise
     with _stream_state_lock:
         _stream_process = process
 
     def frames():
         global _stream_process, _latest_frame, _latest_frame_at
-        pending = bytearray()
         try:
-            while process.stdout:
-                chunk = process.stdout.read1(64 * 1024)
-                if not chunk:
-                    break
-                pending.extend(chunk)
-                while True:
-                    start = pending.find(b"\xff\xd8")
-                    if start < 0:
-                        pending[:] = pending[-1:]
-                        break
-                    end = pending.find(b"\xff\xd9", start + 2)
-                    if end < 0:
-                        del pending[:start]
-                        break
-                    frame = bytes(pending[start:end + 2])
-                    del pending[:end + 2]
-                    with _stream_state_lock:
-                        _latest_frame = frame
-                        _latest_frame_at = time.monotonic()
-                if len(pending) > 16 * 1024 * 1024:
-                    pending.clear()
-                yield chunk
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                yield from read_frames(selector)
         finally:
-            process.terminate()
             try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-            _capture_lock.release()
-            with _stream_state_lock:
-                if _stream_process is process:
-                    _stream_process = None
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+            except (OSError, subprocess.SubprocessError):
+                logger.warning("HDMI encoder cleanup failed; capture lock released")
+            finally:
+                _capture_lock.release()
+                with _stream_state_lock:
+                    if _stream_process is process:
+                        _stream_process = None
+                        _latest_frame = b""
+                        _latest_frame_at = 0.0
+
+    def read_frames(selector):
+        global _latest_frame, _latest_frame_at
+        pending = bytearray()
+        last_frame_at = time.monotonic()
+        while process.stdout:
+            if time.monotonic() - last_frame_at >= FRAME_TIMEOUT:
+                logger.warning("HDMI stream stalled; releasing capture for reconnect")
+                break
+            if not selector.select(timeout=1):
+                continue
+            chunk = process.stdout.read1(64 * 1024)
+            if not chunk:
+                break
+            pending.extend(chunk)
+            while True:
+                start = pending.find(b"\xff\xd8")
+                if start < 0:
+                    pending[:] = pending[-1:]
+                    break
+                end = pending.find(b"\xff\xd9", start + 2)
+                if end < 0:
+                    del pending[:start]
+                    break
+                frame = bytes(pending[start:end + 2])
+                del pending[:end + 2]
+                with _stream_state_lock:
+                    _latest_frame = frame
+                    _latest_frame_at = time.monotonic()
+                    last_frame_at = _latest_frame_at
+            if len(pending) > 16 * 1024 * 1024:
+                pending.clear()
+            yield chunk
 
     return StreamingResponse(
         frames(),

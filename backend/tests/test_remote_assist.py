@@ -23,6 +23,19 @@ spec.loader.exec_module(host)
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def host_files(tmp_path, monkeypatch):
+    private = tmp_path / "private"
+    private.mkdir()
+    monkeypatch.setattr(host.wireguard_auto, "ROOT", private / "enrollment-ssh")
+    monkeypatch.setattr(host, "PRIVATE", private)
+    monkeypatch.setattr(host, "CONFIG", private / "config.json")
+    monkeypatch.setattr(host, "IDENTITY", private / "identity.json")
+    monkeypatch.setattr(host, "KEYFILE", tmp_path / "profile.nmconnection")
+    monkeypatch.setattr(host, "WG_CONFIG", tmp_path / "wg-kdx.conf")
+    monkeypatch.setattr(host, "PUBLIC_IDENTITY", tmp_path / "wireguard-enrollment.json")
+
+
 @pytest.fixture
 def profile():
     return {
@@ -154,3 +167,63 @@ def test_stale_helper_rejects_changes(state):
         json.dumps({"installed": True, "updated_at": time.time() - 60})
     )
     assert client.post("/api/v1/remote-assist/enable").status_code == 503
+
+
+def test_delete_profile_queues_host_action(state):
+    response = client.delete('/api/v1/remote-assist/profile')
+    assert response.status_code == 202
+    queued = json.loads((state / 'remote-assist-request.json').read_text())
+    assert queued['action'] == 'delete-profile'
+
+
+def test_delete_profile_stops_tunnel_and_clears_files(profile, monkeypatch, tmp_path):
+    monkeypatch.setattr(host.wireguard_auto, 'ROOT', tmp_path)
+    cache = tmp_path / 'registration.json'
+    for path in (host.KEYFILE, host.WG_CONFIG, cache):
+        path.write_text('saved')
+    host.IDENTITY.write_text('preserved identity')
+    commands = []
+    monkeypatch.setattr(host, 'run', lambda args, *a, **kw: commands.append(args) or '')
+    config = {'profile': profile, 'enabled': True, 'autostart': True}
+    host.process(config, {'action': 'delete-profile'})
+    assert config == {'profile': None, 'enabled': False, 'autostart': False}
+    assert not any(path.exists() for path in (host.KEYFILE, host.WG_CONFIG))
+    assert cache.read_text() == "saved"
+    assert host.IDENTITY.read_text() == 'preserved identity'
+    assert commands[0][-3:] == ['down', 'uuid', host.PROFILE_UUID]
+
+
+def test_delete_profile_preserves_configuration_when_tunnel_wont_stop(profile, monkeypatch):
+    host.KEYFILE.write_text('saved')
+    monkeypatch.setattr(host, 'run', lambda args, *a, **kw:
+                        host.INTERFACE if args[:2] == ['wg', 'show'] else '')
+    config = {'profile': profile, 'enabled': True, 'autostart': True}
+    with pytest.raises(ProfileError, match='still active'):
+        host.process(config, {'action': 'delete-profile'})
+    assert host.KEYFILE.read_text() == 'saved'
+    assert config['profile'] == profile
+
+
+def test_delete_profile_rolls_back_files_and_tunnel_on_failure(profile, monkeypatch, tmp_path):
+    monkeypatch.setattr(host.wireguard_auto, 'ROOT', tmp_path)
+    cache = tmp_path / 'registration.json'
+    config = {'profile': profile, 'enabled': True, 'autostart': True}
+    for path in (host.KEYFILE, host.WG_CONFIG, cache):
+        path.write_text('original')
+    commands = []
+
+    def run(args, *a, **kw):
+        commands.append(args)
+        if args[:2] == ['wg', 'show']:
+            return host.INTERFACE if len(commands) == 1 else ''
+        if 'delete' in args:
+            host.KEYFILE.unlink()
+            raise RuntimeError('delete failed')
+        return ''
+
+    monkeypatch.setattr(host, 'run', run)
+    with pytest.raises(RuntimeError, match='delete failed'):
+        host.transactional_process(config, {'action': 'delete-profile'})
+    assert all(path.read_text() == 'original' for path in (host.KEYFILE, host.WG_CONFIG, cache))
+    assert any('up' in args for args in commands)
+    assert config['enabled'] is True

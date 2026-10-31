@@ -1,0 +1,26 @@
+[Unit]
+Description=InfraBox device registration and license validation
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/kdx-registration-client/config.json
+
+[Service]
+Type=oneshot
+User=kdx-registration
+Group=kdx-registration
+ExecStart=/usr/bin/python3 /opt/kdx-registration-client/client.py sync
+StateDirectory=kdx-registration
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/kdx-registration-public
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+TimeoutStartSec=60

@@ -8,10 +8,10 @@ SPI bus/device 0/0 at 4 MHz. Backlight control is opt-in per appliance.
 
 | Key | Function | BCM | Physical pin |
 | --- | --- | --- | --- |
-| K1 | Up | 5 | 29 |
-| K2 | Down | 6 | 31 |
-| K3 | OK | 13 | 33 |
-| K4 | Back | 19 | 35 |
+| K1 ↓ | Down | 5 | 29 |
+| K2 ↑ | Up | 6 | 31 |
+| K3 ✓ | Menu / Select | 19 | 35 |
+| K4 ↩ | Back to top-level menu | 13 | 33 |
 | Common | Ground | — | 30 |
 
 This wiring assumes four independent normally-open contacts to common ground,
@@ -21,10 +21,12 @@ https://gpiozero.readthedocs.io/en/rtd/api_input.html
 
 At LCD service startup, the existing UI InfraBox logo and `Booting...` are shown
 for two seconds. This is a service-start splash, not a firmware/early-kernel
-screen. The first screen is a scrollable main menu matching the web UI:
-Dashboard, Sessions, Storage, Recovery, Remote Assist, Tasks, Services, Logs,
-Settings. Four rows are visible; a green highlight, arrow and position counter
-identify the selected item. Up/down moves selection, OK opens, Back returns.
+screen. The first screen is Status. K3 opens the main menu: Status, Network, Remote
+Assist and System. Four rows are visible; a green highlight, arrow and position
+counter identify the selected item. K1/K2 move selection, K3 opens, K4 returns.
+K4 always returns to the top-level menu and stays there on repeated presses;
+K3 opens the highlighted section.
+See [LCD MVP](../../docs/lcd-mvp.md) for actions and confirmation behavior.
 
 For an earlier splash, the base LCD service must not retain
 `After=network.target`; replace that dependency with
@@ -98,3 +100,13 @@ Do not run a second LCD process concurrently.
 For another LCD driver, use `Menu.lines()` or the runner's `--output` JSON file
 (includes `updated_at`; consumers should reject old data). `--lcd` is specific
 to the installed .102 panel. No arbitrary service stop/restart menu is exposed.
+
+## Enclosure orientation
+
+To turn all LCD frames upside down, install
+`deploy/systemd/infrabox-lcd-rotation-180.conf` as
+`/etc/systemd/system/infrabox-lcd.service.d/orientation.conf`, run
+`systemctl daemon-reload`, then restart `infrabox-lcd.service`.
+`KRONOSKVM_LCD_ROTATION` accepts 0 (default) or 180. Rotation covers the
+splash, menus and power feedback without changing the logical 160×128 canvas
+or physical button assignments. Restore 0 to return to the previous direction.

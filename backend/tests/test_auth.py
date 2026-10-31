@@ -31,6 +31,7 @@ def test_lcd_identity_is_local_scoped_and_does_not_open_admin(client, tmp_path, 
                        client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
     response = local.get("/api/v1/system/network")
     assert response.status_code == 200
+    assert local.get("/api/v1/system/registration").status_code == 200
     assert response.headers["cache-control"] == "no-store"
     for path in ["/api/v1/system/power", "/api/v1/auth/password",
                  "/api/v1/network/ap-access", "/api/v1/network/settings"]:
@@ -103,6 +104,7 @@ def test_authenticated_storage_upload_requires_request_header(client, tmp_path, 
     "path",
     [
         "/api/v1/system/info",
+        "/api/v1/system/registration",
         "/api/v1/logs",
         "/api/v1/services",
         "/api/v1/storage",
@@ -306,3 +308,38 @@ def test_wifi_requires_admin_and_same_origin_marker(tmp_path, monkeypatch):
     assert not (tmp_path / "wifi-request.json").exists()
     assert client.put("/api/v1/network/wifi", json={"password": "Custom%WiFi!42"},
                       headers={"X-InfraBox-Request": "1"}).status_code == 202
+
+
+def test_wireguard_provisioning_requires_admin_and_excludes_lcd(client, tmp_path, monkeypatch):
+    from backend.app.api import wireguard
+
+    monkeypatch.setattr(wireguard, "queue", lambda payload: {"request_id": "test"})
+    assert client.get("/api/v1/wireguard").status_code == 401
+    assert client.post("/api/v1/wireguard/identity").status_code == 401
+    assert login(client).status_code == 200
+    assert client.post("/api/v1/wireguard/identity").status_code == 202
+    assert client.post("/api/v1/wireguard/identity", headers={
+        "X-InfraBox-Request": "",
+    }).status_code == 403
+    monkeypatch.setattr(client.app.state.auth, "session", lambda *a, **kw: {
+        "username": "admin", "role": "operator",
+    })
+    assert client.get("/api/v1/wireguard").status_code == 200
+    assert client.post("/api/v1/wireguard/identity").status_code == 403
+    assert client.post("/api/v1/wireguard/enroll").status_code == 403
+    assert client.post("/api/v1/wireguard/server-check", json={}).status_code == 403
+    assert client.post("/api/v1/wireguard/quick-register", json={}).status_code == 403
+    assert client.put("/api/v1/wireguard/registration", json={}).status_code == 403
+    assert client.post("/api/v1/remote-assist/enable").status_code == 403
+    assert client.put("/api/v1/remote-assist/profile", json={}).status_code == 403
+    assert client.delete("/api/v1/remote-assist/profile").status_code == 403
+    token = tmp_path / "lcd-token"
+    token.write_text("a" * 64)
+    monkeypatch.setenv("KRONOSKVM_LCD_TOKEN_PATH", str(token))
+    local = TestClient(create_app(), base_url="http://127.0.0.1",
+                       client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
+    assert local.post("/api/v1/wireguard/identity").status_code == 401
+    assert local.put("/api/v1/wireguard/registration", json={}).status_code == 401
+    assert local.delete("/api/v1/remote-assist/profile").status_code == 401
+    assert local.post("/api/v1/wireguard/server-check", json={}).status_code == 401
+    assert local.post("/api/v1/wireguard/quick-register", json={}).status_code == 401

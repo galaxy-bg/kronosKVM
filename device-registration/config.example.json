@@ -1,0 +1,11 @@
+{
+  "server_url": "https://185.251.66.26:18444",
+  "server_public_key": "PROVISION_PINNED_ED25519_PUBLIC_KEY_OUT_OF_BAND",
+  "allow_lab_http": false,
+  "timeout_seconds": 8,
+  "model": "Galaxy-RP4",
+  "firmware": "0.3.46",
+  "ca_bundle": "/etc/kdx-registration-client/lab-ca.crt",
+  "ca_certificate_sha256": "PROVISION_VERIFIED_CA_FINGERPRINT_OUT_OF_BAND",
+  "public_status_directory": "/var/lib/kdx-registration-public"
+}

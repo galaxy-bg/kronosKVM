@@ -260,3 +260,12 @@ class AuthMiddleware:
             await send(message)
 
         await self.app(scope, guarded_receive, guarded_send)
+
+
+def require_admin(request):
+    """Current single-admin policy, with an explicit read-only role guard for future RBAC."""
+    session = request.app.state.auth.session(request.cookies.get(COOKIE))
+    if not session:
+        raise HTTPException(401, "Sign in required")
+    if session.get("username") != "admin" or session.get("role", "admin") != "admin":
+        raise HTTPException(403, "Administrator access required")

@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh read-only VPN telemetry every 30 seconds
+[Timer]
+OnBootSec=20
+OnUnitActiveSec=30
+AccuracySec=3
+[Install]
+WantedBy=timers.target

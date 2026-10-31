@@ -26,6 +26,7 @@ from backend.app.api.storage import router as storage_router
 from backend.app.api.tasks import router as tasks_router
 from backend.app.api.video import router as video_router
 from backend.app.api.wifi import router as wifi_router
+from backend.app.api.wireguard import router as wireguard_router
 from backend.app.logging import audit, configure_logging
 from backend.app.security.auth import AuthMiddleware, AuthStore
 from backend.app.services.storage import cleanup_incomplete_uploads
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     application.include_router(network_settings_router)
     application.include_router(ap_access_router)
     application.include_router(wifi_router)
+    application.include_router(wireguard_router)
     application.include_router(ssh_router)
     application.include_router(storage_router)
     application.include_router(recovery_router)
