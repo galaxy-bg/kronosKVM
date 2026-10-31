@@ -31,6 +31,7 @@ def test_lcd_identity_is_local_scoped_and_does_not_open_admin(client, tmp_path, 
                        client=("127.0.0.1", 12000), headers={"X-KDX-LCD-Token": "a" * 64})
     response = local.get("/api/v1/system/network")
     assert response.status_code == 200
+    assert local.get("/api/v1/system/registration").status_code == 200
     assert response.headers["cache-control"] == "no-store"
     for path in ["/api/v1/system/power", "/api/v1/auth/password",
                  "/api/v1/network/ap-access", "/api/v1/network/settings"]:
@@ -103,6 +104,7 @@ def test_authenticated_storage_upload_requires_request_header(client, tmp_path, 
     "path",
     [
         "/api/v1/system/info",
+        "/api/v1/system/registration",
         "/api/v1/logs",
         "/api/v1/services",
         "/api/v1/storage",

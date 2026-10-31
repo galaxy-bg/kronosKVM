@@ -282,3 +282,19 @@ Copyright belongs to KronosDX. Redistribution is not currently authorized; see
 [LICENSE](LICENSE) and [docs/decisions.md](docs/decisions.md).
 
 LCD navigation, button symbols and available actions: [LCD MVP](docs/lcd-mvp.md).
+
+## Central registration, licensing and management
+
+- [Infrastructure map and release status](docs/infrastructure-management.md)
+- [Registration and licensing server](registration-server/README.md): device identity,
+  administrator approval, signed activation, license capacity and audit history.
+- [Management dashboard](dashboard/README.md): customers, device inventory, licensing,
+  pending approvals, safe archival and WireGuard monitoring.
+- [Device registration agent](device-registration/README.md): hardware-bound identity,
+  verified WAN TLS, signed offline grace and local Settings license status.
+- [VPN monitor](dashboard/vpn-monitor/README.md): restricted read-only telemetry and
+  matching of managed WireGuard peers to registered devices.
+
+The dashboard and registration service run on their own VMs. Their source and
+deployment instructions live here alongside the appliance; each component has
+its own dependencies and tests.

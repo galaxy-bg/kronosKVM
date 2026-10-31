@@ -1,0 +1,31 @@
+[Unit]
+Description=KDX InfraBox Registration and Licensing API
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+User=kdx-registration
+Group=kdx-registration
+WorkingDirectory=/opt/kdx-registration
+EnvironmentFile=/etc/kdx-registration/server.env
+ExecStart=/opt/kdx-registration/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 3000 --workers 1 --no-proxy-headers --no-access-log
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

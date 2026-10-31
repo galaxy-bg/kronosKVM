@@ -49,6 +49,7 @@ services:
       - /mnt/kronoskvm-storage:/storage
       - /mnt/kronoskvm-external:/external:ro,rslave
       - /var/lib/kronoskvm/state:/state
+      - /var/lib/kdx-registration-public:/registration:ro
       - /var/log/kronoskvm:/logs
     environment:
       KRONOSKVM_STORAGE_PATH: /storage

@@ -60,6 +60,7 @@
       await script('/app-0.3.45-live-record.js?v=kvm-watchdog-1');
       await script('/remote-assist.js?v=simple-setup-3');
       await script('/wireguard.js?v=simple-setup-3');
+      await script('/registration.js?v=wan-trust-1');
     } catch (error) {
       shell.hidden = true;
       panel.hidden = false;

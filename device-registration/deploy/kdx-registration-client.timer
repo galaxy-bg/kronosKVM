@@ -1,0 +1,9 @@
+[Unit]
+Description=Validate InfraBox registration at boot and every five minutes
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=5min
+RandomizedDelaySec=15
+Persistent=true
+[Install]
+WantedBy=timers.target

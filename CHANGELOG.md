@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add the central registration/licensing service with Ed25519 device proofs, explicit
+  administrator approval, single-use activation, offline grace and audited recovery.
+- Connect the real InfraBox agent over verified WAN HTTPS and expose a non-secret
+  registration/license status card in appliance Settings.
+- Add the management dashboard, customer contact fields, device metadata editing,
+  reversible archival and migration 0002 while preserving existing license bindings.
+- Add restricted read-only WireGuard telemetry with registered-device/customer matching.
+- Publish static assets with explicit public permissions to prevent dashboard page errors.
+
 - Release HDMI capture locks after startup failures, stop stalled encoders and
   reconnect stalled browser streams. Show HDMI cable detection separately from
   video signal status; update the displayed application version to 0.3.46.

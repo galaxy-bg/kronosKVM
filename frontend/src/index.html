@@ -182,6 +182,18 @@
 
         <section id="settings-panel" class="panel settings-panel" data-view-section="settings" hidden>
           <div class="panel-heading"><div><h2>Global appliance settings</h2><p>System-wide lifecycle and management controls</p></div><span class="verified-label">Appliance</span></div>
+          <section id="registration-card" class="registration-card" aria-label="Registration and license status">
+            <div class="settings-group-heading"><div><strong>Registration &amp; license</strong><p>Hardware-bound authorization from your central Registration Server.</p></div><span id="registration-state" class="badge pending">Checking…</span></div>
+            <div class="registration-details"><p id="registration-message" role="status">Loading registration status…</p><dl>
+              <div><dt>Connection</dt><dd id="registration-mode">—</dd></div>
+              <div><dt>Last check</dt><dd id="registration-checked">—</dd></div>
+              <div><dt>Hardware serial</dt><dd id="registration-serial">—</dd></div>
+              <div><dt>Installation ID</dt><dd id="registration-installation">—</dd></div>
+              <div><dt>Device registration ID</dt><dd id="registration-device">—</dd></div>
+              <div><dt>License ID</dt><dd id="registration-license">—</dd></div>
+              <div><dt>Signed authorization valid until</dt><dd id="registration-until">—</dd></div>
+            </dl><p class="muted">The authorization deadline is the offline grace limit, not the license end date. Customer and license details are available in the central Dashboard.</p></div>
+          </section>
           <div class="settings-group-heading"><div><strong>Network settings</strong><p>Configure DHCP or static IPv4 on Ethernet interfaces. The management AP remains protected.</p></div><button id="network-settings-refresh" class="session-refresh" type="button" aria-label="Refresh network settings">↻</button></div>
           <div id="network-settings" class="network-settings"><span class="muted">Loading network interfaces…</span></div>
           <div class="settings-group-heading"><div><strong>Wi-Fi access point</strong><p>Change the password used to connect to this appliance’s Wi-Fi.</p></div><span id="wifi-state" class="badge pending">Checking…</span></div>
@@ -272,6 +284,6 @@
   </dialog>
   <script src="/vendor/guacamole-1.6.0.js" defer></script>
   <script src="/remote-connections.js?v=1" defer></script>
-  <script src="/auth.js?v=3" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
+  <script src="/auth.js?v=registration-wan-1-3" data-dashboard-src="/app-0.3.45-live-record.js" defer></script>
 </body>
 </html>

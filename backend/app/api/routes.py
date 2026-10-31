@@ -18,6 +18,7 @@ from backend.app.models import (
     SystemInfo,
     TemperatureInfo,
 )
+from backend.app.services.registration import read_registration_status
 from backend.app.services.system import (
     get_network_info,
     get_services_info,
@@ -65,6 +66,11 @@ def capabilities() -> list[Capability]:
 @router.get("/system/info", response_model=SystemInfo)
 def system_info() -> SystemInfo:
     return get_system_info()
+
+
+@router.get("/system/registration")
+def registration_status() -> dict:
+    return read_registration_status()
 
 
 @router.get("/system/network", response_model=NetworkInfo)
