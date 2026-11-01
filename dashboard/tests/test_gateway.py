@@ -123,6 +123,9 @@ def test_viewer_cannot_mutate(dashboard_env):
             )
         )
     headers = login(dashboard_env, token)
+    assert client.get("/api/tasks").status_code == 200
+    assert client.delete("/api/tasks/completed",headers=headers).status_code == 403
+    assert client.post("/api/tasks/events",json={"kind":"vpn_config_download","target":"00000000-0000-4000-8000-000000000001"},headers=headers).status_code == 403
     assert client.get("/api/overview").status_code == 200
     assert (
         client.post("/api/customers", json={"name": "forbidden"}, headers=headers).status_code

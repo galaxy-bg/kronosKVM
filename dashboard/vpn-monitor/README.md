@@ -121,3 +121,7 @@ To stop monitoring, disable only `kdx-vpn-monitor.timer` and set
 stop wg0. To revoke the read-only credential, remove only its forced-command key
 from the dedicated reader account after review. Never restore a VPN configuration
 or restart wg0 as part of rolling back this display-only feature.
+
+## Central write operations
+
+The read-only collector/key described above remains unchanged. New peer grants use a separate constrained account and service path; see [central VPN management](../../docs/central-vpn.md).

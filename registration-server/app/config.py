@@ -12,3 +12,6 @@ class Settings(BaseSettings):
     device_session_seconds: int = Field(default=300, ge=30, le=900)
     rate_per_minute: int = Field(default=120, ge=1, le=10000)
     allow_lab_http: bool = False
+    vpn_management_enabled: bool = False
+    vpn_ssh_key: str = "/etc/kdx-registration/vpn-manager.key"
+    vpn_known_hosts: str = "/etc/kdx-registration/vpn-known-hosts"

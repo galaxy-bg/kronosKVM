@@ -58,8 +58,8 @@
     try {
       await script('/kvm-video.js?v=capture-watchdog-2');
       await script('/app-0.3.45-live-record.js?v=kvm-watchdog-1');
-      await script('/remote-assist.js?v=simple-setup-3');
-      await script('/wireguard.js?v=simple-setup-3');
+      await script('/remote-assist.js?v=profile-status-4');
+      await script('/wireguard.js?v=central-vpn-delete-2');
       await script('/registration.js?v=wan-trust-1');
     } catch (error) {
       shell.hidden = true;

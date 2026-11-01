@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .crypto import public_key
 
@@ -35,8 +35,34 @@ class Enroll(Identity):
     model: str = Field(min_length=1, max_length=120)
 
 
+class VpnRequest(Strict):
+    version: Literal[1]
+    device_id: str = Field(pattern=r"^[0-9a-f]{16}$")
+    hostname: str = Field(pattern=r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+    public_key: str = Field(min_length=44, max_length=44)
+    request_id: UUID
+
+    @field_validator("public_key")
+    @classmethod
+    def wireguard_key(cls, value):
+        raw = base64.b64decode(value, validate=True)
+        if len(raw) != 32 or raw == bytes(32):
+            raise ValueError("Invalid WireGuard public key")
+        return value
+
+
 class ChallengeInput(Identity):
-    purpose: Literal["authenticate", "activate"] = "authenticate"
+    purpose: Literal["authenticate", "activate", "vpn"] = "authenticate"
+    vpn_request: VpnRequest | None = None
+    vpn_operation: Literal["sync", "delete"] = "sync"
+
+    @model_validator(mode="after")
+    def request_purpose(self):
+        if self.purpose != "vpn" and self.vpn_operation != "sync":
+            raise ValueError("VPN operation requires VPN purpose")
+        if (self.purpose == "vpn") != (self.vpn_request is not None):
+            raise ValueError("VPN purpose requires its exact public request")
+        return self
 
 
 class Proof(Strict):
@@ -49,6 +75,11 @@ class Proof(Strict):
         if len(base64.b64decode(value, validate=True)) != 64:
             raise ValueError("Invalid signature length")
         return value
+
+
+class VpnProof(Proof):
+    operation: Literal["sync", "delete"] = "sync"
+    request: VpnRequest
 
 
 class Activate(Proof):
@@ -158,3 +189,63 @@ class Renewal(Reason):
         if value.tzinfo is None:
             raise ValueError("Timezone required")
         return value
+
+
+class VpnClientInput(Strict):
+    id: UUID
+    name: str = Field(min_length=1,max_length=120)
+    owner_name: str | None = Field(default=None,max_length=200)
+    email: str | None = Field(default=None,max_length=254)
+    platform: Literal["WINDOWS","MACOS","LINUX","OTHER"]
+    customer_id: UUID | None = None
+    public_key: str = Field(min_length=44,max_length=44)
+
+    @field_validator("name","owner_name")
+    @classmethod
+    def text_valid(cls,value):
+        if value is None: return None
+        value=value.strip()
+        if not value or any(ord(c)<32 for c in value): raise ValueError("Non-empty text required")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls,value):
+        if not value: return None
+        value=value.strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+",value): raise ValueError("Invalid email")
+        return value
+
+    @field_validator("public_key")
+    @classmethod
+    def vpn_key_valid(cls,value):
+        raw=base64.b64decode(value,validate=True)
+        if len(raw)!=32 or raw==bytes(32) or base64.b64encode(raw).decode()!=value:
+            raise ValueError("Invalid public key")
+        return value
+
+
+class VpnPeerDelete(Reason):
+    public_key: str = Field(min_length=44,max_length=44)
+    allowed_ips: list[str] = Field(min_length=1,max_length=16)
+
+    @field_validator("public_key")
+    @classmethod
+    def key_valid(cls,value):
+        raw=base64.b64decode(value,validate=True)
+        if len(raw)!=32 or raw==bytes(32) or base64.b64encode(raw).decode()!=value:
+            raise ValueError("Invalid public key")
+        return value
+
+    @field_validator("allowed_ips")
+    @classmethod
+    def ips_valid(cls,values):
+        import ipaddress
+        normalized=[]
+        for value in values:
+            network=ipaddress.IPv4Network(value,strict=True)
+            if network.prefixlen!=32 or not network.is_private or str(network)!=value:
+                raise ValueError("Select exact private /32 VPN addresses")
+            normalized.append(str(network))
+        if len(set(normalized))!=len(normalized):raise ValueError("Duplicate VPN address")
+        return sorted(normalized)

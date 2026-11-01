@@ -49,7 +49,7 @@ def test_changed_host_key_prevents_password_authentication(reply, monkeypatch):
     connect.assert_not_called()
 
 
-def test_api_queues_only_public_reply_and_never_password(tmp_path, monkeypatch, reply):
+def test_password_api_removed_and_central_request_queues_no_credentials(tmp_path, monkeypatch, reply):
     monkeypatch.setattr(remote_assist, 'STATE', tmp_path)
     (tmp_path/'remote-assist-status.json').write_text(json.dumps({
         'installed':True, 'updated_at':time.time(), 'enrollment':public(reply), 'enabled':False,
@@ -61,12 +61,15 @@ def test_api_queues_only_public_reply_and_never_password(tmp_path, monkeypatch, 
         'host':'vpn.example.com', 'username':'root', 'password':'PRIVATE-ONE-TIME',
         'fingerprint':'SHA256:TEST',
     })
+    assert response.status_code == 410
+    assert 'PRIVATE-ONE-TIME' not in response.text
+    assert not (tmp_path/'remote-assist-request.json').exists()
+    register.assert_not_awaited()
+    response = client.post('/api/v1/wireguard/central-register')
     assert response.status_code == 202
     queued = (tmp_path/'remote-assist-request.json').read_text()
-    assert 'PRIVATE-ONE-TIME' not in queued + response.text
-    assert json.loads(queued)['action'] == 'register-connect'
-    assert json.loads(queued)['registration'] == reply
-    assert register.await_args.args[0] == {}  # Credential dictionary cleared after use.
+    assert json.loads(queued)['action'] == 'central-register'
+    assert 'password' not in queued and 'PRIVATE-ONE-TIME' not in queued
 
 
 def test_server_reuses_exact_existing_peer_but_rejects_changed_key(tmp_path, monkeypatch, reply):

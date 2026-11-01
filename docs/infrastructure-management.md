@@ -43,8 +43,11 @@ lab CA. Keep certificate and hostname/IP verification enabled. See the
 Use each component's README and deployment directory. Initial installers refuse
 existing installations; do not run them as upgrade scripts. Back up PostgreSQL,
 application source and private identity/configuration separately. For the latest
-management update, migrate registration to Alembic `0002` before updating the
-dashboard. Publish built assets with `dashboard/deploy/publish_static.py` so the
+management update, install the version 2 VPN management helper first and migrate
+registration to Alembic `0005` before updating the dashboard. Follow the component
+deployment instructions in [desktop VPN](desktop-vpn.md) and
+[central VPN](central-vpn.md). Publish built assets with
+`dashboard/deploy/publish_static.py` so the
 service user can read the page and hashed assets. Keep secrets outside Git.
 
 Source publication does not install updates automatically. Existing Caddy,
@@ -62,3 +65,26 @@ separate disposable test database and are skipped without one. Socket/TLS tests
 need local network permissions. Build the dashboard with
 `npm ci --prefix dashboard/frontend` and `npm run build --prefix dashboard/frontend`.
 Browser smoke tests use synthetic fixtures; see `dashboard/tests/ui-smoke.mjs`.
+
+## Central VPN update
+
+The earlier read-only VPN view now also includes separate device-key enrollment
+and administrator grant controls. Monitoring retains its read-only account;
+mutations use a different constrained service key. See [the current VPN workflow](central-vpn.md).
+
+## Source publication — 2026-11-02
+
+This source update includes central device-key VPN requests/deletion, separate
+desktop peers, the English management dashboard/task history, appliance VPN
+status recovery, LCD labels and uplink-aware CLI internet checks. USB tethering
+host internet is validated; mobile WireGuard handshake establishment remains
+unresolved. See [USB WAN investigation](usb-wan.md) for measured results and
+restored experiments. Source publication does not deploy or remove the live
+appliance's temporary AP internet-sharing extension.
+
+Validation: 316 appliance tests and 83 central-service/agent tests passed; two
+PostgreSQL-only tests were skipped without a disposable database. Both desktop
+configuration/crypto JavaScript tests and the dashboard production build passed.
+Appliance WireGuard setup/deletion, Remote Assist recovery and dashboard
+desktop/mobile browser smoke tests also passed using synthetic fixtures.
+Generated deployment archives and local captures stay outside source control.

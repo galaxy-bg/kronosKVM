@@ -200,9 +200,10 @@ def verify_document(document, pinned_key, request, device_id, last_clock=0, cloc
     return payload
 
 
-def prove(transport, request, key, token=None):
-    purpose = "activate" if token else "authenticate"
-    challenge = transport.post("/api/v1/devices/challenge", {**request, "purpose": purpose})
+def prove(transport, request, key, token=None, vpn_request=None, vpn_operation="sync"):
+    purpose = "vpn" if vpn_request is not None else "activate" if token else "authenticate"
+    challenge = transport.post("/api/v1/devices/challenge", {
+        **request, "purpose": purpose, **({"vpn_request": vpn_request, "vpn_operation": vpn_operation} if vpn_request is not None else {})})
     message = challenge["message"]
     value = json.loads(message)
     # Only sign the expected protocol, identity, purpose and a live server nonce.
@@ -218,12 +219,17 @@ def prove(transport, request, key, token=None):
         or not tick <= value["expires_at"] <= tick + 300
         or not isinstance(value["nonce"], str)
         or len(value["nonce"]) < 32
+        or (vpn_request is not None and (value.get("vpn_request_hash") != digest(canonical(vpn_request)) or value.get("vpn_operation", "sync") != vpn_operation))
     ):
         raise Denied("INVALID_SERVER_CHALLENGE")
     proof = {
         "challenge_id": challenge["challenge_id"],
         "signature": base64.b64encode(key.sign(message.encode())).decode(),
     }
+    if vpn_request is not None:
+        proof["request"] = vpn_request
+        proof["operation"] = vpn_operation
+        return transport.post("/api/v1/devices/vpn", proof)
     if token:
         proof["activation_token"] = token
     return transport.post("/api/v1/devices/" + ("activate" if token else "verify"), proof)
@@ -342,9 +348,56 @@ def synchronize(config, directory, transport=None, token=None):
     return status
 
 
+def vpn_sync(config, directory, request, transport=None, operation="sync"):
+    # Only public WireGuard metadata enters this process. The registration signing
+    # key stays with its dedicated user, separate from the root-owned VPN key.
+    identity_request, key = identity(Path(directory))
+    if request.get("device_id", "").upper() != identity_request["serial"]:
+        raise Denied("HARDWARE_MISMATCH")
+    transport = transport or Transport(config)
+    transport.post("/api/v1/devices/enroll", {
+        **identity_request, "model": config.get("model", "Galaxy-RP4"),
+        "firmware": config.get("firmware", "0.3.46")})
+    return prove(transport, identity_request, key, vpn_request=request, vpn_operation=operation)
+
+
+def verify_vpn_document(document, pinned_key, request, clock=None):
+    tick = int(time.time() if clock is None else clock)
+    payload = document["payload"]
+    Ed25519PublicKey.from_public_bytes(base64.b64decode(pinned_key, validate=True)).verify(
+        base64.b64decode(document["signature"], validate=True), canonical(payload).encode())
+    if (payload.get("v") != 1 or payload.get("aud") != "kdx-infrabox-vpn"
+            or payload.get("status") != "ACTIVE"
+            or payload.get("serial") != request["device_id"].upper()
+            or not isinstance(payload.get("issued_at"), int)
+            or not isinstance(payload.get("expires_at"), int)
+            or payload["issued_at"] > tick + 30 or payload["expires_at"] <= tick
+            or not 0 < payload["expires_at"] - payload["issued_at"] <= 600):
+        raise Denied("INVALID_VPN_DOCUMENT")
+    registration = payload["registration"]
+    if any(registration.get(k) != v for k,v in request.items()):
+        raise Denied("INVALID_VPN_BINDING")
+    return registration
+
+
+def verify_vpn_deletion(document, pinned_key, request, clock=None):
+    tick = int(time.time() if clock is None else clock)
+    payload = document["payload"]
+    Ed25519PublicKey.from_public_bytes(base64.b64decode(pinned_key, validate=True)).verify(
+        base64.b64decode(document["signature"], validate=True), canonical(payload).encode())
+    if (payload.get("v") != 1 or payload.get("aud") != "kdx-infrabox-vpn-state"
+            or payload.get("status") != "DELETED" or payload.get("request") != request
+            or payload.get("serial") != request["device_id"].upper()
+            or type(payload.get("issued_at")) is not int or type(payload.get("expires_at")) is not int
+            or payload["issued_at"] > tick+30 or payload["expires_at"] <= tick
+            or not 0 < payload["expires_at"]-payload["issued_at"] <= 600):
+        raise Denied("INVALID_VPN_DELETION")
+    return payload
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["sync", "activate", "identity", "status"])
+    parser.add_argument("command", choices=["sync", "activate", "identity", "status", "vpn"])
     parser.add_argument("--config", default="/etc/kdx-registration-client/config.json")
     parser.add_argument("--state", default="/var/lib/kdx-registration")
     parser.add_argument("--url", help="Explicit temporary lab transport override")
@@ -363,6 +416,24 @@ def main():
             print(json.dumps(identity(directory)[0], indent=2))
             return
         config = read_json(args.config)
+        if args.command == "vpn":
+            import sys
+            try:
+                raw = sys.stdin.buffer.read(4097)
+                if len(raw) > 4096:
+                    raise ValueError("Oversized public request")
+                value = json.loads(raw)
+                if "operation" in value:
+                    if set(value) != {"operation", "request"} or value["operation"] not in {"sync", "delete"}:
+                        raise ValueError("Invalid VPN operation")
+                    result = vpn_sync(config,directory,value["request"],operation=value["operation"])
+                else:
+                    result = vpn_sync(config,directory,value)
+                print(json.dumps(result))
+            except Exception:
+                print(json.dumps({"status": "UNAVAILABLE"}))
+                raise SystemExit(1)
+            return
         token = None
         if args.command == "activate":
             import getpass

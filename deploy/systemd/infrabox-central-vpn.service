@@ -1,0 +1,11 @@
+[Unit]
+Description=InfraBox central VPN enrollment with device-key proof
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/kdx-registration-client/config.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/kronoskvm/scripts/central-vpn-host.py
+UMask=0077
+TimeoutStartSec=50

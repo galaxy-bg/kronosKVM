@@ -48,17 +48,24 @@ dns_servers() {
 }
 
 internet_state() {
+    local uplink
+    uplink="$(/usr/sbin/ip -4 route get 1.1.1.1 2>/dev/null |
+        awk '{ for (i=1; i<=NF; i++) if ($i == "dev") { print $(i+1); exit } }' || true)"
+    if [[ -z "$uplink" ]]; then
+        printf 'unreachable (no IPv4 route)\n'
+        return
+    fi
     if ! command -v curl >/dev/null 2>&1; then
         printf 'unknown (curl unavailable)\n'
         return
     fi
     if curl --fail --silent --output /dev/null \
         --connect-timeout 3 --max-time 6 \
-        --interface eth0 --noproxy '*' \
+        --interface "$uplink" --noproxy '*' \
         https://connectivitycheck.gstatic.com/generate_204; then
-        printf 'reachable via eth0\n'
+        printf 'reachable via %s\n' "$uplink"
     else
-        printf 'unreachable via eth0\n'
+        printf 'unreachable via %s\n' "$uplink"
     fi
 }
 

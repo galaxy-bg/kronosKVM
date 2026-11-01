@@ -29,6 +29,8 @@ def host_files(tmp_path, monkeypatch):
     private.mkdir()
     monkeypatch.setattr(host.wireguard_auto, "ROOT", private / "enrollment-ssh")
     monkeypatch.setattr(host, "PRIVATE", private)
+    monkeypatch.setattr(host, "STATE", tmp_path)
+    monkeypatch.setattr(host.os, "fchown", lambda *args: None)
     monkeypatch.setattr(host, "CONFIG", private / "config.json")
     monkeypatch.setattr(host, "IDENTITY", private / "identity.json")
     monkeypatch.setattr(host, "KEYFILE", tmp_path / "profile.nmconnection")
@@ -181,15 +183,18 @@ def test_delete_profile_stops_tunnel_and_clears_files(profile, monkeypatch, tmp_
     cache = tmp_path / 'registration.json'
     for path in (host.KEYFILE, host.WG_CONFIG, cache):
         path.write_text('saved')
-    host.IDENTITY.write_text('preserved identity')
+    host.IDENTITY.write_text(json.dumps({'version':1,'device_id':'10000000000865dd',
+        'hostname':'infrabox-test','public_key':base64.b64encode(b'd'*32).decode(),
+        'request_id':'00000000-0000-4000-8000-000000000001','private_key':'PRIVATE-TEST'}))
     commands = []
     monkeypatch.setattr(host, 'run', lambda args, *a, **kw: commands.append(args) or '')
     config = {'profile': profile, 'enabled': True, 'autostart': True}
     host.process(config, {'action': 'delete-profile'})
     assert config == {'profile': None, 'enabled': False, 'autostart': False}
     assert not any(path.exists() for path in (host.KEYFILE, host.WG_CONFIG))
-    assert cache.read_text() == "saved"
-    assert host.IDENTITY.read_text() == 'preserved identity'
+    assert not cache.exists() and not host.IDENTITY.exists()
+    outbox=json.loads((host.PRIVATE/'central.json').read_text())
+    assert outbox['delete_pending'] and 'private_key' not in json.dumps(outbox)
     assert commands[0][-3:] == ['down', 'uuid', host.PROFILE_UUID]
 
 

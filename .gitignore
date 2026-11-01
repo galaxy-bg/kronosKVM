@@ -28,6 +28,11 @@ build/
 *.egg-info/
 artifacts/inventory/*
 !artifacts/inventory/.gitkeep
+# Local deployment bundles and validation captures; publish reviewed source instead.
+artifacts/dashboard/
+artifacts/registration-server/
+artifacts/registration-wan/
+artifacts/wireguard-provisioning/
 secrets/
 config/local/
 tmp/

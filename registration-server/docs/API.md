@@ -111,3 +111,56 @@ The same-origin dashboard gateway exposes create/edit paths under `/api/customer
 and `/api/devices`, with lifecycle actions under
 `/api/actions/{customers|devices}/{id}/{archive|restore}`. Mutations require the
 existing session, allowed Origin and CSRF token.
+
+## Device-key VPN requests
+
+`POST /api/v1/devices/challenge` additionally accepts purpose `vpn` with
+`vpn_request` containing `{version:1,device_id,hostname,public_key,request_id}`.
+Here `device_id` is the lowercase 16-digit hardware serial; the outer identity
+uses its existing installation UUID and Ed25519 public key. The challenge binds
+SHA-256 of the canonical VPN request and is single-use.
+
+`POST /api/v1/devices/vpn` accepts `{challenge_id,signature,request}`. A valid
+proof creates/reads a PENDING grant independently of licensing. An ACTIVE grant
+returns a signed `kdx-infrabox-vpn` document with the exact public registration,
+serial and a ten-minute validity window. Existing grants cannot be overwritten
+with another installation/key/request. No VPN private key is transferred.
+
+Administrators/viewers can `GET /api/v1/admin/vpn` (up to 200 records). Only
+administrators can POST `/api/v1/admin/vpn/{id}/{approve|suspend|resume|archive}`
+with `{reason}`. These actions use the constrained server key and audit the
+operator, reason and device. Remote failures return 503 without reporting grant
+success; retry the same action for reconciliation. Archive keeps the IP reserved
+and requires operator recovery before a replacement grant.
+
+See [central VPN deployment and acceptance](../../docs/central-vpn.md).
+
+## Bidirectional VPN deletion
+
+The current VPN delete protocol supersedes the earlier archive/restore behavior.
+See [VPN deletion, retired generations and fresh setup](../../docs/vpn-deletion.md).
+Administrator `/api/v1/admin/vpn/{id}/delete` removes the peer/registry entry and
+frees the IP. Device proofs bind `vpn_operation` / `operation` (`sync` or `delete`).
+Deleted generations receive a signed DELETED instruction; a fresh request/key
+requires new approval. Deleted grants are hidden from the default list.
+
+## Desktop VPN clients
+
+`GET /api/v1/admin/vpn-clients` lists public client metadata and server permission
+(up to 200 non-deleted records). Administrator POST to the same path accepts
+`{id,name,platform,public_key,owner_name?,email?,customer_id?}`. `id` is a browser
+UUID for safe retries; platform is WINDOWS, MACOS, LINUX or OTHER. No private key,
+custom routes, server address or desired client IP may be supplied. The response
+contains public registration metadata for local browser .conf rendering.
+
+Administrator POST `/api/v1/admin/vpn-clients/{id}/{suspend|resume|delete}` requires
+a reason. Deletion is idempotent, cannot be resumed, and releases the server IP.
+There is no private-key download/export API. See [desktop VPN](../../docs/desktop-vpn.md).
+
+## Live peer table deletion
+
+Administrator POST `/api/v1/admin/vpn-peers/delete` accepts
+`{public_key,allowed_ips,reason}` with exact canonical private IPv4 /32 selections.
+Known device/desktop keys use the corresponding central deletion flow. Unknown
+keys use constrained unmanaged-peer deletion; server-registered peers cannot
+bypass their central lifecycle. See [peer actions](../../docs/vpn-peer-actions.md).

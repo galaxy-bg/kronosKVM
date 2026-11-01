@@ -53,3 +53,49 @@ def test_active_records_are_protected_and_mutations_require_csrf(dashboard_env):
         assert client.post(f'/api/actions/{entity}/{record["id"]}/archive',headers=headers,json={'reason':'Try active removal'}).status_code == 409
         assert client.patch(f'/api/{entity}/{record["id"]}',headers={'Origin':'http://testserver'},json={'reason':'Missing CSRF'}).status_code == 403
     assert client.patch('/api/devices/'+device['id'],headers=headers,json={'customer_id':None,'reason':'Change owner silently'}).status_code == 409
+
+
+def test_vpn_requests_require_session_and_mutations_require_csrf(dashboard_env):
+    client, env = dashboard_env
+    assert client.get('/api/vpn/requests').status_code == 401
+    headers = login(dashboard_env)
+    assert client.get('/api/vpn/requests').json() == []
+    path='/api/actions/vpn/00000000-0000-4000-8000-000000000001/approve'
+    assert client.post(path,headers={'Origin':'http://testserver'},json={'reason':'No CSRF present'}).status_code == 403
+    assert client.post(path,headers=headers,json={'reason':'Unknown grant'}).status_code == 404
+
+
+def test_desktop_client_gateway_guards(dashboard_env):
+    import uuid
+    from test_desktop_clients import DesktopController,payload
+    client,env=dashboard_env;env[1].state.vpn_controller=DesktopController()
+    assert client.get('/api/vpn/clients').status_code==401
+    headers=login(dashboard_env)
+    assert client.post('/api/vpn/clients',headers={'Origin':'http://testserver'},json=payload()).status_code==403
+    result=client.post('/api/vpn/clients',headers=headers,json=payload())
+    assert result.status_code==200,result.text
+    assert 'private_key' not in result.text
+    assert len(client.get('/api/vpn/clients').json())==1
+    path='/api/actions/vpn-clients/'+result.json()['id']+'/delete'
+    assert client.post(path,headers=headers,json={'reason':'Gateway cleanup test'}).status_code==200
+    assert client.get('/api/vpn/clients').json()==[]
+
+
+def test_table_peer_delete_requires_csrf_and_suppresses_old_sample(dashboard_env,monkeypatch):
+    import time,base64
+    from test_gateway import gateway
+    client,env=dashboard_env
+    key=base64.b64encode(b'u'*32).decode()
+    class Controller:
+        def apply(self,action,request):return {'status':'DELETED'}
+    env[1].state.vpn_controller=Controller()
+    async def read(self,devices):
+        return {'configured':True,'sampled_at':int(time.time())-10,'peers':[{'public_key':key,'connection_state':'recent','device':None,'received_bytes':10,'sent_bytes':20}], 'totals':{'peers':1,'recent':1,'matched':0,'received_bytes':10,'sent_bytes':20}}
+    monkeypatch.setattr(gateway.Reader,'read',read)
+    headers=login(dashboard_env)
+    body={'public_key':key,'allowed_ips':['10.77.0.2/32'],'reason':'Remove obsolete peer'}
+    assert client.post('/api/vpn/peers/delete',headers={'Origin':'http://testserver'},json=body).status_code==403
+    assert client.post('/api/vpn/peers/delete',headers=headers,json=body).status_code==200
+    after=client.get('/api/vpn').json()
+    assert after['peers']==[] and after['totals']['peers']==0
+    assert after['totals']['received_bytes']==0 and after['totals']['sent_bytes']==0

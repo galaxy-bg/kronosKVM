@@ -180,12 +180,11 @@ def test_automatic_action_is_queued_only_with_approved_grant(transport, monkeypa
              "auto_enrollment": {"ready": False}}
     status.write_text(json.dumps(value))
     client = TestClient(create_app())
-    assert client.post("/api/v1/wireguard/enroll").status_code == 409
-    value["auto_enrollment"]["ready"] = True
+    assert client.post("/api/v1/wireguard/enroll").status_code == 410
+    value["auto_enrollment"] = {"ready": True, "state": "reply_cached"}
     status.write_text(json.dumps(value))
-    assert client.post("/api/v1/wireguard/enroll").status_code == 202
-    queued = json.loads((transport / "remote-assist-request.json").read_text())
-    assert queued["action"] == "auto-register"
+    assert client.post("/api/v1/wireguard/enroll").status_code == 410
+    assert not (transport / "remote-assist-request.json").exists()
 
 
 def test_cached_approval_remains_available_without_transport(transport, reply):

@@ -153,6 +153,9 @@ def identity_public():
 
 
 def ensure_identity(config):
+    marker = PRIVATE / "central.json"
+    if marker.exists() and json.loads(marker.read_text()).get("delete_pending"):
+        raise ProfileError("VPN deletion is awaiting server confirmation; retry setup after cleanup")
     if IDENTITY.exists():
         public = identity_public()
         if public["device_id"] != read_identity()["serial"]:
@@ -348,13 +351,30 @@ def snapshot(config):
         "vpn_ip": str(ipaddress.ip_interface(profile["address"]).ip) if profile else None,
         "enrollment": identity_public(),
         "auto_enrollment": automatic_status(config),
+        "central_vpn": central_status(),
     }
     atomic(STATE / "remote-assist-status.json", status, public=True)
 
 
+def central_status():
+    try:
+        value = json.loads((STATE / "central-vpn-status.json").read_text())
+        return {k: value[k] for k in ("status", "updated_at", "error") if k in value}
+    except (OSError, ValueError, TypeError):
+        return {"status": "NOT_REQUESTED"}
+
+
 def process(config, request):
     action = request.get("action")
-    if action == "generate-identity":
+    if action == "disable" and (PRIVATE / "central.json").exists():
+        central = json.loads((PRIVATE / "central.json").read_text())
+        central["connect_pending"] = False
+        atomic(PRIVATE / "central.json", central)
+    if action == "central-register":
+        ensure_identity(config)
+        atomic(PRIVATE / "central.json", {"enabled": True, "connect_pending": not config.get("enabled", False)})
+        atomic(STATE / "central-vpn-status.json", {"status": "REQUESTED", "updated_at": int(time.time())}, public=True)
+    elif action == "generate-identity":
         ensure_identity(config)
     elif action == "register":
         register(config, request.get("registration"))
@@ -363,7 +383,22 @@ def process(config, request):
         process(config, {"action": "enable"})
     elif action == "auto-register":
         automatic_registration(config)
-    elif action == "delete-profile":
+    elif action in {"delete-profile", "delete-local-vpn"}:
+        marker = PRIVATE / "central.json"
+        central = json.loads(marker.read_text()) if marker.exists() else {}
+        public = identity_public() or central.get("delete_request")
+        cached = wireguard_auto.ROOT / "registration.json"
+        if not public and cached.exists():
+            try:
+                reply = json.loads(cached.read_text())
+                public = registration_request({k:reply[k] for k in (
+                    "version","device_id","hostname","public_key","request_id")})
+            except (ValueError, KeyError, TypeError):
+                public = None
+        if public:
+            # Durable public-only outbox survives loss of connectivity and crashes.
+            atomic(marker,{"enabled":True,"connect_pending":False,
+                           "delete_pending":True,"delete_request":public})
         # Stop the tunnel before removing persistent configuration; fail closed.
         run(["nmcli", "connection", "down", "uuid", PROFILE_UUID], False)
         if INTERFACE in run(["wg", "show", "interfaces"]).split():
@@ -372,7 +407,13 @@ def process(config, request):
             run(["nmcli", "connection", "delete", "uuid", PROFILE_UUID])
         KEYFILE.unlink(missing_ok=True)
         WG_CONFIG.unlink(missing_ok=True)
-        # Retain public approval for an explicit restore; no automatic reconnection.
+        IDENTITY.unlink(missing_ok=True)
+        PUBLIC_IDENTITY.unlink(missing_ok=True)
+        cached.unlink(missing_ok=True)
+        if public:
+            atomic(STATE / "central-vpn-status.json", {"status":"DELETE_PENDING","updated_at":int(time.time())},public=True)
+        else:
+            atomic(marker,{"enabled":False,"delete_pending":False,"connect_pending":False})
         config.update(profile=None, enabled=False, autostart=False)
     elif action == "restart":
         if not config.get("profile"):
@@ -420,12 +461,12 @@ def process(config, request):
 def transactional_process(config, request):
     """Restore this profile's files and previous tunnel state if a host step fails."""
     action = request.get("action")
-    if action == "generate-identity":
+    if action in {"generate-identity", "central-register"}:
         candidate = copy.deepcopy(config)
         process(candidate, request)
         atomic(CONFIG, candidate)
         return candidate
-    targets = (CONFIG, KEYFILE, WG_CONFIG, wireguard_auto.ROOT / "registration.json")
+    targets = (CONFIG, KEYFILE, WG_CONFIG, IDENTITY, PUBLIC_IDENTITY, PRIVATE / "central.json", wireguard_auto.ROOT / "registration.json")
     before = {path: path.read_bytes() if path.exists() else None for path in targets}
     active_before = INTERFACE in run(["wg", "show", "interfaces"], False).split()
     backup = backup_profile()
@@ -444,7 +485,7 @@ def transactional_process(config, request):
                 path.write_bytes(content)
                 os.chmod(path, 0o600)
         if changed or action in {
-                "enable", "disable", "restart", "delete-profile", "register-connect"}:
+                "enable", "disable", "restart", "delete-profile", "delete-local-vpn", "register-connect"}:
             try:
                 if before[KEYFILE] is not None:
                     run(["nmcli", "connection", "load", str(KEYFILE)])

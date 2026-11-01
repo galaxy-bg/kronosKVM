@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- Detect the actual IPv4 uplink when checking appliance internet connectivity,
+  including phone USB tethering instead of always probing Ethernet. Record USB 3,
+  host/container routing and mobile VPN tests; the mobile handshake issue remains
+  unresolved and experimental port, MTU and firewall changes are not shipped.
+
+- Translate the management dashboard to English and match the InfraBox appliance
+  branding, light/dark palette and collapsible sidebar.
+- Record management changes as persistent tasks, with timelines, safe outcome
+  reporting, restart recovery and administrator-only history cleanup.
+
+- Add administrator actions to the VPN peer table, including confirmed deletion
+  of legacy manual peers by exact key/IP selection and safe managed lifecycle dispatch.
+
+- Add separate PC/Mac VPN clients with browser-generated X25519 keys, a one-time
+  .conf download, public-only server records and per-client suspend/resume/delete.
+
+- Synchronize VPN deletion in both directions, remove cached-profile restore,
+  retire old request/key generations and require a fresh key and approval for
+  setup. Keep a public-only retry outbox when the registration server is offline.
+
+- Replace appliance VPN-server password setup with device-key signed requests,
+  explicit dashboard grants and signed public connection settings. Add targeted
+  disable/enable/archive operations using a separate constrained service key.
+
 - Add the central registration/licensing service with Ed25519 device proofs, explicit
   administrator approval, single-use activation, offline grace and audited recovery.
 - Connect the real InfraBox agent over verified WAN HTTPS and expose a non-secret

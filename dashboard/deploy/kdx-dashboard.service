@@ -12,6 +12,9 @@ ExecStart=/opt/kdx-dashboard/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 -
 Restart=on-failure
 RestartSec=5
 UMask=0077
+StateDirectory=kdx-dashboard
+StateDirectoryMode=0700
+Environment=KDX_DASHBOARD_TASK_DATABASE=/var/lib/kdx-dashboard/tasks.sqlite3
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true

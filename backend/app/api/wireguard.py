@@ -1,13 +1,11 @@
 """Provisioning on the existing authenticated control plane."""
 
-import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Request
 
 from backend.app.api.remote_assist import queue, read_status
 from backend.app.security.auth import require_admin
-from backend.app.services import wireguard_quick
 from backend.app.services.wireguard_provisioning import registration_request, registration_response
 
 router = APIRouter(prefix="/api/v1/wireguard", tags=["wireguard"])
@@ -26,6 +24,7 @@ def status():
     value["auto_enrollment"] = {k: auto[k] for k in (
         "ready", "state", "expires_at", "server",
     ) if k in auto}
+    value["central_vpn"] = {k: (live.get("central_vpn") or {}).get(k) for k in ("status", "updated_at", "error")}
     value["endpoint"] = profile.get("endpoint")
     value["allowed_ips"] = profile.get("allowed_ips")
     try:
@@ -33,6 +32,12 @@ def status():
     except ValueError:
         value["enrollment"] = None
     return value
+
+
+@router.delete("", status_code=202)
+def delete_vpn(request: Request):
+    require_admin(request)
+    return queue({"action":"delete-profile"})
 
 
 @router.post("/identity", status_code=202)
@@ -56,15 +61,10 @@ async def import_registration(request: Request):
     return queue({"action": "register", "registration": registration})
 
 
-@router.post("/enroll", status_code=202)
-def auto_register(request: Request):
+@router.post("/enroll")
+def legacy_restore_removed(request: Request):
     require_admin(request)
-    live = read_status()
-    if live.get("enabled"):
-        raise HTTPException(409, "Disconnect VPN before automatic registration")
-    if not (live.get("auto_enrollment") or {}).get("ready"):
-        raise HTTPException(409, "Administrator must authorize automatic registration first")
-    return queue({"action": "auto-register"})
+    raise HTTPException(410, "Restore was removed; request a fresh VPN setup")
 
 
 async def setup_input(request):
@@ -82,42 +82,17 @@ async def setup_input(request):
         raise HTTPException(400, "Invalid setup request") from None
 
 
+@router.post("/central-register", status_code=202)
+def central_register(request: Request):
+    require_admin(request)
+    return queue({"action": "central-register"})
+
+
 @router.post("/server-check")
-async def check_server(request: Request):
+@router.post("/quick-register")
+def password_setup_removed(request: Request):
     require_admin(request)
-    value = await setup_input(request)
-    try:
-        key = await wireguard_quick.server_key(value)
-        return {"fingerprint": key.get_fingerprint()}
-    except ValueError as error:
-        raise HTTPException(400, str(error)) from None
-
-
-@router.post("/quick-register", status_code=202)
-async def quick_register(request: Request):
-    require_admin(request)
-    # Per-process single setup worker; the host queue has its own cross-process lock.
-    lock = getattr(request.app.state, "vpn_setup_lock", None)
-    if lock is None:
-        lock = request.app.state.vpn_setup_lock = asyncio.Lock()
-    if lock.locked():
-        raise HTTPException(409, "VPN setup is already in progress")
-    async with lock:
-        live = read_status()
-        if live.get("enabled") or live.get("pending"):
-            raise HTTPException(409, "Disconnect VPN and wait for pending actions before setup")
-        if live.get("stale") or not live.get("installed"):
-            raise HTTPException(503, "VPN host module is unavailable")
-        if not live.get("enrollment"):
-            raise HTTPException(409, "Create the device identity before server setup")
-        value = await setup_input(request)
-        try:
-            response = await wireguard_quick.register(value, live["enrollment"])
-        except ValueError as error:
-            raise HTTPException(400, str(error)) from None
-        finally:
-            value.clear()  # No credential enters the queue, status snapshot or configuration.
-        return queue({"action": "register-connect", "registration": response})
+    raise HTTPException(410, "Password-based setup was removed; request VPN access from the central dashboard")
 
 
 @router.post("/{action}", status_code=202)

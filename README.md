@@ -296,3 +296,7 @@ Copyright belongs to KronosDX. Redistribution is not currently authorized; see
 The dashboard and registration service run on their own VMs. Their source and
 deployment instructions live here alongside the appliance; each component has
 its own dependencies and tests.
+
+Central device-key VPN requests and dashboard access management: [workflow and deployment](docs/central-vpn.md).
+
+PC/Mac client creation, one-time .conf download and access management: [desktop VPN](docs/desktop-vpn.md).

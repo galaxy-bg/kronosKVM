@@ -134,7 +134,7 @@ class LCDPanel:
             draw.line((156, top, 156, top + thumb - 1), fill="#53dca5", width=2)
         draw.line((4, 109, 155, 109), fill="#2f4940")
         # Symbols match the four physical enclosure keys in order.
-        footer = "↓ ↑  ✓ " + ("Sec" if selected is not None else "Menu") + "  ↩ Menu"
+        footer = "↓ ↑  ✓ " + ("Select" if selected is not None else "Menu") + "  ↩ Back"
         draw.text((5, 114), self.fit(draw, footer, 150, self.small),
                   font=self.small, fill="#a5c5ba")
         self._present(canvas)

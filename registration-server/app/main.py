@@ -1,5 +1,7 @@
 import base64
 import logging
+import json
+import subprocess
 import secrets
 import time
 from collections import defaultdict, deque
@@ -17,7 +19,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from . import schemas as s
 from .config import Settings
 from .crypto import canonical, digest, load_signer, public_key, signed_document
+from .vpn_control import Controller
 from .models import (
+    VpnClient,
+    VpnEnrollment,
+    VpnDeletion,
     ActivationToken,
     Administrator,
     AuditLog,
@@ -45,7 +51,7 @@ def utc(value):
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
-def create_app(settings=None, engine=None, signer=None):
+def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
     cfg = settings or Settings()
     engine = engine or create_engine(cfg.database_url, pool_pre_ping=True)
     sessions = sessionmaker(engine, expire_on_commit=False)
@@ -59,6 +65,7 @@ def create_app(settings=None, engine=None, signer=None):
     app = FastAPI(title="KDX InfraBox Registration", version="1.0.0", lifespan=lifespan)
     app.state.signer = signer
     app.state.sessions = sessions
+    app.state.vpn_controller = vpn_controller or Controller(cfg)
     buckets = defaultdict(deque)
 
     @app.middleware("http")
@@ -330,6 +337,7 @@ def create_app(settings=None, engine=None, signer=None):
         expires = now() + timedelta(seconds=cfg.challenge_seconds)
         message = canonical(
             {
+                **({"vpn_request_hash": digest(canonical(value.vpn_request.model_dump(mode="json"))), "vpn_operation": value.vpn_operation} if value.purpose == "vpn" else {}),
                 "v": 1,
                 "aud": cfg.audience,
                 "challenge_id": ident,
@@ -354,6 +362,253 @@ def create_app(settings=None, engine=None, signer=None):
             )
         )
         return {"challenge_id": ident, "message": message, "expires_at": expires}
+
+    def vpn_summary(session, item):
+        device = get_device(session, item.device_id)
+        return {"id": item.id, "device_id": device.id, "serial": device.serial,
+                "device_name": device.display_name or device.model,
+                "customer": customer_summary(session.get(Customer, device.customer_id)) if device.customer_id else None,
+                "installation_id": item.installation_id, "public_key": item.public_key,
+                "request": item.request, "registration": item.registration,
+                "status": item.status, "updated_at": item.updated_at}
+
+    def vpn_remote(action, request):
+        try:
+            return app.state.vpn_controller.apply(action, request)
+        except (ValueError, OSError, TimeoutError, subprocess.TimeoutExpired):
+            raise HTTPException(503, "VPN operation unconfirmed; retry the same action to reconcile") from None
+
+    def retire_vpn(session, item, actor, reason):
+        result = vpn_remote("delete", item.request)
+        if result.get("status") != "DELETED":
+            raise HTTPException(503, "VPN deletion unconfirmed; retry to reconcile")
+        old = session.get(VpnDeletion, item.request["request_id"])
+        if not old:
+            session.add(VpnDeletion(request_id=item.request["request_id"], device_id=item.device_id,
+                installation_id=item.installation_id, key_id=item.key_id,
+                public_key=item.public_key, request=item.request))
+        item.status, item.registration, item.updated_at = "ARCHIVED", None, now()
+        audit(session, actor, "VPN_DELETED", item.id,
+            {"device_id":item.device_id,"request_id":item.request["request_id"],"reason":reason})
+        session.flush()
+
+    def vpn_deleted_document(device, request):
+        issued = int(now().timestamp())
+        return {"status":"DELETED", "document":signed_document(app.state.signer, {
+            "v":1,"aud":"kdx-infrabox-vpn-state","status":"DELETED","serial":device.serial,
+            "request":request,"issued_at":issued,"expires_at":issued+600})}
+
+    @app.post("/api/v1/devices/vpn")
+    def vpn_request(value: s.VpnProof, session: Session = Depends(db, scope="function")):
+        device, inst, key = consume(session, value, "vpn")
+        challenge = session.get(Challenge, str(value.challenge_id))
+        message = json.loads(challenge.message)
+        request = value.request.model_dump(mode="json")
+        if (message.get("vpn_request_hash") != digest(canonical(request))
+                or message.get("vpn_operation", "sync") != value.operation):
+            reject(session, device, "VPN_REQUEST_MISMATCH", {}, 401)
+        if request["device_id"].upper() != device.serial:
+            reject(session, device, "HARDWARE_MISMATCH", {})
+        deleted = session.get(VpnDeletion, request["request_id"])
+        if deleted:
+            if (deleted.device_id != device.id or deleted.installation_id != inst.id
+                    or deleted.key_id != key.id or deleted.request != request):
+                reject(session, device, "VPN_RECOVERY_REQUIRED", {}, 409)
+            # A delayed request belongs to the retired generation, never its replacement.
+            return vpn_deleted_document(device, request)
+        item = session.scalar(select(VpnEnrollment).where(VpnEnrollment.device_id == device.id))
+        same = item and item.installation_id == inst.id and item.key_id == key.id and item.request == request
+        if value.operation == "delete":
+            if item and not same:
+                reject(session, device, "VPN_RECOVERY_REQUIRED", {}, 409)
+            if item:
+                retire_vpn(session, item, "device", "Deletion requested on InfraBox")
+            else:
+                # This generation never acquired a central grant, so has no peer
+                # the device is entitled to mutate. Retire its local request only.
+                session.add(VpnDeletion(request_id=request["request_id"], device_id=device.id,
+                    installation_id=inst.id,key_id=key.id,public_key=request["public_key"],request=request))
+                audit(session,"device","VPN_DELETED",device.id,{"request_id":request["request_id"]})
+            return vpn_deleted_document(device, request)
+        if same and item.status == "ARCHIVED":
+            # Upgrade old archive records to actual peer deletion and cleanup.
+            retire_vpn(session, item, "system", "Retired VPN grant cleanup")
+            return vpn_deleted_document(device, request)
+        if item and item.status != "ARCHIVED" and not same:
+            reject(session, device, "VPN_RECOVERY_REQUIRED", {}, 409)
+        if device.archived_at:
+            reject(session, device, "VPN_DEVICE_ARCHIVED", {})
+        if not item or item.status == "ARCHIVED":
+            if not item:
+                observed = vpn_remote("inspect", request)
+                if observed.get("status") == "DELETED":
+                    # Old installations could leave an archived server record after
+                    # the dashboard grant disappeared. Retire that exact generation.
+                    removed = vpn_remote("delete", request)
+                    if removed.get("status") != "DELETED":
+                        raise HTTPException(503,"VPN deletion unconfirmed")
+                    session.add(VpnDeletion(request_id=request["request_id"],device_id=device.id,
+                        installation_id=inst.id,key_id=key.id,public_key=request["public_key"],request=request))
+                    audit(session,"system","VPN_DELETED",device.id,{"request_id":request["request_id"],"reason":"Old archived peer cleanup"})
+                    return vpn_deleted_document(device,request)
+                if observed.get("status") not in {"MISSING","PRESENT"}:
+                    raise HTTPException(503,"VPN peer state could not be verified")
+            if session.scalar(select(VpnDeletion.request_id).where(VpnDeletion.public_key == request["public_key"])):
+                reject(session,device,"VPN_FRESH_KEY_REQUIRED",{},409)
+            if not item:
+                item = VpnEnrollment(device_id=device.id)
+                session.add(item)
+            item.installation_id, item.key_id, item.public_key = inst.id, key.id, request["public_key"]
+            item.request, item.registration, item.status, item.updated_at = request, None, "PENDING", now()
+            session.flush()
+            audit(session, "device", "VPN_REQUESTED", item.id,
+                {"device_id":device.id,"request_id":request["request_id"]})
+        if item.status in {"ACTIVE", "SUSPENDED"}:
+            observed = vpn_remote("inspect", item.request)
+            if observed.get("status") in {"MISSING", "DELETED"}:
+                retire_vpn(session,item,"system","Managed peer deleted on VPN server")
+                return vpn_deleted_document(device,request)
+            if observed.get("status") != "PRESENT":
+                raise HTTPException(503,"VPN peer state could not be verified")
+        result = {"id": item.id, "status": item.status}
+        if item.status == "ACTIVE":
+            issued = int(now().timestamp())
+            result["document"] = signed_document(app.state.signer, {
+                "v": 1, "aud": "kdx-infrabox-vpn", "status": "ACTIVE",
+                "serial": device.serial, "registration": item.registration,
+                "issued_at": issued, "expires_at": issued + 600})
+        return result
+
+    @app.get("/api/v1/admin/vpn")
+    def vpn_list(actor=Depends(admin), session: Session = Depends(db, scope="function")):
+        return [vpn_summary(session, item) for item in session.scalars(
+            select(VpnEnrollment).where(VpnEnrollment.status != "ARCHIVED").order_by(VpnEnrollment.created_at.desc()).limit(200))]
+
+    @app.post("/api/v1/admin/vpn/{enrollment_id}/{action}")
+    def vpn_action(enrollment_id: str, action: str, value: s.Reason, actor=Depends(writer),
+                   session: Session = Depends(db, scope="function")):
+        item = session.get(VpnEnrollment, enrollment_id)
+        if not item or action not in {"approve", "suspend", "resume", "archive", "delete"}:
+            raise HTTPException(404, "VPN request or action not found")
+        device = get_device(session, item.device_id)
+        if action in {"delete", "archive"}:
+            retire_vpn(session,item,actor.name,value.reason)
+            return {"id":item.id,"status":"DELETED"}
+        if device.archived_at and action in {"approve", "resume"}:
+            raise HTTPException(409, "Restore device before enabling VPN")
+        if item.status == "ARCHIVED" and action != "archive":
+            raise HTTPException(409, "Archived VPN grant cannot be enabled; operator recovery required")
+        if item.status == "PENDING" and action in {"resume", "suspend"}:
+            raise HTTPException(409, "Approve or archive the pending VPN request")
+        try:
+            result = app.state.vpn_controller.apply(action, item.request)
+            expected = {"approve":"ACTIVE", "resume":"ACTIVE", "suspend":"SUSPENDED", "archive":"ARCHIVED"}[action]
+            if result.get("status") != expected:
+                raise ValueError("VPN state unconfirmed")
+            registration = result.get("registration")
+            if expected == "ACTIVE":
+                if not isinstance(registration, dict) or any(registration.get(k) != v for k,v in item.request.items()):
+                    raise ValueError("VPN response binding mismatch")
+                item.registration = registration
+        except (ValueError, OSError, TimeoutError, subprocess.TimeoutExpired):
+            raise HTTPException(503, "VPN operation unconfirmed; retry the same action to reconcile") from None
+        item.status, item.updated_at = expected, now()
+        audit(session, actor.name, "VPN_"+action.upper(), item.id,
+              {"device_id": device.id, "reason": value.reason})
+        return vpn_summary(session, item)
+
+    def vpn_client_summary(session, item):
+        customer=session.get(Customer,item.customer_id) if item.customer_id else None
+        return {"id":item.id,"name":item.name,"owner_name":item.owner_name,"email":item.email,
+            "platform":item.platform,"customer_id":item.customer_id,
+            "customer":{"id":customer.id,"name":customer.name} if customer else None,
+            "public_key":item.public_key,"status":item.status,"registration":item.registration,
+            "created_at":item.created_at,"updated_at":item.updated_at}
+
+    def client_change(session,item,action,actor,reason):
+        result=vpn_remote(action,item.request)
+        expected={"approve":"ACTIVE","resume":"ACTIVE","suspend":"SUSPENDED","delete":"DELETED"}[action]
+        if result.get("status")!=expected:
+            raise HTTPException(503,"VPN operation unconfirmed; retry the same action")
+        if expected=="ACTIVE":
+            registration=result.get("registration")
+            if not isinstance(registration,dict) or any(registration.get(k)!=v for k,v in item.request.items()):
+                raise HTTPException(503,"VPN response binding mismatch")
+            item.registration=registration
+        elif expected=="DELETED":item.registration=None
+        item.status,item.updated_at=expected,now()
+        audit(session,actor.name,"VPN_CLIENT_"+action.upper(),item.id,{"reason":reason})
+
+    @app.get("/api/v1/admin/vpn-clients")
+    def vpn_clients(actor=Depends(admin),session:Session=Depends(db,scope="function")):
+        return [vpn_client_summary(session,item) for item in session.scalars(
+            select(VpnClient).where(VpnClient.status!="DELETED").order_by(VpnClient.created_at.desc()).limit(200))]
+
+    @app.post("/api/v1/admin/vpn-clients")
+    def vpn_client_create(value:s.VpnClientInput,actor=Depends(writer),session:Session=Depends(db,scope="function")):
+        ident=str(value.id)
+        customer_id=str(value.customer_id) if value.customer_id else None
+        if customer_id:active_customer(session,customer_id)
+        item=session.get(VpnClient,ident)
+        metadata={"name":value.name,"owner_name":value.owner_name,"email":value.email,
+                  "platform":value.platform,"customer_id":customer_id,"public_key":value.public_key}
+        if item:
+            if any(getattr(item,k)!=v for k,v in metadata.items()) or item.status not in {"PENDING","ACTIVE"}:
+                raise HTTPException(409,"Request already used; inspect the existing client")
+            if item.status=="ACTIVE":return vpn_client_summary(session,item)
+        else:
+            if (session.scalar(select(VpnClient.id).where(VpnClient.public_key==value.public_key))
+                    or session.scalar(select(VpnEnrollment.id).where(VpnEnrollment.public_key==value.public_key))
+                    or session.scalar(select(VpnDeletion.request_id).where(VpnDeletion.public_key==value.public_key))):
+                raise HTTPException(409,"VPN key already used; generate a fresh client key")
+            request={"version":2,"client_id":ident,"hostname":"client-"+value.id.hex,
+                     "public_key":value.public_key,"request_id":ident}
+            item=VpnClient(id=ident,request=request,**metadata)
+            session.add(item);session.flush()
+            audit(session,actor.name,"VPN_CLIENT_CREATED",item.id,{"platform":item.platform})
+        try:
+            client_change(session,item,"approve",actor,"Desktop client creation")
+        except HTTPException:
+            # Keep public intent for retry/reconciliation if the SSH acknowledgment
+            # was lost. The browser retains its key; this service never receives it.
+            session.commit()
+            raise
+        return vpn_client_summary(session,item)
+
+    @app.post("/api/v1/admin/vpn-clients/{client_id}/{action}")
+    def vpn_client_action(client_id:str,action:str,value:s.Reason,actor=Depends(writer),
+                          session:Session=Depends(db,scope="function")):
+        item=session.get(VpnClient,client_id)
+        if not item or action not in {"suspend","resume","delete"}:
+            raise HTTPException(404,"Client or action not found")
+        if item.status=="DELETED":
+            if action=="delete":return {"id":item.id,"status":"DELETED"}
+            raise HTTPException(409,"Deleted client requires fresh setup")
+        if item.status=="PENDING" and action!="delete":
+            raise HTTPException(409,"Retry client creation or delete the unconfirmed request")
+        if action=="resume" and item.customer_id:active_customer(session,item.customer_id)
+        client_change(session,item,action,actor,value.reason)
+        return vpn_client_summary(session,item)
+
+    @app.post("/api/v1/admin/vpn-peers/delete")
+    def vpn_peer_delete(value:s.VpnPeerDelete,actor=Depends(writer),session:Session=Depends(db,scope="function")):
+        item=session.scalar(select(VpnEnrollment).where(
+            VpnEnrollment.public_key==value.public_key,VpnEnrollment.status!="ARCHIVED"))
+        client=session.scalar(select(VpnClient).where(
+            VpnClient.public_key==value.public_key,VpnClient.status!="DELETED"))
+        selected=item or client
+        if selected:
+            registration=selected.registration or {}
+            if value.allowed_ips!=[registration.get("address")]:
+                raise HTTPException(409,"Peer address changed or is unconfirmed; refresh inventory or use its management section")
+            if item:retire_vpn(session,item,actor.name,value.reason)
+            else:client_change(session,client,"delete",actor,value.reason)
+            return {"status":"DELETED"}
+        result=vpn_remote("delete-unmanaged",{"version":3,"public_key":value.public_key,"allowed_ips":value.allowed_ips})
+        if result.get("status")!="DELETED":raise HTTPException(503,"Peer deletion unconfirmed; refresh before retry")
+        audit(session,actor.name,"VPN_PEER_DELETED",value.public_key,
+              {"allowed_ips":value.allowed_ips,"reason":value.reason})
+        return {"status":"DELETED"}
 
     @app.post("/api/v1/devices/verify")
     def verify(value: s.Proof, session: Session = Depends(db, scope="function")):

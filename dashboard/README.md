@@ -8,6 +8,9 @@ access to device private keys.
 
 ## Features
 
+- English interface with the appliance logo, matching light/dark themes and collapsible navigation.
+- Persistent Tasks view for customer, device, license and VPN changes, with outcome and timeline.
+
 - Overview with device/activation/review counts and customer → license → device flow.
 - Device inventory, serial/customer search, status filter and identity detail drawer.
 - Pending devices plus new unactivated installations on an already active device.
@@ -149,3 +152,43 @@ Administrators can create/edit customer names, contacts, email and phone, and pr
 Deployment requires registration migration `0002` before the new dashboard. Back up the registration database and both application trees; deploy registration app/model/schema and migration, run `alembic upgrade head` with the existing protected environment, restart registration, then publish the dashboard assets with `deploy/publish_static.py` and restart the gateway. Preserve all server secrets and VPN configuration. Verify the actual page/assets and authenticated overview, rather than `/health` alone.
 
 Live deployment backups: `/var/backups/kdx-registration/management-20261101` (including PostgreSQL dump), `/var/backups/kdx-dashboard/management-20261101`. TLS WAN verification confirmed the page, both assets, management fields and three VPN peers. No production records were created, edited or archived for verification.
+
+Central device-key VPN requests and dashboard access management: [workflow and deployment](../docs/central-vpn.md).
+
+Current VPN deletion synchronizes both endpoints and removes cached restore. See [deletion and fresh setup](../docs/vpn-deletion.md).
+
+PC/Mac client creation, one-time .conf download and access management: [desktop VPN](../docs/desktop-vpn.md).
+
+VPN peer-table deletion, including legacy manual peers: [actions and safeguards](../docs/vpn-peer-actions.md).
+
+## Task history
+
+The gateway writes each authenticated management request before dispatching it to
+Registration Server. Queued → running → completed/failed/unconfirmed transitions
+are stored in SQLite at `/var/lib/kdx-dashboard/tasks.sqlite3` in production.
+The systemd unit creates this private writable state directory under its existing
+filesystem restrictions. Set `KDX_DASHBOARD_TASK_DATABASE` explicitly for other
+launch methods; the default in-memory store is intended for tests/development.
+Back up the SQLite database using SQLite backup tooling or while the service is stopped.
+
+Tasks describe the dashboard request outcome. A completed server deletion can
+still require an offline appliance to synchronize. Transport failures are marked
+unconfirmed; restart recovery marks interrupted tasks unconfirmed and never
+replays mutations. Review the actual record before retrying. Running progress is
+indeterminate; only confirmed completed requests show 100%.
+
+The latest 200 tasks are displayed and approximately 1,000 finished tasks are
+retained. Administrators can clear finished dashboard tasks; running tasks and
+Registration Server audit records are retained, and the clear operation itself
+is recorded. Viewers can inspect tasks but cannot clear or create them.
+Routine reads, refreshes and authentication are excluded. Configuration-download
+and activation-token-copy requests produce public metadata events only; these
+report the request, not confirmation that a file was saved or clipboard write succeeded.
+No request/response bodies, contact details, tokens, private keys or configuration
+contents are written to task history. Existing audit reasons and user-supplied names
+are preserved in their original language.
+
+For upgrades, back up the installed backend, static directory, environment and unit;
+install `backend/main.py`, `backend/tasks.py` and the updated systemd unit, publish
+`frontend/dist` using `deploy/publish_static.py`, then daemon-reload/restart.
+The restart invalidates browser sessions; sign in again with the existing token.

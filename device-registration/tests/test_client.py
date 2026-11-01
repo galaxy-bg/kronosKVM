@@ -357,3 +357,46 @@ def test_public_snapshot_readable_with_restrictive_service_umask(tmp_path):
         os.umask(previous)
     assert (tmp_path / "public.json").stat().st_mode & 0o777 == 0o644
     assert (tmp_path / "private.json").stat().st_mode & 0o777 == 0o600
+
+
+def test_vpn_request_uses_device_signature_without_license_or_ssh_password(setup):
+    import base64
+    import uuid
+    from test_vpn_enrollment import FakeController
+    env, directory, config, api = setup
+    env[1].state.vpn_controller = FakeController()
+    request = {"version":1,"device_id":"10000000000865dd","hostname":"infrabox-test",
+        "public_key":base64.b64encode(b"w"*32).decode(),"request_id":str(uuid.uuid4())}
+    result = agent.vpn_sync(config,directory,request,api)
+    assert result["status"] == "PENDING" and "document" not in result
+    assert all("password" not in json.dumps(x) and "private_key" not in json.dumps(x) for x in api.payloads)
+    response = env[0].post('/api/v1/admin/vpn/'+result['id']+'/approve',headers=env[2],json={"reason":"Approve key request"})
+    assert response.status_code == 200, response.text
+    result = agent.vpn_sync(config,directory,request,api)
+    registration = agent.verify_vpn_document(result['document'],config['server_public_key'],request)
+    assert registration['public_key'] == request['public_key']
+    with pytest.raises(agent.Denied):
+        agent.verify_vpn_document(result['document'],config['server_public_key'],{**request,'hostname':'other'})
+    altered = json.loads(json.dumps(result['document']))
+    altered['payload']['registration']['endpoint']='attacker.test:51820'
+    from cryptography.exceptions import InvalidSignature
+    with pytest.raises(InvalidSignature):
+        agent.verify_vpn_document(altered,config['server_public_key'],request)
+
+
+def test_signed_deletion_is_bound_to_exact_vpn_generation(setup):
+    import base64,uuid
+    from test_vpn_enrollment import FakeController
+    env,directory,config,api=setup
+    env[1].state.vpn_controller=FakeController()
+    request={"version":1,"device_id":"10000000000865dd","hostname":"infrabox-test",
+        "public_key":base64.b64encode(b"w"*32).decode(),"request_id":str(uuid.uuid4())}
+    agent.vpn_sync(config,directory,request,api)
+    deleted=agent.vpn_sync(config,directory,request,api,operation="delete")
+    assert agent.verify_vpn_deletion(deleted['document'],config['server_public_key'],request)['status']=='DELETED'
+    with pytest.raises(agent.Denied):
+        agent.verify_vpn_deletion(deleted['document'],config['server_public_key'],{**request,'request_id':str(uuid.uuid4())})
+    altered=json.loads(json.dumps(deleted['document']));altered['payload']['request']['hostname']='other'
+    from cryptography.exceptions import InvalidSignature
+    with pytest.raises(InvalidSignature):
+        agent.verify_vpn_deletion(altered,config['server_public_key'],request)

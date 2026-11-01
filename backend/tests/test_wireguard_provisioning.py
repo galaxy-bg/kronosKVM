@@ -262,21 +262,22 @@ def test_manual_address_change_refreshes_cached_reply(local, response, monkeypat
     assert host.automatic_status(config)["state"] == "registered"
 
 
-def test_manual_registration_can_be_explicitly_restored_after_profile_delete(
-        local, response, monkeypatch):
+def test_delete_destroys_vpn_identity_cache_and_queues_public_outbox(local, response, monkeypatch):
     config, _ = local
     response = {**response, **host.ensure_identity(config)}
     monkeypatch.setattr(host, "validate_routes", lambda p: None)
+    monkeypatch.setattr(host, "STATE", host.PUBLIC_IDENTITY.parent)
     host.register(config, response)
-    host.process(config, {"action": "delete-profile"})
+    public = host.identity_public()
+    host.process(config, {"action":"delete-profile"})
     assert config["profile"] is None and not config["autostart"]
-    assert host.automatic_status(config)["state"] == "reply_cached"
-    assert host.automatic_status(config)["ready"]
-    host.automatic_registration(config)
-    assert config["profile"]["address"] == response["address"]
-    assert config["enabled"] is False
-    assert not config["autostart"]
-
+    assert not host.IDENTITY.exists() and not host.PUBLIC_IDENTITY.exists()
+    assert not (host.wireguard_auto.ROOT / "registration.json").exists()
+    outbox = json.loads((host.PRIVATE / "central.json").read_text())
+    assert outbox["delete_pending"] and outbox["delete_request"] == public
+    assert "private_key" not in json.dumps(outbox)
+    with pytest.raises(ProfileError, match="deletion"):
+        host.ensure_identity(config)
 
 def test_wrong_device_cached_approval_is_not_advertised_as_ready(local, response):
     config, _ = local

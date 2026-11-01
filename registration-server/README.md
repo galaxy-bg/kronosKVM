@@ -59,3 +59,7 @@ PostgreSQL. See the testing guide for exact commands. Do not point tests at a li
 registration database.
 
 Customer/device contact metadata and reversible archival: see [management API](docs/API.md#customer-and-device-management) and [current infrastructure status](../docs/infrastructure-management.md).
+
+Central device-key VPN requests and dashboard access management: [workflow and deployment](../docs/central-vpn.md).
+
+PC/Mac client creation, one-time .conf download and access management: [desktop VPN](../docs/desktop-vpn.md).

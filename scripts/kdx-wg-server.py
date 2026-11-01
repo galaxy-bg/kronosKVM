@@ -93,16 +93,21 @@ def peers(text):
 
 
 def validate_request(request):
-    if not isinstance(request, dict) or set(request) != {
-        "version", "device_id", "hostname", "public_key", "request_id",
-    } or type(request.get("version")) is not int or request["version"] != 1:
+    if not isinstance(request, dict) or type(request.get("version")) is not int:
+        raise ProvisionError("Invalid public registration request")
+    version=request["version"]
+    identity="device_id" if version==1 else "client_id" if version==2 else None
+    if not identity or set(request)!={"version",identity,"hostname","public_key","request_id"}:
         raise ProvisionError("Invalid public registration request")
     name(request["hostname"])
     public_key(request["public_key"])
-    if (not isinstance(request["device_id"], str)
-            or not re.fullmatch(r"[0-9a-f]{16}", request["device_id"])
-            or not int(request["device_id"], 16)):
-        raise ProvisionError("Invalid device serial")
+    if version==1:
+        if (not isinstance(request["device_id"],str)
+                or not re.fullmatch(r"[0-9a-f]{16}",request["device_id"])
+                or not int(request["device_id"],16)):
+            raise ProvisionError("Invalid device serial")
+    elif str(uuid.UUID(request["client_id"])) != request["client_id"]:
+        raise ProvisionError("Invalid client identifier")
     if str(uuid.UUID(request["request_id"])) != request["request_id"]:
         raise ProvisionError("Invalid request identifier")
     return request.copy()
@@ -239,8 +244,9 @@ class Server:
         with self.locked():
             before, file_peers, live, records = self.inventory()
             if peer_name in records or pub in file_peers or pub in live or any(
-                r["public_key"] == pub or r["device_id"] == request["device_id"] or
-                r["request_id"] == request["request_id"] for r in records.values()
+                r["public_key"] == pub or r["request_id"] == request["request_id"] or
+                (request["version"]==1 and r.get("device_id")==request["device_id"]) or
+                (request["version"]==2 and r.get("client_id")==request["client_id"]) for r in records.values()
             ):
                 raise ProvisionError("Duplicate name, device, public key or registration request")
             address = self.allocate(file_peers, live, records, requested)

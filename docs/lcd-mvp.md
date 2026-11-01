@@ -96,3 +96,13 @@ mapping recorded in the diagnostic history above. The LCD footer uses symbols
 instead of K numbers, matching the planned enclosure markings. The update passed
 27 affected tests and lint. Previous keypad/renderer files are backed up at
 `/var/backups/kronoskvm/lcd-key-symbols-20261015`.
+
+## Footer label correction — 2026-11-01
+
+Corrected the repeated Menu label: the select key shows `✓ Menu` on status/detail
+screens and `✓ Select` in selectable menus; the back key shows `↩ Back`.
+GPIO assignments and navigation behavior remain unchanged. Deployed to
+`192.168.31.27` by restarting only `infrabox-lcd.service`; the previous renderer
+is at `/var/backups/kronoskvm/lcd-back-label-20261101/lcd_panel.py`.
+The 27 keypad, LCD-control and optional-LCD tests passed. Physical button feedback
+can now be checked on the installed four-button board.

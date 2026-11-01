@@ -179,3 +179,49 @@ class Administrator(Base):
     role: Mapped[str] = mapped_column(String(16), default="admin")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class VpnEnrollment(Base):
+    __tablename__ = "vpn_enrollments"
+    __table_args__ = (CheckConstraint("status IN ('PENDING','ACTIVE','SUSPENDED','ARCHIVED')"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), unique=True)
+    installation_id: Mapped[str] = mapped_column(ForeignKey("installations.id"))
+    key_id: Mapped[str] = mapped_column(ForeignKey("device_keys.id"))
+    public_key: Mapped[str] = mapped_column(String(44), unique=True)
+    request: Mapped[dict] = mapped_column(JSON)
+    registration: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class VpnDeletion(Base):
+    """Retired generations prevent delayed polls/deletes from reviving old keys."""
+    __tablename__ = "vpn_deletions"
+    request_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"), index=True)
+    installation_id: Mapped[str] = mapped_column(ForeignKey("installations.id"))
+    key_id: Mapped[str] = mapped_column(ForeignKey("device_keys.id"))
+    public_key: Mapped[str] = mapped_column(String(44), index=True)
+    request: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class VpnClient(Base):
+    """Public desktop peer metadata; private keys never enter this service."""
+    __tablename__ = "vpn_clients"
+    __table_args__ = (CheckConstraint("status IN ('PENDING','ACTIVE','SUSPENDED','DELETED')"),
+                     CheckConstraint("platform IN ('WINDOWS','MACOS','LINUX','OTHER')"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    owner_name: Mapped[str | None] = mapped_column(String(200))
+    email: Mapped[str | None] = mapped_column(String(254))
+    platform: Mapped[str] = mapped_column(String(16))
+    customer_id: Mapped[str | None] = mapped_column(ForeignKey("customers.id"))
+    public_key: Mapped[str] = mapped_column(String(44), unique=True)
+    request: Mapped[dict] = mapped_column(JSON)
+    registration: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(16), default="PENDING")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

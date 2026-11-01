@@ -53,10 +53,10 @@
     const unavailable = !state.installed || state.stale;
     const disabled = unavailable || busy || state.pending || Boolean(pendingId);
     node('toggle').disabled = disabled;
-    node('toggle').textContent = state.enabled ? 'Turn off' : 'Turn on';
+    node('toggle').textContent = !state.profile ? 'Set up VPN' : state.enabled ? 'Turn off' : 'Turn on';
     node('toggle').setAttribute('aria-checked', String(state.enabled));
     node('delete').disabled = disabled || !state.profile;
-    node('boot').disabled = disabled;
+    node('boot').disabled = disabled || !state.profile;
     node('boot').checked = Boolean(state.autostart);
     node('state').textContent = unavailable ? 'Status unavailable' : labels[state.state] || state.state;
     node('profile-name').textContent = state.profile?.name || 'No profile configured';
@@ -77,6 +77,12 @@
       : 'The access address becomes reachable once the VPN connection is established.';
     panel.querySelectorAll('form button').forEach(button => { button.disabled = disabled || (state.enabled && Boolean(state.profile)); });
   }
+  function setupMessage() {
+    const central = state?.central_vpn?.status;
+    if (central === 'PENDING') return 'VPN access requested. Waiting for approval in Dashboard → VPN.';
+    if (central === 'DELETE_PENDING') return 'VPN deletion is pending. Setup will be available after server confirmation.';
+    return 'Open Set up VPN, then select Request VPN access. The profile is installed after dashboard approval.';
+  }
   async function refresh() {
     try {
       state = await getJson('/api/v1/remote-assist');
@@ -85,11 +91,16 @@
         lastResultId = result.request_id;
         if (!pendingId || result.request_id === pendingId) {
           pendingId = null;
-          message(result.message, !result.ok);
+          const recovered = !result.ok && result.message === 'VPN profile is required' && state.profile;
+          const setupMissing = !result.ok && result.message === 'VPN profile is required' && !state.profile;
+          message(recovered ? 'VPN profile is ready. Connection status is shown below.' : setupMissing ? setupMessage() : result.message, !result.ok && !recovered && !setupMissing);
         }
       }
+      if (result?.message === 'VPN profile is required' && !pendingId && state.installed && !state.stale) {
+        message(state.profile ? 'VPN profile is ready. Connection status is shown below.' : setupMessage());
+      }
       if (!state.installed || state.stale) message('Remote Assist status is unavailable. Check the host module.', true);
-      else if (!result && !pendingId) message(state.enabled ? 'Remote Assist is enabled.' : 'Remote Assist is off. Configure your VPN profile below.');
+      else if (!result && !pendingId) message(state.enabled ? 'Remote Assist is enabled.' : setupMessage());
       render();
     } catch (error) {
       if (state) { state.stale = true; render(); }
@@ -117,11 +128,14 @@
     document.querySelector('#wireguard-settings').scrollIntoView({behavior:'smooth', block:'start'});
   });
   node('delete').addEventListener('click', () => {
-    if (window.confirm('Disconnect VPN and delete the saved profile? Automatic startup will be disabled. The device identity, previous registration approval and server peer are retained for an explicit restore.')) {
+    if (window.confirm('Delete this VPN connection from both the InfraBox and VPN server? The tunnel will stop and its VPN key will be removed. If offline, server cleanup completes when connectivity returns. A new setup requires a new key and approval.')) {
       send('/profile', 'DELETE');
     }
   });
-  node('toggle').addEventListener('click', () => send(state.enabled ? '/disable' : '/enable', 'POST'));
+  node('toggle').addEventListener('click', () => {
+    if (!state.profile) { node('setup').click(); return; }
+    send(state.enabled ? '/disable' : '/enable', 'POST');
+  });
   node('boot').addEventListener('change', event => send(event.target.checked ? '/boot-on' : '/boot-off', 'POST'));
   node('copy').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(state.url); message('Access address copied.'); }

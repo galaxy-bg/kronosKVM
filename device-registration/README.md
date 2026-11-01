@@ -115,3 +115,7 @@ The host agent publishes only allowlisted non-secret state under
 `/var/lib/kdx-registration-public`, read-only in the API container. The Settings
 registration card and `/api/v1/system/registration` do not expose private keys,
 activation tokens, sessions or the private signed-document cache.
+
+Central device-key VPN requests and dashboard access management: [workflow and deployment](../docs/central-vpn.md).
+
+Current VPN deletion synchronizes both endpoints and removes cached restore. See [deletion and fresh setup](../docs/vpn-deletion.md).
