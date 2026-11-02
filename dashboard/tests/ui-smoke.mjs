@@ -10,7 +10,8 @@ const license={id:lid,customer_id:cid,customer_name:customer.name,kind:'DEMO',st
 const device={id:did,serial:'10000000000865DD',model:'Galaxy-RP4',firmware:'0.3.46',status:'ACTIVE',customer_id:cid,customer,license_id:lid,license,last_seen:new Date().toISOString(),ssid:'infrabox-000865DD',pending_installations:[]};
 const pending={id:'a2d7d8bc-8888-4444-8888-000000000002',serial:'10000000ABC12345',model:'Galaxy-RP4',firmware:'0.3.46',status:'PENDING',customer_id:null,customer:null,license:null,license_id:null,last_seen:null,ssid:'infrabox-ABC12345',pending_installations:['c96d6174-2e02-4fc7-b065-6d27809d22f3']};
 const events=[{id:'e1',actor:'device',action:'AUTHENTICATED',target:did,detail:{},created_at:new Date().toISOString()},{id:'e2',actor:'lab-admin',action:'APPROVED',target:did,detail:{reason:'Hardware identity and customer relationship verified.'},created_at:new Date(Date.now()-120000).toISOString()},{id:'e3',actor:'device',action:'ENROLLMENT_REQUESTED',target:pending.id,detail:{},created_at:new Date(Date.now()-600000).toISOString()}];
-const snapshot={devices:[device,pending],licenses:[license],customers:[customer],events,fetched_at:new Date().toISOString(),truncated:false};
+const availableLicense={...license,id:'36833f3a-fe4e-44d8-a956-681063c1baff',used_devices:0,device_ids:[]};
+const snapshot={devices:[device,pending],licenses:[license,availableLicense],customers:[customer],events,fetched_at:new Date().toISOString(),truncated:false};
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const errors=[];
 try{
@@ -18,7 +19,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  const removedPeerKeys=new Set();const peerDeleteBodies=[];
  const task={id:'99999999-7777-4777-8777-777777777777',title:'Update customer',operation:'customers.update',actor:'lab-admin',target:cid,status:'successful',progress:100,created_at:new Date().toISOString(),completed_at:new Date().toISOString(),events:[{status:'queued',detail:'Request accepted for processing.',created_at:new Date().toISOString()},{status:'running',detail:'Operation in progress.',created_at:new Date().toISOString()},{status:'successful',detail:'Operation completed.',created_at:new Date().toISOString()}]};
- const calls=[];let desktopItems=[];const desktopPayloads=[];
+ let registrationApproved=false,registrationActivated=false;const approvalPayloads=[];const calls=[];let desktopItems=[];const desktopPayloads=[];
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   calls.push({path,method:route.request().method()});
@@ -41,8 +42,8 @@ try{
   }
   else if(path==='/api/vpn/requests')body=[{id:'77777777-7777-4777-8777-777777777777',device_id:did,serial:device.serial,device_name:'Lab box',customer,status:'PENDING',public_key:'S8PC/JWiSTGsctzrgEkeDitlbQgx09Evwdr2MvFX2Tc=',request:{hostname:'infrabox-000865dd'},registration:null}];
   else if(path==='/api/vpn')body={configured:true,stale:false,interface:'wg0',interface_up:true,server_endpoint:'185.251.66.26:51820',addresses:['10.77.0.1/24'],sampled_at:Math.floor(Date.now()/1000),totals:{peers:3,recent:1,matched:1,received_bytes:26860,sent_bytes:7524},peers:[{public_key:'S8PC/JWiSTGsctzrgEkeDitlbQgx09Evwdr2MvFX2Tc=',name:'infrabox-000865dd',hardware_serial:device.serial,managed:true,allowed_ips:['10.77.0.11/32'],endpoint:'192.0.2.2:45125',last_handshake:Math.floor(Date.now()/1000)-30,received_bytes:26860,sent_bytes:7524,connection_state:'recent',device},{public_key:'VwqGXUuFPi0p2D/b6EUvKoY2B1mb/HnfvQPipTXzYko=',name:'',managed:false,allowed_ips:['10.77.0.2/32'],endpoint:null,last_handshake:null,received_bytes:0,sent_bytes:0,connection_state:'never',device:null},{public_key:'LIN5pr7gzy5TIpN/g13wlucV6E+OPYCrbAH2qelw3m4=',name:'',managed:false,allowed_ips:['10.77.0.10/32'],endpoint:null,last_handshake:null,received_bytes:0,sent_bytes:0,connection_state:'never',device:null}]};
-  else if(path.startsWith('/api/devices/')){const d=path.endsWith(did)?device:pending;body={...d,installations:[{id:'c96d6174-2e02-4fc7-b065-6d27809d22f2',current:d.status==='ACTIVE',keys:[{public_key:'xGcqAylcOo3w3ILJdPjqFDgtsC78m6NVvjq6rXcGwKY=',current:d.status==='ACTIVE'}]}],events:[{kind:'ACTIVATED',created_at:new Date().toISOString(),detail:{}}]}}
-  else if(path.endsWith('/approve'))body={activation_token:'test-only-one-time-activation-token',expires_in:3600};
+  else if(path.startsWith('/api/devices/')){const d=path.endsWith(did)?device:pending;body={...d,...(registrationApproved&&d.id===pending.id?{status:registrationActivated?'ACTIVE':'ACTIVATION_REQUIRED'}:{}),installations:[{id:'c96d6174-2e02-4fc7-b065-6d27809d22f2',current:d.status==='ACTIVE',keys:[{public_key:'xGcqAylcOo3w3ILJdPjqFDgtsC78m6NVvjq6rXcGwKY=',current:d.status==='ACTIVE'}]}],events:[{kind:'ACTIVATED',created_at:new Date().toISOString(),detail:{}}]}}
+  else if(path.endsWith('/approve')){const value=route.request().postDataJSON();approvalPayloads.push(value);registrationApproved=true;body={automatic_activation:true,status:'ACTIVATION_REQUIRED',expires_in:3600};}
   else body={ok:true};
   if(path==='/api/vpn'&&body.peers)body.peers=body.peers.filter(p=>!removedPeerKeys.has(p.public_key));
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
@@ -76,12 +77,26 @@ try{
  await page.getByRole('complementary',{name:'Device details'}).waitFor();
  await page.getByRole('button',{name:'Review and approve identity'}).click();
  await page.getByLabel('Identity to approve').selectOption('0');
- await page.getByLabel('License / customer').selectOption(lid);
+ await page.getByRole('button',{name:'Continue',exact:true}).click();
+ await page.getByRole('dialog').getByRole('combobox',{name:/^Customer/}).selectOption(cid);
+ await page.waitForFunction(id=>document.querySelector('.registration-flow option[value="'+id+'"]')?.disabled,lid);
+ await page.getByLabel('License / customer').selectOption(availableLicense.id);
+ await page.getByRole('button',{name:'Continue',exact:true}).click();
+ assert(await page.getByRole('checkbox',{name:'Automatically activate when this device next proves its identity'}).isChecked());
+ await page.setViewportSize({width:390,height:844});
+ assert(await page.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth));
+ await page.screenshot({path:out+'/registration-flow-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1100});
  await page.getByLabel('Reason for approval').fill('Hardware identity and license verified.');
- await page.getByRole('button',{name:'Approve and issue token'}).click();
- await page.getByRole('heading',{name:'Activation token ready'}).waitFor();
+ await page.getByRole('button',{name:'Approve registration',exact:true}).click();
+ await page.getByRole('heading',{name:'Waiting for device activation',exact:true}).waitFor();
+ assert.equal(await page.getByRole('heading',{name:'Device activated',exact:true}).count(),0);
+ registrationActivated=true;
+ await page.getByRole('heading',{name:'Device activated',exact:true}).waitFor();
+ assert(approvalPayloads[0].automatic_activation===true);
  assert(calls.some(c=>c.path.endsWith('/approve')&&c.method==='POST'));
- await page.getByRole('button',{name:'Close dialog'}).click();
+ assert.equal(await page.getByRole('dialog').getByRole('textbox',{name:'Single-use activation token'}).count(),0);
+ await page.getByRole('button',{name:'Close registration workflow'}).click();
  await page.getByRole('button',{name:'Close details'}).click();
  await page.getByRole('button',{name:'Devices',exact:true}).click();
  await page.getByRole('textbox',{name:'Search serial, model or customer…'}).fill('865DD');

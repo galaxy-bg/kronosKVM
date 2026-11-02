@@ -164,3 +164,16 @@ Administrator POST `/api/v1/admin/vpn-peers/delete` accepts
 Known device/desktop keys use the corresponding central deletion flow. Unknown
 keys use constrained unmanaged-peer deletion; server-registered peers cannot
 bypass their central lifecycle. See [peer actions](../../docs/vpn-peer-actions.md).
+
+## Guided approval and automatic activation
+
+`POST /api/v1/admin/devices/{id}/approve` accepts optional
+`automatic_activation: true` (default false). It returns
+`{status: "ACTIVATION_REQUIRED", automatic_activation: true, expires_in: ...}`
+without a bearer activation token. The approved exact identity activates only
+when it submits a fresh signed authenticate proof before expiry. License and
+device eligibility are rechecked at that time. Full licenses are rejected
+before automatic approval; capacity is rechecked under a license-row lock.
+Manual approvals retain the existing single-use activation-token response.
+A new approval expires older unused approvals for the device. Migration `0006`
+is required. See [registration flow](../../docs/registration-flow.md).

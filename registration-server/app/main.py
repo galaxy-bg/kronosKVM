@@ -610,41 +610,21 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
               {"allowed_ips":value.allowed_ips,"reason":value.reason})
         return {"status":"DELETED"}
 
-    @app.post("/api/v1/devices/verify")
-    def verify(value: s.Proof, session: Session = Depends(db, scope="function")):
-        device, inst, key = consume(session, value, "authenticate")
-        event(session, device, "AUTHENTICATED", {"installation_id": inst.id})
-        return authorize(session, device, inst, key)
-
-    @app.post("/api/v1/devices/activate")
-    def activate(value: s.Activate, session: Session = Depends(db, scope="function")):
-        device, inst, key = consume(session, value, "activate")
+    def activate_binding(session, device, inst, key, token):
+        # A per-license lock serializes capacity checks on PostgreSQL.
+        if device.archived_at or device.status in {"REVOKED", "SUSPENDED"}:
+            reject(session, device, device.status, {})
+        lic = session.scalar(select(License).where(License.id == token.license_id).with_for_update())
+        if not lic:
+            reject(session, device, "LICENSE_UNAVAILABLE", {})
         token = session.scalar(
-            select(ActivationToken).where(
-                ActivationToken.token_hash == digest(value.activation_token)
-            )
+            select(ActivationToken).where(ActivationToken.id == token.id)
+            .with_for_update().execution_options(populate_existing=True)
         )
-        if (
-            not token
-            or utc(token.expires_at) <= now()
-            or token.device_id != device.id
-            or token.installation_id != inst.id
-            or token.key_id != key.id
-        ):
+        if utc(token.expires_at) <= now():
             reject(session, device, "INVALID_ACTIVATION_TOKEN", {}, 401)
         if token.used_at:
-            # A retry uses a fresh signed challenge. It can never rebind an old identity.
-            if (
-                inst.current
-                and key.current
-                and device.status == "ACTIVE"
-                and license_for(session, device).id == token.license_id
-            ):
-                return authorize(session, device, inst, key)
-            reject(session, device, "TOKEN_ALREADY_USED", {}, 409)
-        if device.status in {"REVOKED", "SUSPENDED"}:
-            reject(session, device, device.status, {})
-        lic = session.get(License, token.license_id)
+            return authorize(session, device, inst, key)
         active_customer(session, lic.customer_id)
         if lic.status != "ACTIVE" or (lic.expires_at and utc(lic.expires_at) <= now()):
             reject(session, device, "LICENSE_UNAVAILABLE", {})
@@ -674,6 +654,54 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
         session.flush()
         event(session, device, "ACTIVATED", {"license_id": lic.id, "installation_id": inst.id})
         return authorize(session, device, inst, key)
+
+    @app.post("/api/v1/devices/verify")
+    def verify(value: s.Proof, session: Session = Depends(db, scope="function")):
+        device, inst, key = consume(session, value, "authenticate")
+        approval = session.scalar(
+            select(ActivationToken).where(
+                ActivationToken.device_id == device.id,
+                ActivationToken.installation_id == inst.id,
+                ActivationToken.key_id == key.id,
+                ActivationToken.automatic_activation.is_(True),
+                ActivationToken.used_at.is_(None),
+                ActivationToken.expires_at > now(),
+            ).order_by(ActivationToken.expires_at.desc())
+        )
+        if approval:
+            result = activate_binding(session, device, inst, key, approval)
+        else:
+            result = authorize(session, device, inst, key)
+        event(session, device, "AUTHENTICATED", {"installation_id": inst.id})
+        return result
+
+    @app.post("/api/v1/devices/activate")
+    def activate(value: s.Activate, session: Session = Depends(db, scope="function")):
+        device, inst, key = consume(session, value, "activate")
+        token = session.scalar(
+            select(ActivationToken).where(
+                ActivationToken.token_hash == digest(value.activation_token)
+            )
+        )
+        if (
+            not token
+            or utc(token.expires_at) <= now()
+            or token.device_id != device.id
+            or token.installation_id != inst.id
+            or token.key_id != key.id
+        ):
+            reject(session, device, "INVALID_ACTIVATION_TOKEN", {}, 401)
+        if token.used_at:
+            # A retry uses a fresh signed challenge. It can never rebind an old identity.
+            if (
+                inst.current
+                and key.current
+                and device.status == "ACTIVE"
+                and license_for(session, device).id == token.license_id
+            ):
+                return authorize(session, device, inst, key)
+            reject(session, device, "TOKEN_ALREADY_USED", {}, 409)
+        return activate_binding(session, device, inst, key, token)
 
     @app.get("/api/v1/devices/status")
     def status(identity=Depends(device_session), session: Session = Depends(db, scope="function")):
@@ -1034,6 +1062,19 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
         active_customer(session, lic.customer_id)
         if lic.status != "ACTIVE" or (lic.expires_at and utc(lic.expires_at) <= now()):
             raise HTTPException(409, "License unavailable")
+        if value.automatic_activation:
+            binding = session.get(LicenseBinding, device.id)
+            if binding and binding.license_id != lic.id:
+                raise HTTPException(409, "Explicit license reassignment required")
+            used = session.scalar(select(func.count()).select_from(LicenseBinding)
+                                  .where(LicenseBinding.license_id == lic.id))
+            if not binding and used >= lic.max_devices:
+                raise HTTPException(409, "License capacity reached; select another license")
+        # A new administrator decision replaces unconsumed approvals for this device.
+        for previous in session.scalars(select(ActivationToken).where(
+                ActivationToken.device_id == device.id,
+                ActivationToken.used_at.is_(None), ActivationToken.expires_at > now())):
+            previous.expires_at = now()
         token = secrets.token_urlsafe(32)
         session.add(
             ActivationToken(
@@ -1043,6 +1084,7 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
                 key_id=key.id,
                 license_id=lic.id,
                 expires_at=now() + timedelta(seconds=value.token_ttl_seconds),
+                automatic_activation=value.automatic_activation,
             )
         )
         if device.status != "ACTIVE":
@@ -1052,8 +1094,12 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
             actor.name,
             "APPROVED",
             device.id,
-            {"reason": value.reason, "installation_id": inst.id, "license_id": lic.id},
+            {"reason": value.reason, "installation_id": inst.id, "license_id": lic.id,
+             "automatic_activation": value.automatic_activation},
         )
+        if value.automatic_activation:
+            return {"status": "ACTIVATION_REQUIRED", "automatic_activation": True,
+                    "expires_in": value.token_ttl_seconds}
         return {"activation_token": token, "expires_in": value.token_ttl_seconds}
 
     @app.post("/api/v1/admin/devices/{device_id}/suspend")
