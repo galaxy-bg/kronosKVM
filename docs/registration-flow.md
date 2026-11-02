@@ -1,43 +1,39 @@
-# Registration approval and activation
+# Simple registration flow
 
-Dashboard registration now has four steps: verify the serial and public identity,
-select the customer/license, review approval, and wait for actual device activation.
-VPN permission remains a separate administrator action.
+The dashboard uses one approval form: license, reason, **Approve**. When exactly
+one eligible license is available it is selected automatically. The latest
+signed device identity is selected when unambiguous; identity details remain
+available for verification. Full, expired or inactive licenses cannot be selected.
 
-The review step explicitly offers **Automatically activate when this device next
-proves its identity**, selected by default in the new workflow. This creates an
-expiring approval bound to that exact device, installation, Ed25519 key and license.
-It does not immediately mark the device ACTIVE. The existing agent's next signed
-authentication consumes the approval and activates the binding. The normal agent
-timer runs every five minutes; an operator can trigger its service for an immediate
-check. The workflow polls inventory and shows success only after the device is ACTIVE.
+Progress reads **Requested → Approved → Active**. Approval activates the exact
+identity on its next signed device check, normally within five minutes. There
+is no activation checkbox or token transfer in this flow. The screen waits for
+actual ACTIVE status rather than treating acceptance as activation.
 
-The server rechecks customer, license validity/capacity and device state at activation.
-A PostgreSQL license-row lock serializes capacity checks. New approval supersedes
-older unconsumed approvals for that device. A different installation/key or license
-binding still requires explicit recovery/reassignment. An offline device must connect
-within the one-hour approval window or receive a fresh approval.
+The approval API now defaults `automatic_activation` to true, so cached versions
+of the original approval form behave the same way. Explicit false is retained
+only for integrations that intentionally use manual token activation. Migration
+0006 preserves existing approvals as manual; new approvals supersede unused old
+approvals. License validity/capacity and device state are rechecked at activation.
 
-Manual token activation remains available by clearing the automatic option. The API
-defaults `automatic_activation` to false for compatibility; old approvals stay manual
-after migration. For a device waiting for a missing token, review it again through
-the new workflow and explicitly approve automatic activation. Do not edit database
-approval flags or mark a device ACTIVE manually.
+For a fresh setup, delete VPN through its synchronized deletion workflow first,
+then use registration recovery/reassignment. Preserve audit history, expire old
+approvals and release only that device's license binding. Back up private state
+before generating a new installation/key on the appliance. Re-enroll, then approve
+the fresh device identity. Other devices and license capacity remain unchanged.
 
-The license step explains full, inactive and expired licenses and blocks their
-selection. It links to license management when no eligible license exists. Approval
-does not grant VPN access or change license capacity.
+VPN approval is separate from registration approval. No device is marked ACTIVE
+by directly editing its database status or approval flags.
 
 ## Deployment
 
-Back up PostgreSQL, registration source and dashboard assets. Install migration
-`0006_automatic_activation.py` and run `alembic upgrade head` before restarting the
-updated registration application. Publish the dashboard build using
-`dashboard/deploy/publish_static.py`. Agent and appliance images need no update.
-Rollback application code first; keep the additive column until newer approvals
-are resolved. The migration defaults pre-existing rows to manual activation.
+Back up PostgreSQL and both application trees. Migration 0006 must already be
+installed. Update registration main/schema and restart registration, then publish
+the matching dashboard build with `dashboard/deploy/publish_static.py`. Existing
+agent and appliance images need no update. Explicit manual API clients should
+send `automatic_activation: false`.
 
-Tests cover signed activation, invalid proofs, installation isolation, expired
-approval/license, suspension, capacity changes and retirement of old manual tokens.
-Browser checks cover all four steps, full-license rejection, mobile layout and the
-distinction between approval accepted and device actually activated.
+Tests cover plain approval defaults, signed activation, invalid proofs, identity
+isolation, expired approvals/licenses, suspension, capacity, and old-token retirement.
+Browser tests cover the single form, mobile layout, full-license rejection and
+waiting for actual activation.

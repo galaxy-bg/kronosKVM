@@ -997,6 +997,16 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
     ):
         device = get_device(session, device_id)
         result = summary(session, device)
+        last_proof = session.scalar(select(RegistrationEvent).where(
+            RegistrationEvent.device_id == device.id, RegistrationEvent.kind == "AUTHENTICATED"
+        ).order_by(RegistrationEvent.created_at.desc()))
+        result["approval_identity"] = None
+        if last_proof:
+            observed = session.get(Installation, last_proof.detail.get("installation_id"))
+            if observed and observed.device_id == device.id:
+                keys = list(session.scalars(select(DeviceKey).where(DeviceKey.installation_id == observed.id)))
+                if len(keys) == 1:
+                    result["approval_identity"] = {"installation_id": observed.id, "public_key": keys[0].public_key}
         result["installations"] = [
             {
                 "id": i.id,

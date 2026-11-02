@@ -213,6 +213,7 @@ def test_pending_approval_returns_token_only_for_explicit_action(dashboard_env):
             "installation_id": request["installation_id"],
             "public_key": request["public_key"],
             "license_id": license_result.json()["id"],
+            "automatic_activation": False,
             "reason": "Operator checked real identity",
         },
     )

@@ -7,7 +7,7 @@ import TasksView from './TasksView.jsx';
 import VpnView from './VpnView.jsx';
 import RegistrationFlow from './RegistrationFlow.jsx';
 
-const STATUS={PENDING:'Pending approval',ACTIVATION_REQUIRED:'Awaiting activation',ACTIVE:'Active',SUSPENDED:'Suspended',REVOKED:'Revoked',EXPIRED:'Expired',HARDWARE_MISMATCH:'Hardware mismatch'};
+const STATUS={PENDING:'Pending approval',ACTIVATION_REQUIRED:'Approved · waiting for device',ACTIVE:'Active',SUSPENDED:'Suspended',REVOKED:'Revoked',EXPIRED:'Expired',HARDWARE_MISMATCH:'Hardware mismatch'};
 const ACTION={ENROLLMENT_REQUESTED:'Enrollment requested',APPROVED:'Enrollment approved',ACTIVATED:'Device activated',AUTHENTICATED:'Authenticated',HARDWARE_MISMATCH:'Hardware mismatch',CUSTOMER_CREATED:'Customer created',LICENSE_CREATED:'License created',REVOKED:'Device revoked',SUSPENDED:'Device suspended',REASSIGNED_RELEASED:'Identity binding released',LICENSE_REVOKE:'License revoked',LICENSE_RENEWED:'License renewed',ADMIN_AUTH_DENIED:'Administrator sign-in denied'};
 const NAV=[['overview','Overview',LayoutDashboard],['devices','Devices',Server],['pending','Pending registrations',Clock3],['licenses','Licenses',KeyRound],['customers','Customers',Building2],['vpn','VPN',Network],['tasks','Tasks',ListChecks],['events','Audit log',Activity]];
 const date=(v,full=false)=>v?new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:full?'numeric':undefined,hour:full?'2-digit':undefined,minute:full?'2-digit':undefined,timeZone:'Europe/Istanbul'}).format(new Date(v)):'—';

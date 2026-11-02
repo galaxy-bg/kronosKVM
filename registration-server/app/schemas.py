@@ -168,7 +168,7 @@ class Approval(Strict):
     license_id: UUID
     reason: str = Field(min_length=5, max_length=500)
     token_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
-    automatic_activation: bool = False
+    automatic_activation: bool = True
 
     @field_validator("public_key")
     @classmethod

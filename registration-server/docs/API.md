@@ -168,7 +168,7 @@ bypass their central lifecycle. See [peer actions](../../docs/vpn-peer-actions.m
 ## Guided approval and automatic activation
 
 `POST /api/v1/admin/devices/{id}/approve` accepts optional
-`automatic_activation: true` (default false). It returns
+`automatic_activation: true` (default true; explicit false retains manual token activation). It returns
 `{status: "ACTIVATION_REQUIRED", automatic_activation: true, expires_in: ...}`
 without a bearer activation token. The approved exact identity activates only
 when it submits a fresh signed authenticate proof before expiry. License and

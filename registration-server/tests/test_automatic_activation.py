@@ -96,3 +96,19 @@ def test_new_approval_retires_previous_manual_token(env):
     })
     assert response.status_code == 401
     assert authenticate(env[0], identity, key)['status'] == 'ACTIVE'
+
+
+def test_plain_approve_defaults_to_automatic_activation(env):
+    identity, key = virtual()
+    device = enroll(env, identity)
+    _, license_id = provision(env, identity, device)
+    response = env[0].post(f'/api/v1/admin/devices/{device}/approve', headers=env[2], json={
+        'installation_id': identity['installation_id'], 'public_key': identity['public_key'],
+        'license_id': license_id, 'reason': 'Operator approved this device',
+    })
+    assert response.status_code == 200
+    assert response.json()['automatic_activation'] is True
+    assert 'activation_token' not in response.json()
+    assert authenticate(env[0], identity, key)['status'] == 'ACTIVE'
+    detail = env[0].get(f'/api/v1/admin/devices/{device}', headers=env[2]).json()
+    assert detail['approval_identity'] == {'installation_id':identity['installation_id'], 'public_key':identity['public_key']}

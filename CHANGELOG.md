@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- Guide registration through identity, customer/license, approval and activation
-  steps. Allow explicit automatic activation on the next signed device check,
-  preserving manual-token approvals and showing actual activation progress.
+- Simplify registration to license, reason and Approve, with Requested → Approved
+  → Active progress. Default new approvals to activation on the next signed
+  device check, including requests from the original form. Preserve explicit
+  manual-token integration and existing approval history.
 - Detect the actual IPv4 uplink when checking appliance internet connectivity,
   including phone USB tethering instead of always probing Ethernet. Record USB 3,
   host/container routing and mobile VPN tests; the mobile handshake issue remains

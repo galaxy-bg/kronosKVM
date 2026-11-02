@@ -103,6 +103,7 @@ def provision(env, request, device_id, kind="PERPETUAL", max_devices=1, license_
             "public_key": request["public_key"],
             "license_id": license_id,
             "reason": "Verified manufacturing inventory",
+            "automatic_activation": False,
         },
     )
     assert result.status_code == 200, result.text
