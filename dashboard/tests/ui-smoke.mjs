@@ -19,13 +19,13 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  const removedPeerKeys=new Set();const peerDeleteBodies=[];
  const task={id:'99999999-7777-4777-8777-777777777777',title:'Update customer',operation:'customers.update',actor:'lab-admin',target:cid,status:'successful',progress:100,created_at:new Date().toISOString(),completed_at:new Date().toISOString(),events:[{status:'queued',detail:'Request accepted for processing.',created_at:new Date().toISOString()},{status:'running',detail:'Operation in progress.',created_at:new Date().toISOString()},{status:'successful',detail:'Operation completed.',created_at:new Date().toISOString()}]};
- let registrationApproved=false,registrationActivated=false;const approvalPayloads=[];const calls=[];let desktopItems=[];const desktopPayloads=[];
+ let registrationApproved=false,registrationActivated=false,backgroundActive=false;const approvalPayloads=[];const calls=[];let desktopItems=[];const desktopPayloads=[];
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   calls.push({path,method:route.request().method()});
   let body;
   if(path==='/api/session'||path==='/api/login')body={actor:{name:'lab-admin',role:'admin'},csrf:'test-csrf'};
-  else if(path==='/api/overview')body=snapshot;
+  else if(path==='/api/overview')body={...snapshot,devices:snapshot.devices.map(d=>d.id===pending.id&&(registrationApproved||backgroundActive)?{...d,status:backgroundActive||registrationActivated?'ACTIVE':'ACTIVATION_REQUIRED'}:d)};
   else if(path==='/api/tasks')body={items:[task],active:0,limit:200};
   else if(path==='/api/tasks/events')body={task_id:task.id};
   else if(path==='/api/tasks/'+task.id)body=task;
@@ -42,7 +42,7 @@ try{
   }
   else if(path==='/api/vpn/requests')body=[{id:'77777777-7777-4777-8777-777777777777',device_id:did,serial:device.serial,device_name:'Lab box',customer,status:'PENDING',public_key:'S8PC/JWiSTGsctzrgEkeDitlbQgx09Evwdr2MvFX2Tc=',request:{hostname:'infrabox-000865dd'},registration:null}];
   else if(path==='/api/vpn')body={configured:true,stale:false,interface:'wg0',interface_up:true,server_endpoint:'185.251.66.26:51820',addresses:['10.77.0.1/24'],sampled_at:Math.floor(Date.now()/1000),totals:{peers:3,recent:1,matched:1,received_bytes:26860,sent_bytes:7524},peers:[{public_key:'S8PC/JWiSTGsctzrgEkeDitlbQgx09Evwdr2MvFX2Tc=',name:'infrabox-000865dd',hardware_serial:device.serial,managed:true,allowed_ips:['10.77.0.11/32'],endpoint:'192.0.2.2:45125',last_handshake:Math.floor(Date.now()/1000)-30,received_bytes:26860,sent_bytes:7524,connection_state:'recent',device},{public_key:'VwqGXUuFPi0p2D/b6EUvKoY2B1mb/HnfvQPipTXzYko=',name:'',managed:false,allowed_ips:['10.77.0.2/32'],endpoint:null,last_handshake:null,received_bytes:0,sent_bytes:0,connection_state:'never',device:null},{public_key:'LIN5pr7gzy5TIpN/g13wlucV6E+OPYCrbAH2qelw3m4=',name:'',managed:false,allowed_ips:['10.77.0.10/32'],endpoint:null,last_handshake:null,received_bytes:0,sent_bytes:0,connection_state:'never',device:null}]};
-  else if(path.startsWith('/api/devices/')){const d=path.endsWith(did)?device:pending;body={...d,...(registrationApproved&&d.id===pending.id?{status:registrationActivated?'ACTIVE':'ACTIVATION_REQUIRED'}:{}),installations:[{id:'c96d6174-2e02-4fc7-b065-6d27809d22f2',current:d.status==='ACTIVE',keys:[{public_key:'xGcqAylcOo3w3ILJdPjqFDgtsC78m6NVvjq6rXcGwKY=',current:d.status==='ACTIVE'}]}],events:[{kind:'ACTIVATED',created_at:new Date().toISOString(),detail:{}}]}}
+  else if(path.startsWith('/api/devices/')){const d=path.endsWith(did)?device:pending;body={...d,...(d.id===pending.id&&(registrationApproved||backgroundActive)?{status:backgroundActive||registrationActivated?'ACTIVE':'ACTIVATION_REQUIRED'}:{}),installations:[{id:'c96d6174-2e02-4fc7-b065-6d27809d22f2',current:d.status==='ACTIVE',keys:[{public_key:'xGcqAylcOo3w3ILJdPjqFDgtsC78m6NVvjq6rXcGwKY=',current:d.status==='ACTIVE'}]}],events:[{kind:'ACTIVATED',created_at:new Date().toISOString(),detail:{}}]}}
   else if(path.endsWith('/approve')){const value=route.request().postDataJSON();approvalPayloads.push(value);registrationApproved=true;body={automatic_activation:true,status:'ACTIVATION_REQUIRED',expires_in:3600};}
   else body={ok:true};
   if(path==='/api/vpn'&&body.peers)body.peers=body.peers.filter(p=>!removedPeerKeys.has(p.public_key));
@@ -75,6 +75,11 @@ try{
  assert.equal(await page.locator('tbody tr').count(),1);
  await page.getByRole('button',{name:/10000000ABC12345/}).first().click();
  await page.getByRole('complementary',{name:'Device details'}).waitFor();
+ backgroundActive=true;
+ await page.waitForFunction(()=>document.querySelector('.device-hero .badge')?.textContent.trim()==='Active');
+ assert(await page.getByRole('row').filter({hasText:'10000000ABC12345'}).locator('.badge.active').count()===1);
+ backgroundActive=false;
+ await page.waitForFunction(()=>document.querySelector('.device-hero .badge')?.textContent.trim()==='Pending approval');
  await page.getByRole('button',{name:'Review and approve identity'}).click();
  assert.equal(await page.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).count(),0);
  assert.equal(await page.getByRole('dialog').getByRole('checkbox').count(),0);

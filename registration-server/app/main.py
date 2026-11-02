@@ -941,6 +941,9 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
     def summary(session, device):
         lic = license_for(session, device)
         customer = session.get(Customer, device.customer_id) if device.customer_id else None
+        recovery = session.scalar(select(AuditLog).where(
+            AuditLog.target == device.id, AuditLog.action == "REASSIGNED_RELEASED"
+        ).order_by(AuditLog.created_at.desc()))
         pending_ids = [
             i.id
             for i in session.scalars(
@@ -948,7 +951,8 @@ def create_app(settings=None, engine=None, signer=None, vpn_controller=None):
                     Installation.device_id == device.id, Installation.current.is_(False)
                 )
             )
-            if not session.scalar(
+            if (not recovery or utc(i.created_at) >= utc(recovery.created_at))
+            and not session.scalar(
                 select(ActivationToken.id)
                 .where(
                     ActivationToken.installation_id == i.id, ActivationToken.used_at.is_not(None)

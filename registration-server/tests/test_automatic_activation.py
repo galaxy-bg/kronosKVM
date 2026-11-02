@@ -112,3 +112,23 @@ def test_plain_approve_defaults_to_automatic_activation(env):
     assert authenticate(env[0], identity, key)['status'] == 'ACTIVE'
     detail = env[0].get(f'/api/v1/admin/devices/{device}', headers=env[2]).json()
     assert detail['approval_identity'] == {'installation_id':identity['installation_id'], 'public_key':identity['public_key']}
+
+
+def test_retired_unapproved_installation_is_not_pending_after_fresh_activation(env):
+    old, _ = virtual()
+    device = enroll(env, old)
+    reset = env[0].post(f'/api/v1/admin/devices/{device}/reassign', headers=env[2],
+                       json={'reason':'Owner requested fresh registration'})
+    assert reset.status_code == 200
+    fresh, key = virtual(old['serial'])
+    assert enroll(env, fresh) == device
+    _, license_id = provision(env, fresh, device)
+    assert automatic_approval(env, fresh, device, license_id).status_code == 200
+    assert authenticate(env[0], fresh, key)['status'] == 'ACTIVE'
+    detail = env[0].get(f'/api/v1/admin/devices/{device}', headers=env[2]).json()
+    assert detail['status'] == 'ACTIVE' and detail['pending_installations'] == []
+    assert len(detail['installations']) == 2  # History is retained.
+    replacement, _ = virtual(old['serial'])
+    enroll(env, replacement)
+    detail = env[0].get(f'/api/v1/admin/devices/{device}', headers=env[2]).json()
+    assert detail['pending_installations'] == [replacement['installation_id']]

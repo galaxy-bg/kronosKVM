@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh open device details and inventory status automatically, and exclude
+  retired pre-recovery installations from pending-registration counts.
 - Simplify registration to license, reason and Approve, with Requested → Approved
   → Active progress. Default new approvals to activation on the next signed
   device check, including requests from the original form. Preserve explicit

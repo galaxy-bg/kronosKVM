@@ -26,7 +26,7 @@ function App(){
  const csrf=useRef(''); const detailVersion=useRef(0);
  const admin=session?.actor?.role==='admin';
  async function api(path,options={}){
-  const res=await fetch(path,{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.method&&options.method!=='GET'?{'X-CSRF-Token':csrf.current}:{}),...options.headers}});
+  const res=await fetch(path,{...options,cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.method&&options.method!=='GET'?{'X-CSRF-Token':csrf.current}:{}),...options.headers}});
   if(res.headers.get('X-KDX-Task-ID'))setTaskRevision(v=>v+1);
   if(res.headers.get('X-KDX-Task-Status')==='unknown')setToast('Task outcome could not be saved. Review the current record.');
   let body;try{body=await res.json()}catch{throw new Error('The server returned an invalid response.')}
@@ -38,12 +38,32 @@ function App(){
  useEffect(()=>{if(!session){setTasks(null);return}let live=true,pending=false;async function refresh(){if(pending)return;pending=true;try{const value=await taskApi.current('/api/tasks');if(live){setTasks(value);setTaskError('')}}catch(e){if(live)setTaskError(e.message)}finally{pending=false}}refresh();const id=setInterval(()=>{if(!document.hidden)refresh()},5000);return()=>{live=false;clearInterval(id)}},[session,taskRevision]);
  useEffect(()=>{fetch('/api/session' ,{credentials:'same-origin'}).then(async r=>{if(r.ok){const s=await r.json();csrf.current=s.csrf;setSession(s)}}).catch(()=>setLoginError('Dashboard is unavailable.')).finally(()=>setBoot(false))},[]);
  async function load(){setBusy(true);setError('');try{setData(await api('/api/overview?include_archived='+showArchived))}catch(e){setError(e.message)}finally{setBusy(false)}}
- useEffect(()=>{if(session){load();const id=setInterval(load,60000);return()=>clearInterval(id)}},[session,showArchived]);
+ useEffect(()=>{if(session){load();const id=setInterval(()=>{if(!document.hidden)load()},10000);return()=>clearInterval(id)}},[session,showArchived]);
  useEffect(()=>{setQuery('');setFilter('all');window.scrollTo({top:0,behavior:'instant'})},[view]);
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),3500);return()=>clearTimeout(id)},[toast]);
  useEffect(()=>{if(!selected)return;const onKey=e=>{if(e.key==='Escape'){setSelected(null);setModal(null)}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[selected]);
  async function login(e){e.preventDefault();setLoginBusy(true);setLoginError('');try{const s=await api('/api/login',{method:'POST',body:JSON.stringify({token})});csrf.current=s.csrf;setSession(s);setToken('')}catch(e){setLoginError(e.message)}finally{setLoginBusy(false)}}
  async function logout(){try{await api('/api/logout',{method:'POST',body:'{}'});csrf.current='';setSession(null);setData(null);setSelected(null);setModal(null);setIssued(null);setToken('')}catch(e){setError(e.message)}}
+ useEffect(()=>{
+  if(!session||!selected)return;
+  let live=true,running=false;
+  async function refreshDetail(){
+   if(running||document.hidden)return;
+   running=true;const version=detailVersion.current;
+   try{
+    const value=await taskApi.current('/api/devices/'+selected);
+    if(live&&version===detailVersion.current){
+     setDetail(value);setDetailError('');setDetailBusy(false);
+     setData(previous=>previous?{...previous,devices:previous.devices.map(d=>d.id===value.id?{...d,...value}:d)}:previous);
+    }
+   }catch(e){if(live&&version===detailVersion.current)setDetailError(e.message)}
+   finally{running=false}
+  }
+  const timer=setInterval(refreshDetail,5000);
+  const visible=()=>{if(!document.hidden)refreshDetail()};
+  document.addEventListener('visibilitychange',visible);
+  return()=>{live=false;clearInterval(timer);document.removeEventListener('visibilitychange',visible)};
+ },[session,selected]);
  async function showDevice(id){const version=++detailVersion.current;setSelected(id);setDetail(null);setDetailError('');setDetailBusy(true);try{const d=await api('/api/devices/'+id);if(version===detailVersion.current)setDetail(d)}catch(e){if(version===detailVersion.current)setDetailError(e.message)}finally{if(version===detailVersion.current)setDetailBusy(false)}}
  function openModal(type,extra={}){setModal({type,...extra});setFormError('');setIssued(null)}
  async function submit(e){e.preventDefault();setFormBusy(true);setFormError('');const values=Object.fromEntries(new FormData(e.currentTarget));try{

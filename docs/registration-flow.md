@@ -10,6 +10,11 @@ identity on its next signed device check, normally within five minutes. There
 is no activation checkbox or token transfer in this flow. The screen waits for
 actual ACTIVE status rather than treating acceptance as activation.
 
+Open device details refresh every five seconds and update the matching inventory
+row. Retired installations predating the last recovery stay in identity history
+without keeping an activated device in the pending-registration list. A new
+replacement installation still appears for review.
+
 The approval API now defaults `automatic_activation` to true, so cached versions
 of the original approval form behave the same way. Explicit false is retained
 only for integrations that intentionally use manual token activation. Migration
